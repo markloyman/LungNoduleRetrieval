@@ -44,7 +44,7 @@ if choose_model is "SIAM":
     #run = 'siam002' # overlapped
     #run = 'siam000b'  # CHAINED, x2 sets
     #run = 'siam003'  # CHAINED, decrease learning rate to 1e-4
-    run = 'siam004XX'  # CHAINED, lr=1e-3, 1e-4, 1e-5
+    run = 'siam005'  # CHAINED
 
 
     # model
@@ -54,8 +54,8 @@ if choose_model is "SIAM":
     model.compile(learning_rate=1e-3)
 
     # methods = 'base', 'overlapped', 'chained'
-    model.load_generator(DataGenerator(size, batch_sz=64, method='chained'))
+    model.load_generator(DataGenerator(size, batch_sz=64, method='chained', use_class_weight=True))
 
-    model.train(label=run, n_epoch=3, gen=True)
+    model.train(label=run, n_epoch=2, gen=True)
     #model.train(label=run, epoch=11, n_epoch=15, gen=True, new_lr=1e-8)
     #model.train(label=run, epoch=26, n_epoch=15, gen=True, new_lr=1e-5)

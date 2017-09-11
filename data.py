@@ -266,7 +266,7 @@ def prepare_data_siamese_overlap(data, size, return_meta=False, verbose = 0):
         return ((image_sub1[new_order], image_sub2[new_order]), similarity_labels[new_order])
 
 
-def prepare_data_siamese_chained(data, size, return_meta=False, verbose = 0):
+def prepare_data_siamese_chained(data, size, return_meta=False, verbose = 0, weighted_samples = False):
     if return_meta:
         images, labels, meta = prepare_data(data, size=size, categorize=False, return_meta=True, reshuffle=True, verbose=verbose)
         if verbose: print('Loaded Meta-Data')
@@ -288,9 +288,15 @@ def prepare_data_siamese_chained(data, size, return_meta=False, verbose = 0):
                         np.concatenate([[b, m] for b, m in zip(imgs_benign[:M], imgs_benign[:M])])[:-1],
                         np.concatenate([[b, m] for b, m in zip(imgs_malign[:M], imgs_malign[:M])])[1:])
                  ] + [(imgs_benign[:M][-1], imgs_malign[0])]
+    d_size = len(different)
 
-    same = [(first, last) for first, last in zip(imgs_benign[:-1], imgs_benign[1:])] + [(imgs_benign[0],imgs_benign[-1])]
-    same = same + [(first, last) for first, last in zip(imgs_malign[:-1], imgs_malign[1:])] + [(imgs_malign[0],imgs_malign[-1])]
+    same =        [(first, last) for first, last in
+                        zip(imgs_benign[:-1], imgs_benign[1:])] + [(imgs_benign[0], imgs_benign[-1])]
+    sb_size = len(same)
+
+    same = same + [(first, last) for first, last in
+                        zip(imgs_malign[:-1], imgs_malign[1:])] + [(imgs_malign[0], imgs_malign[-1])]
+    sm_size = len(same) - sb_size
 
     image_pairs       = same + different
     similarity_labels = np.concatenate([np.repeat(0, len(same)),
@@ -316,11 +322,27 @@ def prepare_data_siamese_chained(data, size, return_meta=False, verbose = 0):
     assert size == image_sub1.shape[0]
     assert size == image_sub2.shape[0]
 
+    if weighted_samples:
+        sb_w = size / (4 * sb_size)
+        sm_w = size / (4 * sm_size)
+        d_w  = size / (2 * d_size)
+        confidence = np.concatenate([  np.repeat(sb_w,    sb_size),
+                                       np.repeat(sm_size, sm_size),
+                                       np.repeat(d_size,  d_size)
+                                    ])
+        if verbose: print('Class Weights: Benign-{}, Malig-{}, Different-{}'.format(sb_w, sm_w, d_w))
+
     if verbose: print("{} pairs of same / {} pairs of different. {} total number of pairs".format(len(same), len(different), size))
 
     new_order = np.random.permutation(size)
 
-    if return_meta:
-        return ((image_sub1[new_order], image_sub2[new_order]), similarity_labels[new_order], (meta_sub1[new_order], meta_sub2[new_order]))
+    if weighted_samples:
+        if return_meta:
+            return ((image_sub1[new_order], image_sub2[new_order]), confidence[new_order], similarity_labels[new_order], (meta_sub1[new_order], meta_sub2[new_order]))
+        else:
+            return ((image_sub1[new_order], image_sub2[new_order]), confidence[new_order], similarity_labels[new_order])
     else:
-        return ((image_sub1[new_order], image_sub2[new_order]), similarity_labels[new_order])
+        if return_meta:
+            return ((image_sub1[new_order], image_sub2[new_order]), similarity_labels[new_order], None, (meta_sub1[new_order], meta_sub2[new_order]))
+        else:
+            return ((image_sub1[new_order], image_sub2[new_order]), similarity_labels[new_order], None)

@@ -9,7 +9,7 @@ from data import prepare_data, load_nodule_dataset, prepare_data_siamese, prepar
 class DataGenerator(object):
     """docstring for DataGenerator"""
 
-    def __init__(self, im_size = 128, batch_sz=32, method = 'base'):
+    def __init__(self, im_size = 128, batch_sz=32, method='base', use_class_weight=False):
 
         dataset = load_nodule_dataset()
 
@@ -27,6 +27,7 @@ class DataGenerator(object):
             self.valN   = len(self.valid_set)//self.batch_sz
 
         self.method = method
+        self.use_class_weight = use_class_weight
 
         print("Method: {}, Trainings Sets: {}, Validation Sets: {}".format(method, self.trainN, self.valN))
 
@@ -34,11 +35,16 @@ class DataGenerator(object):
         verbose = 1
         while 1:
             if self.method is 'base':
-                images_train, labels_train = prepare_data_siamese(set, size=self.im_size, verbose=verbose)
+                images_train, labels_train, confidence_train \
+                    = prepare_data_siamese(set, size=self.im_size, verbose=verbose)
+
             elif self.method is 'overlapped':
-                images_train, labels_train = prepare_data_siamese_overlap(set, size=self.im_size, verbose=verbose)
+                images_train, labels_train, confidence_train \
+                    = prepare_data_siamese_overlap(set,  size=self.im_size, verbose=verbose)
+
             elif self.method is 'chained':
-                images_train, labels_train = prepare_data_siamese_chained(set, size=self.im_size, verbose=verbose)
+                images_train, labels_train, confidence_train \
+                    = prepare_data_siamese_chained(set, size=self.im_size, verbose=verbose, weighted_samples=self.use_class_weight)
             else:
                 assert False
             if verbose == 0: print("reload data ({})".format(images_train[0].shape[0]))

@@ -6,7 +6,7 @@ from sklearn.neighbors import DistanceMetric
 from sklearn.decomposition import PCA
 import pickle
 
-from LIDC.lidcUtils import getAnnotation
+from LIDC.lidcUtils import getAnnotation, calc_rating
 
 def accuracy(true, pred):
     pred = np.clip(pred, 0, 1)
@@ -44,26 +44,44 @@ class Retriever:
         self.indices = indices[:, 1:]
         self.distances = distances[:, 1:]
 
-    def ret(self, query):
-        nn = self.indices[query, :]
-        return nn
+    def fit_rating(self, n):
+        self.n = n
+        space = [calc_rating(meta) for meta in self.meta_data]
+        nbrs = NearestNeighbors(n_neighbors=(n + 1), algorithm='brute', metric='l1').fit(space)
+
+        distances, indices = nbrs.kneighbors(space)
+        self.indices = indices[:, 1:]
+        self.distances = distances[:, 1:]
+
+    def ret(self, query, n_top=None, return_distance=False):
+        if n_top==None: n_top = self.n
+        assert n_top <= self.n
+
+        nn = self.indices[query, :n_top]
+        if return_distance:
+            dd = self.distances[query, :n_top]
+            return nn, dd
+        else:
+            return nn
 
     def show(self, title, image, label, meta):
         L = 'BM'
-        ann = getAnnotation(meta)
-        ann.visualize_in_scan()
+        #ann = getAnnotation(meta)
+        #ann.visualize_in_scan()
+        feature_vals = calc_rating(meta)
         plt.figure()
-        plt.title("{} - {}".format(title, L[label]))
+        plt.title("{} - {} ({})".format(title, L[label], feature_vals))
         plt.imshow(image)
 
-    def show_ret(self, query, n_top):
+    def show_ret(self, query, n_top=None):
+        if n_top==None: n_top = self.n
         assert n_top <= self.n
 
-        nn = self.ret(query)[:n_top]
+        nn, dd = self.ret(query, n_top=n_top, return_distance=True)
 
         self.show('Query', self.images[query], self.labels[query], self.meta_data[query])
         for idx in range(n_top):
-            self.show('Ret#{}'.format(idx), self.images[nn[idx]], self.labels[nn[idx]], self.meta_data[nn[idx]])
+            self.show('Ret#{} [d{:.2f}]'.format(idx,dd[idx]), self.images[nn[idx]], self.labels[nn[idx]], self.meta_data[nn[idx]])
 
 
     def classify_naive(self):
@@ -146,17 +164,18 @@ if __name__ == "__main__":
     #WW = ['embed_siam000-10_Test.p', 'embed_siam000-15_Test.p', 'embed_siam000-20_Test.p', 'embed_siam000-25_Test.p', 'embed_siam000-30_Test.p',
     #      'embed_siam000-35_Test.p', 'embed_siam000-40_Test.p', 'embed_siam000-45_Test.p', 'embed_siam000-50_Test.p']
 
-    set = 'Valid'
+    set = 'Train'
     wRuns  =  ['000', '001']
-    run = wRuns[0];
+    run = wRuns[0]
 
     wEpchs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50]
     WW = ['embed_siam{}-{}_{}.p'.format(run, E, set) for E in wEpchs]
 
     leg = ['E{}'.format(E) for E in wEpchs]
 
-    doClass = True
+    doClass = False
     doRet   = False
+    doRatingRet = True
 
     #Ret = Retriever(WW[-4], atitle='chn', aset=set)
     #Ret.fit(3)
@@ -238,6 +257,17 @@ if __name__ == "__main__":
         plt.legend(NN)
         plt.title('Malignant')
 
+
+    if doRatingRet:
+        N = 2
+        Ret = Retriever(WW[-4], atitle='', aset='')
+        
+        Ret.fit_rating(N)
+        Ret.show_ret(26)
+
+        Ret.fit(N)
+        Ret.show_ret(26)
+            
     #Ret = Retriever(WW[-2], atitle='Epch40', aset='Test')
     #Ret.fit(n=7)
     #Ret.pca()

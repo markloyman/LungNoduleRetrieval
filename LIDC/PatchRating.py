@@ -58,10 +58,12 @@ def stat_analyze(dataset, elementID, title):
         plt.xlim(0.5, 0.5+max_range)
         plt.title(labels[i])
 
-def append_label(data, label):
+def append_label(data, label, confidence_level = None):
     new_data = []
     for entry in data:
         entry['label'] = label
+        if confidence_level is not None:
+            entry['confidence'] = confidence_level
         new_data.append(entry)
 
     return new_data

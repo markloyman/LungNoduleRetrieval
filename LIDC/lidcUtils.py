@@ -49,5 +49,8 @@ def calc_rating(meta_data, method='mean'):
     elif method is 'raw':
         all_anns = getAnnotation(meta_data, return_all=True)
         rating = [a.feature_vals() for a in all_anns]
+    elif method is 'confidence':
+        all_anns = getAnnotation(meta_data, return_all=True)
+        rating = np.std([a.feature_vals() for a in all_anns], axis=(0))
 
     return np.array(rating)

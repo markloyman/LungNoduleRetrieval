@@ -54,6 +54,8 @@ class DataGenerator(object):
             images_train = ( np.array_split(images_train[0], split_idx),
                              np.array_split(images_train[1], split_idx) )
             labels_train = np.array_split(labels_train,  split_idx)
+            if self.use_class_weight:
+                confidence_train = np.array_split(confidence_train,  split_idx)
 
             if verbose == 1: print("batch size:{}, sets:{}".format(images_train[0][0].shape[0], len(images_train[0])))
 
@@ -61,12 +63,18 @@ class DataGenerator(object):
             if images_train[0][-1].shape[0] < self.batch_sz:
                 images_train = (images_train[0][:-1], images_train[1][:-1])
                 labels_train = labels_train[:-1]
-                if verbose == 1: print(
-                print("discard last unfull batch -> sets:{}".format(len(images_train[0]))))
+                if self.use_class_weight:
+                    confidence_train = confidence_train[:-1]
+                if verbose == 1:
+                    print("discard last unfull batch -> sets:{}".format(len(images_train[0])))
 
             verbose = 0
-            for im0, im1, lbl in zip(images_train[0], images_train[1], labels_train):
-                yield ([im0,im1],lbl)
+            if self.use_class_weight:
+                for im0, im1, lbl, cnf in zip(images_train[0], images_train[1], labels_train, confidence_train):
+                    yield ([im0, im1], lbl, cnf)
+            else:
+                for im0, im1, lbl in zip(images_train[0], images_train[1], labels_train):
+                    yield ([im0,im1],lbl)
 
     def next_train(self):
         return self.next(self.train_set)

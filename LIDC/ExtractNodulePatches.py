@@ -91,9 +91,11 @@ for scan in pl.query(pl.Scan).all()[:]:
             entry = {
                 'patch':    patch,
                 'info':     (scan.patient_id, scan.study_instance_uid, scan.series_instance_uid, nod[annID]._nodule_id),
+                'nod_ids':  [n._nodule_id for n in nod],
                 'rating':   np.array([ann.feature_vals() for ann in nod]),
                 'mask':     mask,
-                'z':        z
+                'z':        z,
+                'size':     getNoduleSize(nod)
             }
             dataset.append(entry)
     else:

@@ -5,6 +5,11 @@ from skimage.transform import resize
 import matplotlib.pyplot as plt
 from keras.utils.np_utils import to_categorical
 
+
+# =========================
+#   Generate Nodule Dataset
+# =========================
+
 def calc_split_size(N, test_ratio, validation_ratio):
     testN = np.floor(N * test_ratio).astype('uint')
     validN = np.floor((N - testN) * validation_ratio).astype('uint')
@@ -30,30 +35,47 @@ def split_dataset(data, testN, validN, trainN):
 
     return (testData, validData, trainData)
 
-def getImageStatistics(data):
-    images = np.array([p for p,m,l,i in data])
 
-    plt.figure()
-    plt.hist(images.flatten())
+def getImageStatistics(data, window=None, verbose=False):
+    images = np.array([entry['patch'] for entry in data]).flatten()
+
+    if verbose:
+        plt.figure()
+        plt.hist(images, bins=50)
+
+    if window is not None:
+        images = np.clip(images, window[0], window[1])
 
     mean   = np.mean(images)
     std    = np.std(images)
 
     return mean, std
 
-def normalize(image, mean, std):
+
+def normalize(image, mean, std, window=None):
     assert std > 0
+    if window is not None:
+        image = np.clip(image, window[0], window[1])
     image = image - mean
     image = image.astype('float') / std
 
     return image
 
-def generate_nodule_dataset(test_ratio, validation_ratio):
+
+def normalize_all(dataset, mean=0, std=1, window=None):
+    new_dataset = []
+    for entry in dataset:
+        entry['patch'] = normalize(entry['patch'], mean, std, window)
+        new_dataset.append(entry)
+    return new_dataset
+
+
+def generate_nodule_dataset(filename, test_ratio, validation_ratio, window=(-1000, 350)):
     #   size of test set        N*test_ratio
     #   size of validation set  N*(1-test_ratio)*validation_ratio
     #   size of training set    N*test_ratio
 
-    M, B, U = pickle.load(open('LIDC/NodulePatchesByMalignancy.p', 'br'))
+    M, B, U = pickle.load(open(filename, 'br'))
 
     print("Split Malignancy Set. Loaded total of {} images".format(len(M)))
     testM, validM, trainM = calc_split_size(len(M), test_ratio, validation_ratio)
@@ -73,36 +95,51 @@ def generate_nodule_dataset(test_ratio, validation_ratio):
     random.shuffle(validData)
     random.shuffle(trainData)
 
-    pickle.dump((testData, validData, trainData), open('RawDataset.p','bw'))
+    mean, std = getImageStatistics(trainData, window=window, verbose=True)
+    print('Training Statistics: Mean {:.2f} and STD {:.2f}'.format(mean, std))
+
+    trainData  = normalize_all(trainData, mean, std, window=window)
+    testData   = normalize_all(testData,  mean, std, window=window)
+    validData  = normalize_all(validData, mean, std, window=window)
+
+    getImageStatistics(trainData,   verbose=True)
+    getImageStatistics(validData,   verbose=True)
+    getImageStatistics(testData,    verbose=True)
+
+    pickle.dump((testData, validData, trainData), open('Dataset.p','bw'))
+
+    #testData  = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in testData ]
+    #validData = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in validData]
+    #trainData = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in trainData]
+
+    #pickle.dump((testData, validData, trainData), open('Dataset.p', 'bw'))
+
+    plt.show()
+
+    return testData, validData, trainData
+
+# =========================
+#   Load
+# =========================
+
+def load_nodule_dataset():
+    testData, validData, trainData = pickle.load(open('Dataset.p', 'br'))
 
     testData  = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in testData ]
     validData = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in validData]
     trainData = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in trainData]
 
-    mean, std = getImageStatistics(trainData)
-    print('Training Statistics: Mean {} and STD {}'.format(mean,std))
-
-    testData  = [ (normalize(p, mean, std), m , l ,i) for p,m,l,i in testData ]
-    validData = [ (normalize(p, mean, std), m , l ,i) for p,m,l,i in validData]
-    trainData = [ (normalize(p, mean, std), m , l, i) for p,m,l,i in trainData]
-
-    getImageStatistics(trainData)
-    getImageStatistics(validData)
-    getImageStatistics(testData)
-
-    plt.show()
-
-    pickle.dump((testData, validData, trainData), open('Dataset.p', 'bw'))
-
     return testData, validData, trainData
 
-def load_nodule_dataset():
-    testData, validData, trainData = pickle.load(open('Dataset.p', 'br'))
-    return testData, validData, trainData
 
 def load_nodule_raw_dataset():
     testData, validData, trainData = pickle.load(open('RawDataset.p', 'br'))
     return testData, validData, trainData
+
+
+# =========================
+#   Prepare Data
+# =========================
 
 def prepare_data(data, classes=0, size=0, categorize=True, return_meta=False, reshuffle=False, verbose = 0):
     # Entry:
@@ -133,6 +170,7 @@ def prepare_data(data, classes=0, size=0, categorize=True, return_meta=False, re
         return images, labels, meta
     else:
         return images, labels
+
 
 def prepare_data_siamese(data, size, return_meta=False, verbose = 0):
     if return_meta:
@@ -323,14 +361,14 @@ def prepare_data_siamese_chained(data, size, return_meta=False, verbose = 0, wei
     assert size == image_sub2.shape[0]
 
     if weighted_samples:
-        sb_w = size / (4 * sb_size)
-        sm_w = size / (4 * sm_size)
-        d_w  = size / (2 * d_size)
-        confidence = np.concatenate([  np.repeat(sb_w,    sb_size),
-                                       np.repeat(sm_size, sm_size),
-                                       np.repeat(d_size,  d_size)
+        sb_w = np.round(size / (4 * sb_size), 1)
+        sm_w = np.round(size / (4 * sm_size), 1)
+        d_w  = np.round(size / (2 * d_size),  1)
+        confidence = np.concatenate([  np.repeat(sb_w, sb_size),
+                                       np.repeat(sm_w, sm_size),
+                                       np.repeat(d_w,  d_size)
                                     ])
-        if verbose: print('Class Weights: Benign-{}, Malig-{}, Different-{}'.format(sb_w, sm_w, d_w))
+        if verbose: print('Class Weights: Benign {:.2f}, Malig {:.2f}, Different {:.2f}'.format(sb_w, sm_w, d_w))
 
     if verbose: print("{} pairs of same / {} pairs of different. {} total number of pairs".format(len(same), len(different), size))
 
@@ -338,11 +376,20 @@ def prepare_data_siamese_chained(data, size, return_meta=False, verbose = 0, wei
 
     if weighted_samples:
         if return_meta:
-            return ((image_sub1[new_order], image_sub2[new_order]), confidence[new_order], similarity_labels[new_order], (meta_sub1[new_order], meta_sub2[new_order]))
+            return ((image_sub1[new_order], image_sub2[new_order]), similarity_labels[new_order], confidence[new_order], (meta_sub1[new_order], meta_sub2[new_order]))
         else:
-            return ((image_sub1[new_order], image_sub2[new_order]), confidence[new_order], similarity_labels[new_order])
+            return ((image_sub1[new_order], image_sub2[new_order]), similarity_labels[new_order], confidence[new_order])
     else:
         if return_meta:
             return ((image_sub1[new_order], image_sub2[new_order]), similarity_labels[new_order], None, (meta_sub1[new_order], meta_sub2[new_order]))
         else:
             return ((image_sub1[new_order], image_sub2[new_order]), similarity_labels[new_order], None)
+
+
+if __name__ == "__main__":
+
+    generate_nodule_dataset(    filename='LIDC/NodulePatchesCliqueByMalignancy.p',
+                                test_ratio=0.2,
+                                validation_ratio=0.25)
+
+    plt.show()

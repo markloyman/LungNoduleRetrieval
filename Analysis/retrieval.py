@@ -1,12 +1,14 @@
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
-from sklearn.model_selection import LeaveOneOut
-from sklearn.neighbors import DistanceMetric
-from sklearn.decomposition import PCA
 import pickle
 
-from LIDC.lidcUtils import getAnnotation, calc_rating
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.decomposition import PCA
+from sklearn.model_selection import LeaveOneOut
+from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
+
+from LIDC.lidcUtils import calc_rating
+from Network.data import load_nodule_raw_dataset
+
 
 def accuracy(true, pred):
     pred = np.clip(pred, 0, 1)
@@ -23,35 +25,54 @@ def precision(query, nn):
 
 class Retriever:
 
-    def __init__(self, filename, atitle='', aset=''):
+    def __init__(self, title='', dset=''):
+        self.title  = title
+        self.set    = dset
 
-        self.title = atitle
-        self.set = aset
+        self.nod_ids = None
+
+        return None
+
+    def load_embedding(self, filename):
 
         self.images, self.embedding, self.meta_data, self.labels = pickle.load(open('./embed/{}'.format(filename),'br'))
         self.len = len(self.meta_data)
+        self.nod_ids = [None]*self.len
 
         self.images = np.squeeze(self.images)
         self.labels = np.squeeze(self.labels)
 
         print("Loaded {} entries from {}".format(self.len, filename))
 
+    def load_rating(self, dataset):
+        images, mask, rating, meta, labels, nod_ids = \
+            zip(*[ (e['patch'], e['mask'], e['rating'], e['info'], e['label'], e['nod_ids'] ) for e in dataset])
+
+        images = [im*(1.0-0.5*ms) for im, ms in zip(images, mask)]
+        images = np.squeeze(images)
+        labels = np.squeeze(labels)
+        rating = [ np.mean(r, axis=(0)) for r in rating]
+
+        self.images, self.embedding, self.meta_data, self.labels, self.nod_ids = images, rating, meta, labels, nod_ids
+        self.len = len(self.meta_data)
+
+        print("Loaded {} entries from dataset".format(self.len))
+
     def fit(self, n):
         self.n = n
-        nbrs = NearestNeighbors(n_neighbors=(n + 1), algorithm='auto').fit(self.embedding)
+        nbrs = NearestNeighbors(n_neighbors=(n + 1), algorithm='auto', metric='l1').fit(self.embedding)
 
         distances, indices = nbrs.kneighbors(self.embedding)
         self.indices = indices[:, 1:]
         self.distances = distances[:, 1:]
 
-    def fit_rating(self, n):
-        self.n = n
-        space = [calc_rating(meta) for meta in self.meta_data]
-        nbrs = NearestNeighbors(n_neighbors=(n + 1), algorithm='brute', metric='l1').fit(space)
-
-        distances, indices = nbrs.kneighbors(space)
-        self.indices = indices[:, 1:]
-        self.distances = distances[:, 1:]
+    #def fit_rating(self, n):
+    #    self.n = n
+    #    space = [calc_rating(meta) for meta in self.meta_data]
+    #    nbrs = NearestNeighbors(n_neighbors=(n + 1), algorithm='brute', metric='l1').fit(space)
+    #    distances, indices = nbrs.kneighbors(space)
+    #    self.indices   = indices[:, 1:]
+    #    self.distances = distances[:, 1:]
 
     def ret(self, query, n_top=None, return_distance=False):
         if n_top==None: n_top = self.n
@@ -64,24 +85,41 @@ class Retriever:
         else:
             return nn
 
-    def show(self, title, image, label, meta):
+    def show(self, title, image, label, meta, nods=None):
         L = 'BM'
         #ann = getAnnotation(meta)
         #ann.visualize_in_scan()
-        feature_vals = calc_rating(meta)
-        plt.figure()
-        plt.title("{} - {} ({})".format(title, L[label], feature_vals))
-        plt.imshow(image)
+        if nods is None:
+            feature_vals = calc_rating(meta, method='single')
+            print('single -> {}'.format(feature_vals))
+        else:
+            feature_vals = calc_rating(meta, nodule_ids=nods)
+            print('mean ->: {}'.format(feature_vals))
 
-    def show_ret(self, query, n_top=None):
+
+
+        plt.figure()
+        plt.title("{} - {} ({})".format(title, L[label], np.round(feature_vals, 1)))
+        plt.imshow(image, cmap='gray')
+
+    def show_ret(self, query, n_top=None, method='mean'):
         if n_top==None: n_top = self.n
         assert n_top <= self.n
 
         nn, dd = self.ret(query, n_top=n_top, return_distance=True)
+        print("N: {}".format(nn))
 
-        self.show('Query', self.images[query], self.labels[query], self.meta_data[query])
+        print([self.meta_data[n] for n in nn])
+        print([calc_rating(self.meta_data[n], nodule_ids=self.nod_ids[n], method=method) for n in nn])
+
+        self.show('Query', self.images[query], self.labels[query], self.meta_data[query], self.nod_ids[query])
         for idx in range(n_top):
-            self.show('Ret#{} [d{:.2f}]'.format(idx,dd[idx]), self.images[nn[idx]], self.labels[nn[idx]], self.meta_data[nn[idx]])
+            self.show('Ret#{} [d{:.2f}]'.format(idx, dd[idx]), self.images[nn[idx]], self.labels[nn[idx]], self.meta_data[nn[idx]], self.nod_ids[nn[idx]])
+
+        if self.nod_ids[query] is not None:
+            return self.meta_data[query], self.nod_ids[query]
+        else:
+            return self.meta_data[query]
 
 
     def classify_naive(self):
@@ -259,14 +297,26 @@ if __name__ == "__main__":
 
 
     if doRatingRet:
-        N = 2
-        Ret = Retriever(WW[-4], atitle='', aset='')
-        
-        Ret.fit_rating(N)
-        Ret.show_ret(26)
+        N = 5
+        testData, validData, trainData = load_nodule_raw_dataset()
+        if set is 'Train':  data = trainData
+        if set is 'Test':   data = testData
+        if set is 'Valid':  data = validData
 
+        #Ret = Retriever(title='Ratings', dset=set)
+        #Ret.load_rating(data)
+        #et.fit(N)
+
+        #info, nod_ids = Ret.show_ret(15)
+        #info, nod_ids = Ret.show_ret(135)
+        #info, nod_ids = Ret.show_ret(135)
+        #anns = getAnnotation(info, nodule_ids=nod_ids, return_all=True)
+        #pickle.dump(anns, open('tmp.p', 'bw'))
+
+        Ret = Retriever(title='', dset=set)
+        Ret.load_embedding(WW[-4])
         Ret.fit(N)
-        Ret.show_ret(26)
+        Ret.show_ret(135, method='single')
             
     #Ret = Retriever(WW[-2], atitle='Epch40', aset='Test')
     #Ret.fit(n=7)

@@ -1,17 +1,14 @@
 import numpy as np
 np.random.seed(1987)  # for reproducibility
-import random
 
-from keras import backend as K
-
-from data import prepare_data, load_nodule_dataset, prepare_data_siamese, prepare_data_siamese_overlap, prepare_data_siamese_chained
+from Network.data import load_nodule_dataset, prepare_data_siamese, prepare_data_siamese_overlap, prepare_data_siamese_chained
 
 class DataGenerator(object):
     """docstring for DataGenerator"""
 
-    def __init__(self, im_size = 128, batch_sz=32, method='base', use_class_weight=False):
+    def __init__(self, im_size = 128, batch_sz=32, method='base', use_class_weight=False, debug=False):
 
-        dataset = load_nodule_dataset()
+        dataset = load_nodule_dataset(apply_mask_to_patch=debug)
 
         self.train_set = dataset[2]
         self.valid_set = dataset[1]

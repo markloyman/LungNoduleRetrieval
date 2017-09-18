@@ -1,16 +1,12 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import pickle
 from timeit import default_timer as timer
 
-from LIDC.lidcUtils import getAnnotation
-from analysis import MalignancyConfusionMatrix, MalignancyBySize
+import numpy as np
 from data import load_nodule_dataset, load_nodule_raw_dataset, prepare_data
 from model import miniXception_loader
-from directArch import directArch
-from siameseArch import siamArch
 
 import FileManager
+from Network.siameseArch import siamArch
 
 ## ===================== ##
 ## ======= Setup ======= ##

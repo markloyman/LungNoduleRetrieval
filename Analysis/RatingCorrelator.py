@@ -1,17 +1,18 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import pickle
 
-from sklearn.neighbors import DistanceMetric
-from sklearn.metrics import pairwise
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.spatial.distance import pdist, cdist, squareform
+from scipy.stats import pearsonr, spearmanr, kendalltau
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
-from scipy.stats import pearsonr, spearmanr, kendalltau
-from scipy.spatial.distance import pdist, cdist, squareform
-#from scipy.spatial import distance as Distance
+from sklearn.metrics import pairwise
+from sklearn.neighbors import DistanceMetric
 
 from LIDC.lidcUtils import calc_rating
-import validator
+
+
+# from scipy.spatial import distance as Distance
 
 
 

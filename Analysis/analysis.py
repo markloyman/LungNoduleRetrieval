@@ -1,14 +1,15 @@
-import numpy as np
-import random
 import itertools
-#from skimage.transform import resize
-from sklearn.metrics import confusion_matrix
+
 import matplotlib.pyplot as plt
-import dataUtils
+# from skimage.transform import resize
+from sklearn.metrics import confusion_matrix
+
+from Network import dataUtils
+
 
 def MalignancyConfusionMatrix(pred, true):
-    cm = confusion_matrix(  dataUtils.uncategorize(true),
-                            dataUtils.uncategorize(pred) )
+    cm = confusion_matrix(dataUtils.uncategorize(true),
+                          dataUtils.uncategorize(pred))
     #          Pred
     #   True  TN  FP
     #         FN  TP
@@ -57,28 +58,42 @@ def history_summarize(history, label=''):
 
     # summarize history for sensitivity
     plt.subplot(311)
-    plt.plot(history['sensitivity'])
-    plt.plot(history['val_sensitivity'])
-    plt.title(label+': sensitivity')
-    plt.ylabel('sensitivity')
+    if hasattr(history, 'sensitivity'):
+        plt.plot(history['sensitivity'])
+        plt.plot(history['val_sensitivity'])
+        plt.title(label+': sensitivity')
+        plt.ylabel('sensitivity')
+    elif hasattr(history, 'binary_accuracy'):
+        plt.plot(history['binary_accuracy'])
+        plt.plot(history['val_binary_accuracy'])
+        plt.title(label+': binary_accuracy')
+        plt.ylabel('binary_accuracy')
     plt.xlabel('epoch')
     plt.legend(['train', 'test'], loc='upper left')
 
     # summarize history for precision
     plt.subplot(312)
-    plt.plot(history['precision'])
-    plt.plot(history['val_precision'])
-    plt.title(label+': precision')
-    plt.ylabel('precision')
+    if  hasattr(history, 'binary_accuracy'):
+        plt.plot(history['precision'])
+        plt.plot(history['val_precision'])
+        plt.title(label+': precision')
+        plt.ylabel('precision')
+    elif  hasattr(history, 'loss'):
+        plt.plot(history['loss'])
+        plt.plot(history['val_loss'])
+        plt.title(label + ': loss')
+        plt.ylabel('loss')
     plt.xlabel('epoch')
     plt.legend(['train', 'test'], loc='upper left')
 
     # summarize history for loss and lr
     plt.subplot(313)
-    plt.plot(history['lr'])
-    plt.plot(history['loss'])
-    plt.title(label+': loss and lr')
-    plt.ylabel('loss n lr')
+    if hasattr(history, 'lr'):
+        plt.plot(history['lr'])
+        plt.plot(history['loss'])
+        plt.title(label+': loss and lr')
+        plt.ylabel('loss n lr')
     plt.xlabel('epoch')
     plt.legend(['lr', 'loss'], loc='upper left')
+
     plt.show()

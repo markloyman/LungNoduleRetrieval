@@ -1,15 +1,16 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import pickle
 from timeit import default_timer as timer
 
-from LIDC.lidcUtils import getAnnotation
-from analysis import MalignancyConfusionMatrix, MalignancyBySize
-from data import load_nodule_dataset, load_nodule_raw_dataset, prepare_data_siamese_chained
-from model import miniXception_loader
-from directArch import directArch
-from siameseArch import siamArch
+import matplotlib.pyplot as plt
+import numpy as np
 
+import sys
+sys.path.insert(0, 'E:\LungNoduleRetrieval')
+
+from Network.data import load_nodule_dataset, prepare_data_siamese_chained
+from Network.model import miniXception_loader
+
+from Network.siameseArch import siamArch
 
 ## ===================== ##
 ## ======= Setup ======= ##
@@ -19,16 +20,17 @@ size        = 128
 input_shape = (128,128,1)
 
 load     = False
-evaluate = False
+evaluate = True
 
 # 0     Test
 # 1     Validation
 # 2     Training
-DataSubSet = 0
+DataSubSet = 1
 
 
-run = '000'
-WeightsFile = 'w_siam000_15-3.55-4.77.h5'
+run = '00X'
+#WeightsFile = 'w_siam000_15-3.55-4.77.h5'
+WeightsFile = 'Weights/w_siam00X_01-6.34-8.22.h5'
 #WeightsFile = 'w_siam000_25-0.46-4.77.h5'
 #WeightsFile = 'w_siam001_30-1.78-5.15.h5'
 #WeightsFile = 'w_siam001_40-0.49-4.73.h5'
@@ -52,7 +54,7 @@ print('='*15)
 #print("Raw Data Loaded: {} entries".format(len(dataset)))
 
 # prepare test data
-images_test, labels_test = prepare_data_siamese_chained(load_nodule_dataset()[DataSubSet], size=size, return_meta=False)
+images_test, labels_test, confidence = prepare_data_siamese_chained(load_nodule_dataset()[DataSubSet], size=size, return_meta=False)
 print("Data ready: images({}), labels({})".format(images_test[0].shape, labels_test.shape))
 print("Range = [{},{}]".format(np.min(images_test[0]), np.max(images_test[0])))
 

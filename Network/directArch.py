@@ -1,18 +1,17 @@
-import numpy as np
 import pickle
 from timeit import default_timer as timer
-import random
 
-from keras.models import Model
-from keras import layers
+import numpy as np
+from keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, EarlyStopping, TensorBoard
 from keras.layers import Dense
 from keras.layers import Input
+from keras.models import Model
 from keras.optimizers import Adam
-from keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, EarlyStopping, TensorBoard
 
-from analysis import history_summarize
-from modelUtils import sensitivity, specificity, precision
-from dataUtils import get_class_weight
+from Analysis.analysis import history_summarize
+from Network.dataUtils import get_class_weight
+from Network.modelUtils import sensitivity, specificity, precision
+
 
 class directArch:
 

@@ -1,14 +1,14 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import pickle
 from timeit import default_timer as timer
 
-from LIDC.lidcUtils import getAnnotation
-from analysis import MalignancyConfusionMatrix, MalignancyBySize
-from data import load_nodule_dataset, load_nodule_raw_dataset, prepare_data
+import matplotlib.pyplot as plt
+import numpy as np
 from model import miniXception_loader
-from directArch import directArch
 
+from Analysis.analysis import MalignancyConfusionMatrix, MalignancyBySize
+from LIDC.lidcUtils import getAnnotation
+from Network.data import load_nodule_dataset, load_nodule_raw_dataset, prepare_data
+from Network.directArch import directArch
 
 size = 128
 input_shape = (128,128,1)

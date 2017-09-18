@@ -1,7 +1,6 @@
 import pickle
-import numpy as np
 
-from analysis import history_summarize
+from Analysis.analysis import history_summarize
 
 subfolder = './history/'
 

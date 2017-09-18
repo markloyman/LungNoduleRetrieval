@@ -69,7 +69,7 @@ def getAnnotation(info, return_all=False, nodule_ids=None):
     return anns
 
 
-def CheckPatch(entry):
+def CheckPatch(entry, in_dicom=False):
     info = entry['info']
     print(info)
 
@@ -77,33 +77,41 @@ def CheckPatch(entry):
                                                          np.min(entry['patch']),
                                                          np.max(entry['patch'])
                                                     ))
-    ann = getAnnotation(info)
-
     plt.figure('Patch')
     plt.imshow(entry['patch']+1000*entry['mask'])
-    plt.title('Patch: {}'.format(np.mean(entry['rating'],axis=(0))))
+    plt.title('Patch: {}'.format(np.mean(entry['rating'], axis=(0))))
 
-    ann.visualize_in_scan()
+    if in_dicom:
+        getAnnotation(info).visualize_in_scan()
 
     plt.show()
 
-def calc_rating(meta_data, method='mean'):
+
+def calc_rating(meta_data, nodule_ids = None, method='mean'):
+
+    if method is not 'single':
+        assert(nodule_ids is not None)
+
     if method is 'single':
         # currently only one of the ratings is taken into account
         ann     = getAnnotation(meta_data, return_all=False)
         rating  = ann.feature_vals()
     elif method is 'malig':
-        ann     = getAnnotation(meta_data)
-        rating  = ann.feature_vals()[-1]
-        #rating = (rating - 3.0)/2
+        all_anns = getAnnotation(meta_data, nodule_ids=nodule_ids, return_all=True)
+        rating = np.mean([a.feature_vals() for a in all_anns], axis=(0))
+        rating = rating[-1]
     elif method is 'mean':
-        all_anns = getAnnotation(meta_data, return_all=True)
+        all_anns = getAnnotation(meta_data, nodule_ids=nodule_ids, return_all=True)
         rating   = np.mean([a.feature_vals() for a in all_anns], axis=(0))
     elif method is 'raw':
-        all_anns = getAnnotation(meta_data, return_all=True)
+        all_anns = getAnnotation(meta_data, nodule_ids=nodule_ids, return_all=True)
         rating   = [a.feature_vals() for a in all_anns]
     elif method is 'confidence':
-        all_anns = getAnnotation(meta_data, return_all=True)
+        all_anns = getAnnotation(meta_data, nodule_ids=nodule_ids, return_all=True)
         rating   = np.std([a.feature_vals() for a in all_anns], axis=(0))
+    else:
+        print('Illegal method - {}'.format(method))
+        assert(False)
+        rating = None
 
     return np.array(rating)

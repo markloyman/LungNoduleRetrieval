@@ -1,20 +1,16 @@
-import numpy as np
 import pickle
 from timeit import default_timer as timer
-import random
 
-from keras.models import Model
-from keras import layers
-from keras.layers import Dense
+import numpy as np
+from keras import backend as K
+from keras.callbacks import ModelCheckpoint, TensorBoard, LearningRateScheduler, Callback
 from keras.layers import Input
 from keras.layers import Lambda
-from keras.optimizers import Adam, Nadam
-from keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, EarlyStopping, TensorBoard, LearningRateScheduler
-from keras import backend as K
+from keras.models import Model
+from keras.optimizers import Adam
 
-from analysis import history_summarize
-from modelUtils import sensitivity, specificity, precision, binary_accuracy
-from dataUtils import get_class_weight
+from Network.modelUtils import binary_accuracy
+
 
 def euclidean_distance(vects):
     x, y = vects
@@ -31,9 +27,15 @@ def contrastive_loss(y_true, y_pred):
     '''Contrastive loss from Hadsell-et-al.'06
     http://yann.lecun.com/exdb/publis/pdf/hadsell-chopra-lecun-06.pdf
     '''
-    margin = 5
+    margin = 1
     return K.mean( (1 - y_true) * K.square(y_pred) + y_true * K.square(K.maximum(margin - y_pred, 0)))
-    #return K.mean(y_true * K.square(y_pred) + (1 - y_true) * K.square(K.maximum(margin - y_pred, 0)))
+    # Note:
+    # margin in binary_accuracy should be updated accordingly
+
+
+class printbatch(Callback):
+    def on_batch_end(self, epoch, logs={}):
+        print('E#{}: {}'.format(epoch, logs))
 
 class siamArch:
 
@@ -83,7 +85,7 @@ class siamArch:
             print("lr changed to {}".format(lr * .9))
         return K.get_value(self.model.optimizer.lr)
 
-    def train(self, label='', epoch=0, n_epoch=100, gen = False, new_lr = None):
+    def train(self, label='', epoch=0, n_epoch=100, gen = False):
         checkpoint      = ModelCheckpoint('./Weights/w_' + label + '_{epoch:02d}-{loss:.2f}-{val_loss:.2f}.h5',
                                          monitor='loss', save_best_only=False)
         #checkpoint_val  = ModelCheckpoint('./Weights/w_'+label+'_{epoch:02d}-{loss:.2f}-{val_loss:.2f}.h5',
@@ -93,6 +95,7 @@ class siamArch:
         lr_decay        = LearningRateScheduler(self.scheduler)
         board           = TensorBoard(log_dir='./logs', histogram_freq=1, write_graph=True, write_images=False)
 
+        pb = printbatch()
 
         start = timer()
         total_time = None
@@ -107,9 +110,14 @@ class siamArch:
                     validation_steps = self.data_gen.val_N(),
                     initial_epoch = epoch,
                     epochs = epoch+n_epoch,
-                    callbacks = [checkpoint, lr_decay, board], # on_plateau, early_stop, checkpoint_val
+                    callbacks = [checkpoint, board], # on_plateau, early_stop, checkpoint_val, lr_decay, pb
                     verbose = 2
                 )
+
+                #next_batch = self.data_gen.next_val().__next__()
+                #pred = self.model.evaluate(next_batch)
+                #pickle.dump( (next_batch,pred), open('tmp.p', 'bw') )
+
             else:
                 history = self.model.fit(
                     x = [self.images_train[0],self.images_train[1]],

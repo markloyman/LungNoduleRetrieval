@@ -5,7 +5,7 @@ smooth = 0.000001 # to avoid division by zero
 
 
 
-def binary_accuracy(y_true, y_pred, margin=5):
+def binary_accuracy(y_true, y_pred, margin=1):
     y_pred = K.clip(y_pred/margin, 0, 1)
     return K.mean(K.equal(y_true, K.round(y_pred)), axis=-1)
 

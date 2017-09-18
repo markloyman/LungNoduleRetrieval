@@ -1,9 +1,7 @@
-import numpy as np
 import matplotlib.pyplot as plt
-import pickle
+import numpy as np
 
-from RatingCorrelator import RatingCorrelator
-
+from Analysis.RatingCorrelator import RatingCorrelator
 
 # ========================
 # Setup

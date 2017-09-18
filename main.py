@@ -1,15 +1,9 @@
 import numpy as np
-import pickle
-from timeit import default_timer as timer
-
-from data import generate_nodule_dataset, load_nodule_dataset, prepare_data, prepare_data_siamese, prepare_data_siamese_overlap
-import dataUtils
+from data import load_nodule_dataset, prepare_data, prepare_data_siamese_overlap
 from model import miniXception_loader
-from directArch import directArch
-from siameseArch import  siamArch
-from analysis import history_summarize
 
-
+from Network.directArch import directArch
+from Network.siameseArch import siamArch
 
 ## --------------------------------------- ##
 ## ------- General Setup ----------------- ##

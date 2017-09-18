@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 
 from LIDC.lidcUtils import CheckPatch
 
-plt.interactive(False)
+plt.interactive(True)
 
-dataset = pickle.load(open('LIDC/NodulePatches.p','br'))
+dataset = pickle.load(open('LIDC/NodulePatchesClique.p', 'br'))
 
 CheckPatch(dataset[111])
 

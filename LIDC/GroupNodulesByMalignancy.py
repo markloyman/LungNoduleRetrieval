@@ -69,16 +69,16 @@ def append_malignancy_class_to_nodule_db(filename, save_dump = False):
 
 
     if save_dump:
-        pickle.dump((M,B,U), open(filename[:-2] + 'ByMalignacy.p','bw'))
+        pickle.dump((M,B,U), open(filename[:-2] + 'ByMalignancy.p','bw'))
 
     outliers_M = np.where(np.array([np.min(m['rating'], axis=(0))[-1] for m in M]) < 2)[0]
-    outliers_B = np.where(np.array([np.min(b['rating'], axis=(0))[-1] for b in B]) > 4)[0]
+    outliers_B = np.where(np.array([np.max(b['rating'], axis=(0))[-1] for b in B]) > 4)[0]
     print('Outliers M: {}'.format(outliers_M))
     print('Outliers B: {}'.format(outliers_B))
 
 
 if __name__ == "__main__":
 
-    append_malignancy_class_to_nodule_db('NodulePatchesClique.p', save_dump=False)
+    append_malignancy_class_to_nodule_db('NodulePatchesClique.p', save_dump=True)
 
     plt.show()

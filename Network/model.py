@@ -11,34 +11,24 @@ due to its reliance on `SeparableConvolution` layers.
 # Reference:
 - [Xception: Deep Learning with Depthwise Separable Convolutions](https://arxiv.org/abs/1610.02357)
 '''
-from __future__ import print_function
 from __future__ import absolute_import
+from __future__ import print_function
 
 import warnings
-import numpy as np
 
-from keras.preprocessing import image
-
-from keras.models import Model
+from keras import backend as K
 from keras import layers
-from keras.layers import Dense
-from keras.layers import Input
-from keras.layers import BatchNormalization
 from keras.layers import Activation
-from keras.layers import Dropout
+from keras.layers import BatchNormalization
 from keras.layers import Conv2D
-from keras.layers import SeparableConv2D
-from keras.layers import MaxPooling2D
+from keras.layers import Dropout
 from keras.layers import GlobalAveragePooling2D
 from keras.layers import GlobalMaxPooling2D
-from keras.optimizers import Adam
-from keras.engine.topology import get_source_inputs
-from keras.utils.data_utils import get_file
-from keras import backend as K
-from keras.applications.imagenet_utils import decode_predictions
-from keras.applications.imagenet_utils import _obtain_input_shape
+from keras.layers import Input
+from keras.layers import MaxPooling2D
+from keras.layers import SeparableConv2D
+from keras.models import Model
 
-from modelUtils import sensitivity, specificity, precision
 
 def miniXception_loader(input_tensor=None, input_shape=None, pooling=None, weights=None, return_model=False):
     """Instantiates the Xception architecture.

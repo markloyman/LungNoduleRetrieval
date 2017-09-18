@@ -41,7 +41,7 @@ def getImageStatistics(data, window=None, verbose=False):
 
     if verbose:
         plt.figure()
-        plt.hist(images, bins=50)
+        plt.hist(images, bins=500)
 
     if window is not None:
         images = np.clip(images, window[0], window[1])
@@ -70,7 +70,7 @@ def normalize_all(dataset, mean=0, std=1, window=None):
     return new_dataset
 
 
-def generate_nodule_dataset(filename, test_ratio, validation_ratio, window=(-1000, 350)):
+def generate_nodule_dataset(filename, test_ratio, validation_ratio, window=(-1000, 350), dump=True):
     #   size of test set        N*test_ratio
     #   size of validation set  N*(1-test_ratio)*validation_ratio
     #   size of training set    N*test_ratio
@@ -106,7 +106,11 @@ def generate_nodule_dataset(filename, test_ratio, validation_ratio, window=(-100
     getImageStatistics(validData,   verbose=True)
     getImageStatistics(testData,    verbose=True)
 
-    pickle.dump((testData, validData, trainData), open('Dataset.p','bw'))
+    if dump:
+        pickle.dump((testData, validData, trainData), open('Dataset.p','bw'))
+        print('Dumped')
+    else:
+        print('No Dump')
 
     #testData  = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in testData ]
     #validData = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in validData]
@@ -122,18 +126,24 @@ def generate_nodule_dataset(filename, test_ratio, validation_ratio, window=(-100
 #   Load
 # =========================
 
-def load_nodule_dataset():
+def load_nodule_dataset(apply_mask_to_patch=False):
     testData, validData, trainData = pickle.load(open('Dataset.p', 'br'))
 
-    testData  = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in testData ]
-    validData = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in validData]
-    trainData = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in trainData]
+    if apply_mask_to_patch:
+        print('WRN: apply_mask_to_patch is for debug only')
+        testData  = [(entry['patch']*(1.0-0.5*entry['mask']), entry['mask'], entry['label'], entry['info']) for entry in testData]
+        validData = [(entry['patch']*(1.0-0.5*entry['mask']), entry['mask'], entry['label'], entry['info']) for entry in validData]
+        trainData = [(entry['patch']*(1.0-0.5*entry['mask']), entry['mask'], entry['label'], entry['info']) for entry in trainData]
+    else:
+        testData  = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in testData ]
+        validData = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in validData]
+        trainData = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in trainData]
 
     return testData, validData, trainData
 
 
 def load_nodule_raw_dataset():
-    testData, validData, trainData = pickle.load(open('RawDataset.p', 'br'))
+    testData, validData, trainData = pickle.load(open('Dataset.p', 'br'))
     return testData, validData, trainData
 
 
@@ -361,9 +371,9 @@ def prepare_data_siamese_chained(data, size, return_meta=False, verbose = 0, wei
     assert size == image_sub2.shape[0]
 
     if weighted_samples:
-        sb_w = np.round(size / (4 * sb_size), 1)
-        sm_w = np.round(size / (4 * sm_size), 1)
-        d_w  = np.round(size / (2 * d_size),  1)
+        sb_w = 1.0 #np.round(size / (4 * sb_size), 1)
+        sm_w = 2.0 #np.round(size / (4 * sm_size), 1)
+        d_w  = 10.0 #np.round(size / (2 * d_size),  1)
         confidence = np.concatenate([  np.repeat(sb_w, sb_size),
                                        np.repeat(sm_w, sm_size),
                                        np.repeat(d_w,  d_size)
@@ -390,6 +400,8 @@ if __name__ == "__main__":
 
     generate_nodule_dataset(    filename='LIDC/NodulePatchesCliqueByMalignancy.p',
                                 test_ratio=0.2,
-                                validation_ratio=0.25)
+                                validation_ratio=0.25,
+                                window=(-2000,4000),
+                                dump=False)
 
     plt.show()

@@ -3,15 +3,77 @@ K.set_image_data_format('channels_last')
 
 smooth = 0.000001 # to avoid division by zero
 
-
-
-def binary_accuracy(y_true, y_pred, margin=1):
-    y_pred = K.clip(y_pred/margin, 0, 1)
-    return K.mean(K.equal(y_true, K.round(y_pred)), axis=-1)
+siamese_margin = 10
 
 # ------------------------ #
 # ==== Binary Metrics ==== #
 # ------------------------ #
+
+
+def binary_assert(y_true, y_pred, margin=siamese_margin):
+    y_pred = K.round(K.clip(y_pred/margin, 0, 1))
+    #ones   = K.cast(K.equal(y_pred, 1), K.floatx())
+    #zeros  = K.cast(K.equal(y_pred, 0), K.floatx())
+    #y_pred =  K.sum(ones) + K.sum(zeros)
+    pred   = K.cast(K.equal(y_pred, 1), K.floatx())
+    true   = K.cast(K.equal(y_true, 1), K.floatx())
+    y_pred =  K.sum(pred*true)/K.sum(true)
+    return y_pred
+
+def binary_accuracy(y_true, y_pred, margin=siamese_margin):
+    y_pred = K.round(K.clip(y_pred/margin, 0, 1))
+    return K.mean(K.equal(y_true, y_pred), axis=-1)
+
+def binary_diff(y_true, y_pred, margin=siamese_margin):
+    y_pred = K.round(K.clip(y_pred/margin, 0, 1))
+    return K.mean(K.equal(y_true, y_pred), axis=-1)
+
+def binary_sensitivity(y_true, y_pred, margin=siamese_margin):
+# equivalent to recall
+#   TP / (TP + FN)
+    #y_true  = K.argmax(y_true, axis=1)
+    #y_pred  = K.argmax(y_pred, axis=1)
+    y_pred  = K.round(K.clip(y_pred/margin, 0, 1))
+    TP      = K.cast(K.sum(y_true * y_pred), K.floatx())
+    FN      = K.cast(K.sum(y_true * (1-y_pred)), K.floatx())
+    sens    = TP / (TP + FN + smooth)
+    return sens
+
+def binary_sensitivity_inv(y_true, y_pred, margin=siamese_margin):
+    y_pred  = K.round(K.clip(y_pred/margin, 0, 1))
+    TP      = K.cast(K.sum((1-y_true) * (1-y_pred)), K.floatx())
+    FN      = K.cast(K.sum((1-y_true) * y_pred), K.floatx())
+    sens    = TP / (TP + FN + smooth)
+    return sens
+
+def binary_recall(true, pred):
+    # equivalent to recall
+    return binary_sensitivity(true, pred)
+
+def binary_recall_inv(true, pred):
+    # equivalent to recall
+    return binary_sensitivity_inv(true, pred)
+
+def binary_precision(y_true, y_pred, margin = siamese_margin):
+#   TP / (TP + FP)
+    y_pred = K.round(K.clip(y_pred / margin, 0, 1))
+    TP = K.cast(K.sum(y_true * y_pred), K.floatx())
+    FP = K.cast(K.sum((1-y_true) * y_pred), K.floatx())
+    prec = TP / (TP + FP + smooth)
+    return prec
+
+def binary_precision_inv(y_true, y_pred, margin=siamese_margin):
+#   TP / (TP + FP)
+    y_pred = K.round(K.clip(y_pred / margin, 0, 1))
+    TP = K.cast(K.sum((1-y_true) * (1-y_pred)), K.floatx())
+    FP = K.cast(K.sum(y_true * (1-y_pred)), K.floatx())
+    prec = TP / (TP + FP + smooth)
+    return prec
+
+# ------------------------ #
+# ==== Categorical Metrics ==== #
+# ------------------------ #
+
 
 def sensitivity(y_true, y_pred):
 # equivalent to recall
@@ -47,6 +109,7 @@ def precision(y_true, y_pred):
 def recall(true, pred):
     # equivalent to recall
     return sensitivity(true, pred)
+
 
 def fScore(y_true, y_pred, b=1):
     P = precision(y_true, y_pred)

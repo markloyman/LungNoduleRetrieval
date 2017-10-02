@@ -21,7 +21,7 @@ def calc_distance_matrix(X, method):
         DM = DistanceMetric.get_metric(method).pairwise(X)
     elif method is 'cosine':
         DM = pairwise.cosine_distances(X)
-    elif method is 'correlation':
+    elif method in ['correlation', 'cityblock']:
         DM = squareform(pdist(X, method))
     else:
         return None
@@ -29,7 +29,7 @@ def calc_distance_matrix(X, method):
     return DM
 
 def calc_cross_distance_matrix(X, Y, method):
-    if method in ['chebyshev', 'euclidean', 'cosine', 'correlation']:
+    if method in ['chebyshev', 'euclidean', 'cosine', 'correlation', 'cityblock']:
         #DM = squareform(cdist(X, Y, method))
         DM = cdist(X, Y, method)
     else:

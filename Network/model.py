@@ -30,7 +30,7 @@ from keras.layers import SeparableConv2D
 from keras.models import Model
 
 
-def miniXception_loader(input_tensor=None, input_shape=None, pooling=None, weights=None, return_model=False):
+def miniXception_loader(input_tensor=None, input_shape=None, pooling=None, weights=None, output_size=1024, return_model=False):
     """Instantiates the Xception architecture.
     Optionally loads weights pre-trained
     on ImageNet. This model is available for TensorFlow only,
@@ -188,7 +188,7 @@ def miniXception_loader(input_tensor=None, input_shape=None, pooling=None, weigh
     '''
 
     x = Activation('relu', name='block13_sepconv2_act')(x)
-    x = SeparableConv2D(1024, (3, 3), padding='same', use_bias=False, name='block13_sepconv2')(x)
+    x = SeparableConv2D(output_size, (3, 3), padding='same', use_bias=False, name='block13_sepconv2')(x)
     x = BatchNormalization(name='block13_sepconv2_bn')(x)
 
     '''

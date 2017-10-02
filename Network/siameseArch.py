@@ -9,13 +9,17 @@ from keras.layers import Lambda
 from keras.models import Model
 from keras.optimizers import Adam
 
-from Network.modelUtils import binary_accuracy
+from Network.modelUtils import siamese_margin, binary_accuracy, binary_precision_inv, binary_recall_inv, binary_assert
 
 
 def euclidean_distance(vects):
     x, y = vects
     return K.sqrt(K.maximum(K.sum(K.square(x - y), axis=1, keepdims=True), K.epsilon()))
-    #return (1/32)*K.sqrt(K.maximum(K.sum(K.square(x - y), axis=1, keepdims=True), K.epsilon()))
+
+
+def l1_distance(vects):
+    x, y = vects
+    return K.sum(K.abs(x - y), axis=1, keepdims=True)
 
 
 def eucl_dist_output_shape(shapes):
@@ -27,8 +31,9 @@ def contrastive_loss(y_true, y_pred):
     '''Contrastive loss from Hadsell-et-al.'06
     http://yann.lecun.com/exdb/publis/pdf/hadsell-chopra-lecun-06.pdf
     '''
-    margin = 1
-    return K.mean( (1 - y_true) * K.square(y_pred) + y_true * K.square(K.maximum(margin - y_pred, 0)))
+    margin = siamese_margin
+    #return K.mean( (1 - y_true) * K.square(y_pred) + y_true * K.square(K.maximum(margin - y_pred, 0)))
+    return (1 - y_true) * K.square(y_pred) + y_true * K.square(K.maximum(margin - y_pred, 0))
     # Note:
     # margin in binary_accuracy should be updated accordingly
 
@@ -39,19 +44,25 @@ class printbatch(Callback):
 
 class siamArch:
 
-    def __init__(self, model_loader, input_shape, classes=2):
+    def __init__(self, model_loader, input_shape, classes=2, output_size=1024, distance='l2'):
     #   input_shape of form: (size, size,1)
 
         img_input1  = Input(shape=input_shape)
         img_input2  = Input(shape=input_shape)
         self.input_shape = input_shape
 
-        self.base =  model_loader(input_tensor=None, input_shape=input_shape, pooling='rmac', return_model=True)
+        self.base =  model_loader(input_tensor=None, input_shape=input_shape, pooling='rmac', output_size=output_size, return_model=True)
         base1 = self.base(img_input1)
         base2 = self.base(img_input2)
 
-        distance_layer = Lambda(euclidean_distance,
+        if distance is 'l2':
+            distance_layer = Lambda(euclidean_distance,
                                 output_shape=eucl_dist_output_shape)([base1, base2])
+        elif distance is 'l1':
+            distance_layer = Lambda(l1_distance,
+                                output_shape=eucl_dist_output_shape)([base1, base2])
+        else:
+            assert(False)
 
         self.model =    Model(  inputs=[img_input1,img_input2],
                                 outputs = distance_layer,
@@ -61,9 +72,13 @@ class siamArch:
         self.model_ready = False
 
     def compile(self, learning_rate = 0.001):
-        self.model.compile( optimizer   = Adam(lr=learning_rate), #, decay=0.01*learning_rate),
+        binary_accuracy.__name__      = 'accuracy'
+        binary_precision_inv.__name__ = 'precision'
+        binary_recall_inv.__name__    = 'recall'
+
+        self.model.compile( optimizer   = Adam(lr=learning_rate, decay=0.1), #, decay=0.01*learning_rate),
                             loss        = contrastive_loss,
-                            metrics     = [binary_accuracy]) #['binary_accuracy', 'categorical_accuracy', sensitivity, specificity, precision] )
+                            metrics     = [binary_accuracy, binary_precision_inv, binary_recall_inv, binary_assert]) #['binary_accuracy', 'categorical_accuracy', sensitivity, specificity, precision] )
         # lr = self.lr * (1. / (1. + self.decay * self.iterations))
         self.model_ready = True
 
@@ -93,7 +108,7 @@ class siamArch:
         #on_plateau      = ReduceLROnPlateau(monitor='val_loss', factor=0.5, epsilon=0.02, patience=20, min_lr=1e-8, verbose=1)
         #early_stop      = EarlyStopping(monitor='loss', min_delta=0.01, patience=30)
         lr_decay        = LearningRateScheduler(self.scheduler)
-        board           = TensorBoard(log_dir='./logs', histogram_freq=1, write_graph=True, write_images=False)
+        board           = TensorBoard(log_dir='./logs', histogram_freq=1, write_graph=True, write_images=True, embeddings_freq=1)
 
         pb = printbatch()
 

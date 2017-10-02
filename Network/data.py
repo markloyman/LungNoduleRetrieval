@@ -2,9 +2,10 @@ import pickle
 import numpy as np
 import random
 from skimage.transform import resize
+from scipy.misc import imresize
 import matplotlib.pyplot as plt
 from keras.utils.np_utils import to_categorical
-
+from Network.dataUtils import augment
 
 # =========================
 #   Generate Nodule Dataset
@@ -70,7 +71,23 @@ def normalize_all(dataset, mean=0, std=1, window=None):
     return new_dataset
 
 
-def generate_nodule_dataset(filename, test_ratio, validation_ratio, window=(-1000, 350), dump=True):
+def uniform(image, mean=0, window=None):
+    MIN_BOUND, MAX_BOUND = window
+    image = (image - MIN_BOUND) / (MAX_BOUND - MIN_BOUND)
+    mean  = (mean - MIN_BOUND) / (MAX_BOUND - MIN_BOUND)
+    image = np.clip(image, 0.0, 1.0)
+    image -= mean
+    return image
+
+
+def uniform_all(dataset, mean=0, window=None):
+    new_dataset = []
+    for entry in dataset:
+        entry['patch'] = uniform(entry['patch'], mean, window)
+        new_dataset.append(entry)
+    return new_dataset
+
+def generate_nodule_dataset(filename, test_ratio, validation_ratio, window=(-1000, 400), uniform_normalize=False, dump=True):
     #   size of test set        N*test_ratio
     #   size of validation set  N*(1-test_ratio)*validation_ratio
     #   size of training set    N*test_ratio
@@ -98,25 +115,28 @@ def generate_nodule_dataset(filename, test_ratio, validation_ratio, window=(-100
     mean, std = getImageStatistics(trainData, window=window, verbose=True)
     print('Training Statistics: Mean {:.2f} and STD {:.2f}'.format(mean, std))
 
-    trainData  = normalize_all(trainData, mean, std, window=window)
-    testData   = normalize_all(testData,  mean, std, window=window)
-    validData  = normalize_all(validData, mean, std, window=window)
+    if uniform_normalize:
+        #before_mean_center = trainData
+        #before_mean_center = uniform_all(before_mean_center, window=window)
+        #mean, std = getImageStatistics(before_mean_center, verbose=False)
+
+        trainData = uniform_all(trainData, mean,  window=window)
+        testData  = uniform_all(testData,  mean,  window=window)
+        validData = uniform_all(validData, mean,  window=window)
+    else:
+        trainData  = normalize_all(trainData, mean, std, window=window)
+        testData   = normalize_all(testData,  mean, std, window=window)
+        validData  = normalize_all(validData, mean, std, window=window)
 
     getImageStatistics(trainData,   verbose=True)
     getImageStatistics(validData,   verbose=True)
     getImageStatistics(testData,    verbose=True)
 
     if dump:
-        pickle.dump((testData, validData, trainData), open('Dataset.p','bw'))
+        pickle.dump((testData, validData, trainData), open('Dataset144-0.5.p', 'bw'))
         print('Dumped')
     else:
         print('No Dump')
-
-    #testData  = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in testData ]
-    #validData = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in validData]
-    #trainData = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in trainData]
-
-    #pickle.dump((testData, validData, trainData), open('Dataset.p', 'bw'))
 
     plt.show()
 
@@ -126,14 +146,21 @@ def generate_nodule_dataset(filename, test_ratio, validation_ratio, window=(-100
 #   Load
 # =========================
 
-def load_nodule_dataset(apply_mask_to_patch=False):
-    testData, validData, trainData = pickle.load(open('Dataset.p', 'br'))
+
+def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False):
+
+    if res is 'Legacy':
+        filename = 'Dataset{:.0f}-{}.p'.format(size, res)
+    else:
+        filename = 'Dataset{:.0f}-{:.1f}.p'.format(size, res)
+
+    testData, validData, trainData = pickle.load(open(filename, 'br'))
 
     if apply_mask_to_patch:
         print('WRN: apply_mask_to_patch is for debug only')
-        testData  = [(entry['patch']*(1.0-0.5*entry['mask']), entry['mask'], entry['label'], entry['info']) for entry in testData]
-        validData = [(entry['patch']*(1.0-0.5*entry['mask']), entry['mask'], entry['label'], entry['info']) for entry in validData]
-        trainData = [(entry['patch']*(1.0-0.5*entry['mask']), entry['mask'], entry['label'], entry['info']) for entry in trainData]
+        testData  = [(entry['patch']*(0.3+0.7*entry['mask']), entry['mask'], entry['label'], entry['info']) for entry in testData]
+        validData = [(entry['patch']*(0.3+0.7*entry['mask']), entry['mask'], entry['label'], entry['info']) for entry in validData]
+        trainData = [(entry['patch']*(0.3+0.7*entry['mask']), entry['mask'], entry['label'], entry['info']) for entry in trainData]
     else:
         testData  = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in testData ]
         validData = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in validData]
@@ -142,8 +169,8 @@ def load_nodule_dataset(apply_mask_to_patch=False):
     return testData, validData, trainData
 
 
-def load_nodule_raw_dataset():
-    testData, validData, trainData = pickle.load(open('Dataset.p', 'br'))
+def load_nodule_raw_dataset(size=128, res=1.0):
+    testData, validData, trainData = pickle.load(open('Dataset{:.0f}-{:.1f}.p'.format(size, res), 'br'))
     return testData, validData, trainData
 
 
@@ -151,7 +178,7 @@ def load_nodule_raw_dataset():
 #   Prepare Data
 # =========================
 
-def prepare_data(data, classes=0, size=0, categorize=True, return_meta=False, reshuffle=False, verbose = 0):
+def prepare_data(data, classes=0, new_size=None, do_augment=False, categorize=True, return_meta=False, reshuffle=False, verbose = 0):
     # Entry:
     # 0 'patch'
     # 1 'mask'
@@ -159,16 +186,30 @@ def prepare_data(data, classes=0, size=0, categorize=True, return_meta=False, re
     # 3 'info'
 
     N = len(data)
-    old_size =  data[0][0].shape
-    images = np.array([resize(entry[0], (size, size), preserve_range=True) for entry in data]).reshape(N,size,size,1)
-    labels = np.array([entry[2] for entry in data]).reshape(N,1)
+    old_size = data[0][0].shape
+    if new_size is not None:
+        images = np.array([imresize(entry[0], size=(new_size, new_size), interp='nearest')
+                           for entry in data]).reshape(N, new_size, new_size, 1)
+        masks = np.array([imresize(entry[1], size=(new_size, new_size), interp='nearest').astype('uint16')
+                          for entry in data]).reshape(N, new_size, new_size, 1)
+        if verbose: print("Image size changed from {} to {}".format(old_size, images[0].shape))
+    else:
+        images = np.array([entry[0] for entry in data]).reshape(N, old_size, old_size, 1)
+        masks  = np.array([entry[1] for entry in data]).reshape(N, old_size, old_size, 1)
+    labels = np.array([entry[2] for entry in data]).reshape(N, 1)
 
-    if verbose: print("Image size changed from {} to {}".format(old_size, images[0].shape))
+    if do_augment:
+        aug_images = []
+        for im, mask in zip(images, masks):
+            im, mask = augment(im, mask, min_size=128, max_angle=20, flip_ratio=0.1, crop_ratio=0.2)
+            aug_images.append(im)
+        images = np.array(aug_images)
 
     if reshuffle:
         new_order = np.random.permutation(N)
         images = images[new_order]
         labels = labels[new_order]
+        masks  = masks[new_order]
 
     if categorize:
         labels = to_categorical(labels, classes)
@@ -177,231 +218,123 @@ def prepare_data(data, classes=0, size=0, categorize=True, return_meta=False, re
         meta = [entry[3] for entry in data]
         if reshuffle:
             meta = meta[new_order]
-        return images, labels, meta
+        return images, labels, masks, meta
     else:
-        return images, labels
+        return images, labels, masks
 
 
-def prepare_data_siamese(data, size, return_meta=False, verbose = 0):
+def select_different_pair(class_A, class_B, n):
+    different = [(a, b) for a, b in zip(
+        np.concatenate( [[a, a] for a in class_A[:n]] )[:-1],
+        np.concatenate( [[b, b] for b in class_B[:n]] )[1:])
+                 ] + [(class_A[:n][-1], class_B[0])]
+    assert(2*n == len(different))
+    return different, len(different)
+
+
+def select_same_pairs(class_A, class_B):
+    same = [(a1, a2) for a1, a2 in zip(class_A[:-1], class_A[1:])] + [(class_A[-1], class_A[0])]
+    sa_size = len(same)
+    same += [(b1, b2) for b1, b2 in zip(class_B[:-1], class_B[1:])] + [(class_B[-1], class_B[0])]
+    sb_size = len(same) - sa_size
+    assert(len(same) == (len(class_A)+len(class_B)))
+    return same, sa_size, sb_size
+
+
+def prepare_data_siamese(data, size, return_meta=False, verbose= 0):
     if return_meta:
-        images, labels, meta = prepare_data(data, size=size, categorize=False, return_meta=True, reshuffle=True, verbose=verbose)
+        images, labels, masks, meta = \
+            prepare_data(data, new_size=size, categorize=False, return_meta=True, reshuffle=True, verbose=verbose)
         if verbose: print('Loaded Meta-Data')
     else:
-        images, labels = prepare_data(data, size=size, categorize=False, return_meta=False, reshuffle=True, verbose=verbose)
-    if verbose: print("benign:{}, malignant: {}".format(    np.count_nonzero(labels==0),
-                                                np.count_nonzero(labels==1)))
+        images, labels, masks = \
+            prepare_data(data, new_size=size, categorize=False, return_meta=False, reshuffle=True, verbose=verbose)
+    if verbose: print("benign:{}, malignant: {}".format(np.count_nonzero(labels == 0),
+                                                        np.count_nonzero(labels == 1)))
 
     N = images.shape[0]
+    benign_filter = np.where(labels == 0)[0]
+    malign_filter = np.where(labels == 1)[0]
+    M = min(benign_filter.shape[0], malign_filter.shape[0])
 
-    imgs_benign = np.split(images[np.where(labels == 0)[0]], [np.floor(N / 4).astype('uint')])
-    imgs_malign = np.split(images[np.where(labels == 1)[0]], [np.floor(N / 4).astype('uint')])
+    #   Handle Patches
+    # =========================
 
-    #lbls_benign = np.split(labels[np.where(labels == 0)[0]], [np.floor(N / 4).astype('uint')])
-    #lbls_malign = np.split(labels[np.where(labels == 1)[0]], [np.floor(N / 4).astype('uint')])
+    imgs_benign, imgs_malign = images[benign_filter], images[malign_filter]
+    different, d_size = select_different_pair(imgs_benign, imgs_malign, n=M)
+    same, sb_size, sm_size = select_same_pairs(imgs_benign, imgs_malign)
 
-    if return_meta:
-        meta_benign = np.split(meta[np.where(labels == 0)[0]], [np.floor(N / 4).astype('uint')])
-        meta_malign = np.split(meta[np.where(labels == 1)[0]], [np.floor(N / 4).astype('uint')])
-
-    different = [(b,m) for b,m in zip(imgs_benign[0], imgs_malign[0])]
-    #different_lbls = [(0, 1)] * len(different)
-
-
-    bN = np.floor(imgs_benign[1].shape[0] / 2).astype('uint')
-    mN = np.floor(imgs_malign[1].shape[0] / 2).astype('uint')
-    same = [(first, last) for first, last in zip(imgs_benign[1][:bN], imgs_benign[1][bN:bN+bN])]
-    #same_lbls = [(0, 0)] * len(same)
-    same = same + [(first, last) for first, last in zip(imgs_malign[1][:mN], imgs_malign[1][mN:mN+mN])]
-    #same_lbls = same_lbls + [(1, 1)] * (len(same)-len(same_lbls))
-
-    image_pairs       = same + different
-    #label_pairs       = same_lbls + different_lbls
+    image_pairs = same + different
+    image_sub1 = np.array([pair[0] for pair in image_pairs])
+    image_sub2 = np.array([pair[1] for pair in image_pairs])
 
     similarity_labels = np.concatenate([np.repeat(0, len(same)),
                                         np.repeat(1, len(different))])
 
+    #   Handle Masks
+    # =========================
 
-    image_sub1 = np.array([pair[0] for pair in image_pairs])
-    image_sub2 = np.array([pair[1] for pair in image_pairs])
+    mask_benign, mask_malign = masks[benign_filter], masks[malign_filter]
+    different_mask, d = select_different_pair(mask_benign, mask_malign, n=M)
+    same_mask, sb, sm = select_same_pairs(mask_benign, mask_malign)
+    assert(d == d_size)
+    assert ( (sb==sb_size) and (sm==sm_size) )
 
+    mask_pairs = same_mask + different_mask
+    mask_sub1 = np.array([pair[0] for pair in mask_pairs])
+    mask_sub2 = np.array([pair[1] for pair in mask_pairs])
+
+    #   Handle Meta
+    # =========================
     if return_meta:
-        different_meta = [(b, m) for b, m in zip(meta_benign[0], meta_malign[0])]
-        same_meta = [(first, last) for first, last in zip(meta_benign[1][:bN], meta_benign[1][bN:bN + bN])]
-        same_meta = same_meta + [(first, last) for first, last in zip(meta_malign[1][:mN], meta_malign[1][mN:mN + mN])]
-        meta_pairs = different_meta + same_meta
+        meta_benign, meta_malign = meta[benign_filter], meta[malign_filter]
+        different_meta, d = select_different_pair(meta_benign, meta_malign, n=M)
+        same_meta, sb, sm = select_same_pairs(meta_benign, meta_malign)
+        assert (d == d_size)
+        assert ((sb == sb_size) and (sm == sm_size))
 
+        meta_pairs = same_meta + different_meta
         meta_sub1 = np.array([pair[0] for pair in meta_pairs])
         meta_sub2 = np.array([pair[1] for pair in meta_pairs])
+
+    #   Final touch
+    # =========================
 
     size = similarity_labels.shape[0]
     assert size == image_sub1.shape[0]
     assert size == image_sub2.shape[0]
 
-    if verbose: print("{} pairs of same / {} pairs of different. {} total number of pairs".format(len(same), len(different),size))
-
-    new_order = np.random.permutation(size)
-
-    if return_meta:
-        return ((image_sub1[new_order], image_sub2[new_order]), similarity_labels[new_order], (meta_sub1[new_order], meta_sub2[new_order]))
-    else:
-        return ((image_sub1[new_order], image_sub2[new_order]), similarity_labels[new_order])
-
-
-def prepare_data_siamese_overlap(data, size, return_meta=False, verbose = 0):
-    if return_meta:
-        images, labels, meta = prepare_data(data, size=size, categorize=False, return_meta=True, reshuffle=True, verbose=verbose)
-        if verbose: print('Loaded Meta-Data')
-    else:
-        images, labels = prepare_data(data, size=size, categorize=False, return_meta=False, reshuffle=True, verbose=verbose)
-    if verbose: print("benign:{}, malignant: {}".format(    np.count_nonzero(labels==0),
-                                                np.count_nonzero(labels==1)))
-
-    N = images.shape[0]
-    #imgs_benign = np.split(images[np.where(labels == 0)[0]], [np.floor(N / 4).astype('uint')])
-    imgs_benign = images[np.where(labels == 0)[0]]
-    #imgs_malign = np.split(images[np.where(labels == 1)[0]], [np.floor(N / 4).astype('uint')])
-    imgs_malign = images[np.where(labels == 1)[0]]
-    M = min(imgs_benign.shape[0], imgs_malign.shape[0])
-
-    #lbls_benign = np.split(labels[np.where(labels == 0)[0]], [np.floor(N / 4).astype('uint')])
-    #lbls_malign = np.split(labels[np.where(labels == 1)[0]], [np.floor(N / 4).astype('uint')])
-
-    if return_meta:
-        meta_benign = meta[np.where(labels == 0)[0]]
-        meta_malign = meta[np.where(labels == 1)[0]]
-
-    different = [(b,m) for b,m in zip(imgs_benign[:M], imgs_malign[:M])]
-    #different_lbls = [(0, 1)] * len(different)
-    if verbose: print("{} pairs of different".format(len(different)))
-
-    bN = np.floor(imgs_benign.shape[0] / 2).astype('uint')
-    mN = np.floor(imgs_malign.shape[0] / 2).astype('uint')
-    same = [(first, last) for first, last in zip(imgs_benign[:bN], imgs_benign[bN:bN+bN])]
-    #same_lbls = [(0, 0)] * len(same)
-    same = same + [(first, last) for first, last in zip(imgs_malign[:mN], imgs_malign[mN:mN+mN])]
-    #same_lbls = same_lbls + [(1, 1)] * (len(same)-len(same_lbls))
-    if verbose: print("{} pairs of same".format(len(same)))
-
-    image_pairs       = same + different
-    #label_pairs       = same_lbls + different_lbls
-
-    similarity_labels = np.concatenate([np.repeat(0, len(same)),
-                                        np.repeat(1, len(different))])
-
-
-    image_sub1 = np.array([pair[0] for pair in image_pairs])
-    image_sub2 = np.array([pair[1] for pair in image_pairs])
-
-    if return_meta:
-        different_meta = [(b, m) for b, m in zip(meta_benign[:M], meta_malign[:M])]
-        same_meta = [(first, last) for first, last in zip(meta_benign[:bN], meta_benign[bN:bN + bN])]
-        same_meta = same_meta + [(first, last) for first, last in zip(meta_malign[:mN], meta_malign[mN:mN + mN])]
-        meta_pairs = different_meta + same_meta
-
-        meta_sub1 = np.array([pair[0] for pair in meta_pairs])
-        meta_sub2 = np.array([pair[1] for pair in meta_pairs])
-
-    size = similarity_labels.shape[0]
-    assert size == image_sub1.shape[0]
-    assert size == image_sub2.shape[0]
-
-    if verbose: print("{} number of pairs".format(size))
-    new_order = np.random.permutation(size)
-
-    if return_meta:
-        return ((image_sub1[new_order], image_sub2[new_order]), similarity_labels[new_order], (meta_sub1[new_order], meta_sub2[new_order]))
-    else:
-        return ((image_sub1[new_order], image_sub2[new_order]), similarity_labels[new_order])
-
-
-def prepare_data_siamese_chained(data, size, return_meta=False, verbose = 0, weighted_samples = False):
-    if return_meta:
-        images, labels, meta = prepare_data(data, size=size, categorize=False, return_meta=True, reshuffle=True, verbose=verbose)
-        if verbose: print('Loaded Meta-Data')
-    else:
-        images, labels = prepare_data(data, size=size, categorize=False, return_meta=False, reshuffle=True, verbose=verbose)
-    if verbose: print("benign:{}, malignant: {}".format(    np.count_nonzero(labels==0),
-                                                np.count_nonzero(labels==1)))
-
-    N = images.shape[0]
-    imgs_benign = images[np.where(labels == 0)[0]]
-    imgs_malign = images[np.where(labels == 1)[0]]
-    M = min(imgs_benign.shape[0], imgs_malign.shape[0])
-
-    if return_meta:
-        meta_benign = meta[np.where(labels == 0)[0]]
-        meta_malign = meta[np.where(labels == 1)[0]]
-
-    different = [(b,m) for b,m in zip(
-                        np.concatenate([[b, m] for b, m in zip(imgs_benign[:M], imgs_benign[:M])])[:-1],
-                        np.concatenate([[b, m] for b, m in zip(imgs_malign[:M], imgs_malign[:M])])[1:])
-                 ] + [(imgs_benign[:M][-1], imgs_malign[0])]
-    d_size = len(different)
-
-    same =        [(first, last) for first, last in
-                        zip(imgs_benign[:-1], imgs_benign[1:])] + [(imgs_benign[0], imgs_benign[-1])]
-    sb_size = len(same)
-
-    same = same + [(first, last) for first, last in
-                        zip(imgs_malign[:-1], imgs_malign[1:])] + [(imgs_malign[0], imgs_malign[-1])]
-    sm_size = len(same) - sb_size
-
-    image_pairs       = same + different
-    similarity_labels = np.concatenate([np.repeat(0, len(same)),
-                                        np.repeat(1, len(different))])
-
-    image_sub1 = np.array([pair[0] for pair in image_pairs])
-    image_sub2 = np.array([pair[1] for pair in image_pairs])
-
-    if return_meta:
-        different_meta = [(b,m) for b,m in zip(
-                        np.concatenate([[b, m] for b, m in zip(meta_benign[:M], meta_benign[:M])])[:-1],
-                        np.concatenate([[b, m] for b, m in zip(meta_malign[:M], meta_malign[:M])])[1:])
-                 ] + [(meta_benign[:M][-1], meta_malign[0])]
-
-        same_meta = [(first, last) for first, last in zip(meta_benign[:-1], meta_benign[1:])] + [(meta_benign[0], meta_benign[-1])]
-        same_meta = same_meta + [(first, last) for first, last in zip(meta_malign[:-1], meta_malign[1:])] + [(meta_malign[0], meta_malign[-1])]
-        meta_pairs = different_meta + same_meta
-
-        meta_sub1 = np.array([pair[0] for pair in meta_pairs])
-        meta_sub2 = np.array([pair[1] for pair in meta_pairs])
-
-    size = similarity_labels.shape[0]
-    assert size == image_sub1.shape[0]
-    assert size == image_sub2.shape[0]
-
-    if weighted_samples:
-        sb_w = 1.0 #np.round(size / (4 * sb_size), 1)
-        sm_w = 2.0 #np.round(size / (4 * sm_size), 1)
-        d_w  = 10.0 #np.round(size / (2 * d_size),  1)
-        confidence = np.concatenate([  np.repeat(sb_w, sb_size),
-                                       np.repeat(sm_w, sm_size),
-                                       np.repeat(d_w,  d_size)
-                                    ])
-        if verbose: print('Class Weights: Benign {:.2f}, Malig {:.2f}, Different {:.2f}'.format(sb_w, sm_w, d_w))
+    # assign confidence classes (weights are resolved online per batch)
+    confidence = np.concatenate([  np.repeat('SB', sb_size),
+                                   np.repeat('SM', sm_size),
+                                   np.repeat('D',  d_size)
+                                ])
 
     if verbose: print("{} pairs of same / {} pairs of different. {} total number of pairs".format(len(same), len(different), size))
 
     new_order = np.random.permutation(size)
 
-    if weighted_samples:
-        if return_meta:
-            return ((image_sub1[new_order], image_sub2[new_order]), similarity_labels[new_order], confidence[new_order], (meta_sub1[new_order], meta_sub2[new_order]))
-        else:
-            return ((image_sub1[new_order], image_sub2[new_order]), similarity_labels[new_order], confidence[new_order])
+    if return_meta:
+        return (    (image_sub1[new_order], image_sub2[new_order]),
+                    similarity_labels[new_order],
+                    (mask_sub1[new_order], mask_sub2[new_order]),
+                    confidence[new_order],
+                    (meta_sub1[new_order], meta_sub2[new_order])
+                )
     else:
-        if return_meta:
-            return ((image_sub1[new_order], image_sub2[new_order]), similarity_labels[new_order], None, (meta_sub1[new_order], meta_sub2[new_order]))
-        else:
-            return ((image_sub1[new_order], image_sub2[new_order]), similarity_labels[new_order], None)
-
+        return (    (image_sub1[new_order], image_sub2[new_order]),
+                    similarity_labels[new_order],
+                    (mask_sub1[new_order], mask_sub2[new_order]),
+                    confidence[new_order]
+                )
 
 if __name__ == "__main__":
 
-    generate_nodule_dataset(    filename='LIDC/NodulePatchesCliqueByMalignancy.p',
+    generate_nodule_dataset(    filename='LIDC/NodulePatches144-0.5ByMalignancy.p',
                                 test_ratio=0.2,
                                 validation_ratio=0.25,
-                                window=(-2000,4000),
-                                dump=False)
+                                window=(-1000, 400),
+                                uniform_normalize=True,
+                                dump=True)
 
     plt.show()

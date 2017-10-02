@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 import pickle
 plt.interactive(False)
 
+import gc
+gc.enable()
+
 def getNoduleSize(nodule):
     # take largest dimension over all annotations
     bb = 0
@@ -11,9 +14,11 @@ def getNoduleSize(nodule):
         bb = max(bb, max(ann.bbox_dimensions()))
     return bb
 
+
 def getLargestSliceInBB(nodule):
     sliceArea = np.sum(nodule.get_boolean_mask().astype('float32'), axis=(0, 1))
     return (np.max(sliceArea), np.argmax(sliceArea))
+
 
 def interpolateZfromBBidx(nodule, zIdx):
     if nodule.get_boolean_mask().shape[2] > 1:
@@ -24,16 +29,25 @@ def interpolateZfromBBidx(nodule, zIdx):
     z = nodule.bbox()[2][0] + ratio * (nodule.bbox()[2][1]-nodule.bbox()[2][0])
     return z
 
-def getSlice(dicom, z):
+
+def getSlice(dicom, z, rescale=False):
     img_zs = [float(img.ImagePositionPatient[-1]) for img in dicom]
     idx = np.argmin(np.abs(img_zs - z)) # index of closest slice to z
-    return dicom[idx].pixel_array
+
+    if rescale:
+        di_slice = rescale_di_to_hu(dicom[idx])
+    else:
+        di_slice = dicom[idx].pixel_array
+
+    return di_slice
+
 
 def get_full_size_mask(nodule, size):
     bb = nodule.bbox().astype('uint')
     mask = np.zeros(shape=size).astype('uint')
     mask[bb[1][0]:bb[1][1], bb[0][0]:bb[0][1]] = 1
     return mask
+
 
 def cropSlice(slice, center, size):
     cx, cy = max(center[0], size/2), max(center[1], size/2)
@@ -44,12 +58,29 @@ def cropSlice(slice, center, size):
 
     return slice[y0:y0+size, x0:x0+size]
 
+
+def rescale_di_to_hu(diEntry):
+    image = diEntry.pixel_array
+    intercept, slope = diEntry.RescaleIntercept, diEntry.RescaleSlope
+
+    return rescale_im_to_hu(image, intercept, slope)
+
+
+def rescale_im_to_hu(image, intercept, slope):
+    image[image == -2000] = -1024 - intercept
+    image = slope * image.astype(np.float64)
+    image = image.astype(np.int16) + np.int16(intercept)
+
+    return image
+
 # ----- Main -----
 # ----------------
 
-PATCH_SIZE = 128
-DUMP = True
-filename = 'NodulePatchesClique.p'
+PATCH_SIZE  = 144
+RES         = 'Legacy'
+DUMP        = True
+filename = 'NodulePatches{}-{}.p'.format(PATCH_SIZE, RES)
+
 
 dataset = []
 nodSize = []
@@ -73,31 +104,35 @@ for scan in pl.query(pl.Scan).all()[:]:
         for nod in nods:
             print("Nodule of patient {} with {} annotations.".format(scan.patient_id, len(nod)))
             largestSliceA = [getLargestSliceInBB(ann)[0] for ann in nod] # larget slice within annotated bb
-            largestSliceZ = [getLargestSliceInBB(ann)[1] for ann in nod] # index within the mask
             annID = np.argmax(largestSliceA) # which of the annotation has the largest slice
-            z   = interpolateZfromBBidx(nod[annID], largestSliceZ[annID])
+
+            largestSliceZ = [getLargestSliceInBB(ann)[1] for ann in nod]  # index within the mask
+            z   = interpolateZfromBBidx(nod[annID], largestSliceZ[annID]) # just for the entry data
             # possible mismatch betwean retrived z and largestSliceZ[annID] due to missing dicom files
             #
-            #cen = nod[annID].centroid()
-            #cen[2] = largestSliceZ(annID)
-            #vol0, seg0 = nod[annID].uniform_cubic_resample(side_length=PATCH_SIZE,ignore_pixel_spacing=True, verbose=0)
-            #largestSliceZ = np.argmax(np.sum(seg.astype('float32'), axis=(0, 1)))
-
-            slice = getSlice(dicom, z)
-            mask  = get_full_size_mask(nod[annID], slice.shape)
-            patch = cropSlice( slice, nod[annID].centroid(), PATCH_SIZE)
-            mask  = cropSlice( mask,  nod[annID].centroid(), PATCH_SIZE)
+            if RES is 'Legacy':
+                di_slice = getSlice(dicom, z, rescale=True)
+                mask  = get_full_size_mask(nod[annID], di_slice.shape)
+                patch = cropSlice(di_slice, nod[annID].centroid(), PATCH_SIZE)
+                mask = cropSlice(mask, nod[annID].centroid(), PATCH_SIZE)
+            else:
+                vol0, seg0 = nod[annID].uniform_cubic_resample(side_length=(PATCH_SIZE-1), resolution=RES, verbose=0)
+                #patch =
+                largestSliceZ = np.argmax(np.sum(seg0.astype('float32'), axis=(0, 1)))
+                mask = seg0[:, :, largestSliceZ]
 
             entry = {
-                'patch':    patch,
+                'patch':    patch.astype(np.int16),
                 'info':     (scan.patient_id, scan.study_instance_uid, scan.series_instance_uid, nod[annID]._nodule_id),
                 'nod_ids':  [n._nodule_id for n in nod],
                 'rating':   np.array([ann.feature_vals() for ann in nod]),
-                'mask':     mask,
+                'mask':     mask.astype(np.int16),
                 'z':        z,
                 'size':     getNoduleSize(nod)
             }
             dataset.append(entry)
+
+            #gc.collect()
     else:
         pat_without_nod += 1
 

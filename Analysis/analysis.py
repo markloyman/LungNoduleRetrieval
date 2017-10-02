@@ -51,49 +51,68 @@ def history_summarize(history, label=''):
     if hasattr(history, 'history'):
         history = history.history
 
-    print(history.keys())
+    keys = history.keys()
+    print(keys)
     # dict_keys(['loss', 'val_sensitivity', 'val_categorical_accuracy', 'val_loss', 'val_specificity', 'val_precision', 'lr', 'precision', 'categorical_accuracy', 'sensitivity', 'specificity'])
 
     plt.figure()
 
-    # summarize history for sensitivity
     plt.subplot(311)
-    if hasattr(history, 'sensitivity'):
-        plt.plot(history['sensitivity'])
-        plt.plot(history['val_sensitivity'])
-        plt.title(label+': sensitivity')
-        plt.ylabel('sensitivity')
-    elif hasattr(history, 'binary_accuracy'):
-        plt.plot(history['binary_accuracy'])
-        plt.plot(history['val_binary_accuracy'])
-        plt.title(label+': binary_accuracy')
-        plt.ylabel('binary_accuracy')
-    plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
+    # summarize history for sensitivity/recall
+    if 'sensitivity'    in keys:
+        measure = 'sensitivity'
+    elif 'recall'        in keys:
+        measure = 'recall'
+    elif 'binary_recall_inv' in keys:
+        measure = 'binary_recall_inv'
+    else:
+        measure = None
 
-    # summarize history for precision
+    if measure is not None:
+        plt.plot(history[measure])
+        plt.plot(history['val_{}'.format(measure)])
+        plt.title('{}: {}'.format(label, measure))
+        plt.ylabel(measure)
+        plt.xlabel('epoch')
+        plt.legend(['train', 'validation'], loc='upper left')
+        plt.grid(True)
+
     plt.subplot(312)
-    if  hasattr(history, 'binary_accuracy'):
-        plt.plot(history['precision'])
-        plt.plot(history['val_precision'])
-        plt.title(label+': precision')
-        plt.ylabel('precision')
-    elif  hasattr(history, 'loss'):
-        plt.plot(history['loss'])
-        plt.plot(history['val_loss'])
-        plt.title(label + ': loss')
-        plt.ylabel('loss')
-    plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
+    # summarize history for precision
+    if  'precision' in keys:
+        measure = 'precision'
+    elif 'binary_precision_inv' in keys:
+        measure = 'binary_precision_inv'
+    else:
+        measure = None
 
-    # summarize history for loss and lr
+    if measure is not None:
+        plt.plot(history[measure])
+        plt.plot(history['val_{}'.format(measure)])
+        plt.title('{}: {}'.format(label, measure))
+        plt.ylabel(measure)
+        plt.xlabel('epoch')
+        plt.legend(['train', 'validation'], loc='upper left')
+        plt.grid(True)
+
     plt.subplot(313)
-    if hasattr(history, 'lr'):
-        plt.plot(history['lr'])
-        plt.plot(history['loss'])
-        plt.title(label+': loss and lr')
-        plt.ylabel('loss n lr')
-    plt.xlabel('epoch')
-    plt.legend(['lr', 'loss'], loc='upper left')
+    # summarize history for loss and lr
+    if 'accuracy' in keys:
+        measure = 'accuracy'
+    elif 'binary_accuracy' in keys:
+        measure = 'binary_accuracy'
+    #if 'binary_assert' in keys:
+    #    measure = 'binary_assert'
+    elif  'loss' in keys:
+        measure = 'loss'
+    else:
+        measure = None
 
-    plt.show()
+    if measure is not None:
+        plt.plot(history[measure])
+        plt.plot(history['val_{}'.format(measure)])
+        plt.title('{}: {}'.format(label, measure))
+        plt.ylabel(measure)
+        plt.xlabel('epoch')
+        plt.legend(['train', 'validation'], loc='upper left')
+        plt.grid(True)

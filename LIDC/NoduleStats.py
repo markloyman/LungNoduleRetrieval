@@ -1,6 +1,7 @@
 import pylidc as pl
 import numpy as np
 import matplotlib.pyplot as plt
+import pickle
 from scipy import stats
 from LIDC.lidcUtils import getNoduleSize
 
@@ -30,7 +31,7 @@ def show_nodule_size_and_pixel_size():
     pixSpace = []
     for scan in pl.query(pl.Scan).all():
     # cycle 1018 scans
-        nods = scan.cluster_annotations()
+        nods = scan.cluster_annotations(metric='jaccard', tol=0.95, tol_limit=0.7)
         if len(nods) > 0:
             print("Scan of patient {}: {} nodules.".format(scan.patient_id,len(nods)))
             nodSize  = nodSize  + [getNoduleSize(nod) for nod in nods]

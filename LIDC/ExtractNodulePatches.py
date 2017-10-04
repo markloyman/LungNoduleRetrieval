@@ -76,8 +76,8 @@ def rescale_im_to_hu(image, intercept, slope):
 # ----- Main -----
 # ----------------
 
-PATCH_SIZE  = 144
-RES         = 'Legacy'
+PATCH_SIZE  = 128
+RES         = 0.5
 DUMP        = True
 filename = 'NodulePatches{}-{}.p'.format(PATCH_SIZE, RES)
 
@@ -117,9 +117,9 @@ for scan in pl.query(pl.Scan).all()[:]:
                 mask = cropSlice(mask, nod[annID].centroid(), PATCH_SIZE)
             else:
                 vol0, seg0 = nod[annID].uniform_cubic_resample(side_length=(PATCH_SIZE-1), resolution=RES, verbose=0)
-                #patch =
                 largestSliceZ = np.argmax(np.sum(seg0.astype('float32'), axis=(0, 1)))
-                mask = seg0[:, :, largestSliceZ]
+                patch = rescale_im_to_hu(vol0[:, :, largestSliceZ], dicom[0].RescaleIntercept, dicom[0].RescaleSlope)
+                mask  = seg0[:, :, largestSliceZ]
 
             entry = {
                 'patch':    patch.astype(np.int16),

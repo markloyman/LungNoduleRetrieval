@@ -87,7 +87,8 @@ def uniform_all(dataset, mean=0, window=None):
         new_dataset.append(entry)
     return new_dataset
 
-def generate_nodule_dataset(filename, test_ratio, validation_ratio, window=(-1000, 400), uniform_normalize=False, dump=True):
+
+def generate_nodule_dataset(filename, test_ratio, validation_ratio, window=(-1000, 400), uniform_normalize=False, dump=True, output_filename='Dataset.p'):
     #   size of test set        N*test_ratio
     #   size of validation set  N*(1-test_ratio)*validation_ratio
     #   size of training set    N*test_ratio
@@ -133,7 +134,7 @@ def generate_nodule_dataset(filename, test_ratio, validation_ratio, window=(-100
     getImageStatistics(testData,    verbose=True)
 
     if dump:
-        pickle.dump((testData, validData, trainData), open('Dataset144-0.5.p', 'bw'))
+        pickle.dump((testData, validData, trainData), open(output_filename, 'bw'))
         print('Dumped')
     else:
         print('No Dump')
@@ -147,14 +148,15 @@ def generate_nodule_dataset(filename, test_ratio, validation_ratio, window=(-100
 # =========================
 
 
-def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False):
+def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='Normal'):
 
     if res is 'Legacy':
-        filename = 'Dataset{:.0f}-{}.p'.format(size, res)
+        filename = 'Dataset{:.0f}-{}-{}.p'.format(size, res, sample)
     else:
-        filename = 'Dataset{:.0f}-{:.1f}.p'.format(size, res)
+        filename = 'Dataset{:.0f}-{:.1f}-{}.p'.format(size, res, sample)
 
     testData, validData, trainData = pickle.load(open(filename, 'br'))
+    print(filename)
 
     if apply_mask_to_patch:
         print('WRN: apply_mask_to_patch is for debug only')
@@ -330,11 +332,28 @@ def prepare_data_siamese(data, size, return_meta=False, verbose= 0):
 
 if __name__ == "__main__":
 
-    generate_nodule_dataset(    filename='LIDC/NodulePatches144-0.5ByMalignancy.p',
+    generate_nodule_dataset(    filename='LIDC/NodulePatches128-LegacyByMalignancy.p',
+                                output_filename='Dataset128-Legacy-Unifrom.p',
                                 test_ratio=0.2,
                                 validation_ratio=0.25,
                                 window=(-1000, 400),
                                 uniform_normalize=True,
                                 dump=True)
+
+    generate_nodule_dataset(filename='LIDC/NodulePatches144-LegacyByMalignancy.p',
+                            output_filename='Dataset144-Legacy-Normal.p',
+                            test_ratio=0.2,
+                            validation_ratio=0.25,
+                            window=(-1000, 400),
+                            uniform_normalize=False,
+                            dump=True)
+
+    generate_nodule_dataset(filename='LIDC/NodulePatches144-LegacyByMalignancy.p',
+                            output_filename='Dataset144-Legacy-Unifrom.p',
+                            test_ratio=0.2,
+                            validation_ratio=0.25,
+                            window=(-1000, 400),
+                            uniform_normalize=True,
+                            dump=True)
 
     plt.show()

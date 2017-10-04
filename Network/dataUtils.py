@@ -22,8 +22,16 @@ def get_class_weight(labels):
 def get_sample_weight(labels):
     if labels.ndim > 1:
         labels = uncategorize(labels)
-    cw = class_weight.compute_sample_weight('balanced', labels)
-    return cw
+    d  = np.count_nonzero([l == 'D'  for l in labels])
+    sm = np.count_nonzero([l == 'SM' for l in labels])
+    sb = np.count_nonzero([l == 'SB' for l in labels])
+    n =  d + sm + sb
+    label_weights = { 'D':  n / (2.0 * d),
+                      'SB': n / (4.0 * sb),
+                      'SM': n / (4.0 * sm)
+                    }
+    sample_weights = class_weight.compute_sample_weight(label_weights, labels)
+    return sample_weights
 
 
 def crop(image, mask, fix_size=None, min_size=0, ratio=1.0):

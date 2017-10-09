@@ -14,8 +14,13 @@ Armato III, Samuel G., McLennan, Geoffrey, Bidaut, Luc, McNitt-Gray, Michael F.,
 Matthew C. Hancock, Jerry F. Magnan. Lung nodule malignancy classification using only radiologist quantified image features as inputs to statistical learning algorithms: probing the Lung Image Database Consortium dataset with two statistical learning methods. SPIE Journal of Medical Imaging. Dec. 2016. http://dx.doi.org/10.1117/1.JMI.3.4.044504
 ```
 
-## Network
-- Based on [Xception](https://arxiv.org/abs/1610.02357)
+## Architecture (Siamese Architecture)
+- Core Network Based on [Xception](https://arxiv.org/abs/1610.02357)
 ```
 Chollet, François. "Xception: Deep Learning with Depthwise Separable Convolutions." arXiv preprint arXiv:1610.02357 (2016).
 ```
+Features:
+1. Contrastive Loss over L2 Metric Distance
+2. Custom DataGenerator: 
+   * Data Augmentation (Mask Aware)
+   * Sample Weight

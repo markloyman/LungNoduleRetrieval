@@ -20,7 +20,7 @@ Matthew C. Hancock, Jerry F. Magnan. Lung nodule malignancy classification using
 Chollet, François. "Xception: Deep Learning with Depthwise Separable Convolutions." arXiv preprint arXiv:1610.02357 (2016).
 ```
 Features:
-1. Contrastive Loss over L2 Metric Distance
-2. Custom DataGenerator: 
+- Contrastive Loss over L2 Metric Distance
+- Custom DataGenerator: 
    * Data Augmentation (Mask Aware)
    * Sample Weight

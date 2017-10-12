@@ -1,5 +1,5 @@
 import itertools
-
+import numpy as np
 import matplotlib.pyplot as plt
 # from skimage.transform import resize
 from sklearn.metrics import confusion_matrix
@@ -36,6 +36,7 @@ def MalignancyConfusionMatrix(pred, true):
     plt.ylabel('True')
     plt.xlabel('Predicted')
 
+
 def MalignancyBySize(pred, true, size):
     assert pred.shape[0] == true.shape[0]
 
@@ -46,6 +47,7 @@ def MalignancyBySize(pred, true, size):
     plt.scatter(size, true, c=(pred!=true).astype('uint'))
     plt.xlabel('Size [mm]')
     plt.ylabel('True Malignancy')
+
 
 def history_summarize(history, label=''):
     if hasattr(history, 'history'):
@@ -116,3 +118,38 @@ def history_summarize(history, label=''):
         plt.xlabel('epoch')
         plt.legend(['train', 'validation'], loc='upper left')
         plt.grid(True)
+
+
+def calc_embedding_statistics(embedding, data_dim=0):
+    max_ = np.max(embedding, axis=data_dim)
+    min_ = np.min(embedding, axis=data_dim)
+    mean_ = np.mean(embedding, axis=data_dim)
+    std_ = np.std(embedding, axis=data_dim)
+    absmean_ = np.mean(np.abs(embedding), axis=data_dim)
+
+    plt.figure()
+
+    plt.subplot(121)
+    plt.title('Range: [{:.1f},{:.1f}], Mean: {:.1f}'.format(np.min(max_), np.max(max_), np.mean(max_)))
+    plt.xlabel('Max')
+    plt.hist(max_)
+
+    plt.subplot(122)
+    plt.title('Range: [{:.1f},{:.1f}], Mean: {:.1f}'.format(np.min(min_), np.max(min_), np.mean(min_)))
+    plt.xlabel('Min')
+    plt.hist(min_)
+
+    plt.subplot(123)
+    plt.title('Range: [{:.1f},{:.1f}], Mean: {:.1f}'.format(np.min(mean_), np.max(mean_), np.mean(mean_)))
+    plt.xlabel('Mean')
+    plt.hist(mean_)
+
+    plt.subplot(124)
+    plt.title('Range: [{:.1f},{:.1f}], Mean: {:.1f}'.format(np.min(std_), np.max(std_), np.mean(std_)))
+    plt.xlabel('std')
+    plt.hist(std_)
+
+    plt.subplot(125)
+    plt.title('Range: [{:.1f},{:.1f}], Mean: {:.1f}'.format(np.min(absmean_), np.max(absmean_), np.mean(absmean_)))
+    plt.xlabel('AbsMean')
+    plt.hist(absmean_)

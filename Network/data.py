@@ -11,6 +11,7 @@ from Network.dataUtils import augment
 #   Generate Nodule Dataset
 # =========================
 
+
 def calc_split_size(N, test_ratio, validation_ratio):
     testN = np.floor(N * test_ratio).astype('uint')
     validN = np.floor((N - testN) * validation_ratio).astype('uint')
@@ -46,6 +47,7 @@ def getImageStatistics(data, window=None, verbose=False):
 
     if window is not None:
         images = np.clip(images, window[0], window[1])
+        #images = images[(images>=window[0])*(images<=window[1])]
 
     mean   = np.mean(images)
     std    = np.std(images)
@@ -156,7 +158,10 @@ def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='No
         filename = 'Dataset{:.0f}-{:.1f}-{}.p'.format(size, res, sample)
 
     testData, validData, trainData = pickle.load(open(filename, 'br'))
-    print(filename)
+    print('Loaded: {}'.format(filename))
+    print("\tImage Range = [{:.1f}, {:.1f}]".format(np.max(trainData[0]['patch']), np.min(trainData[0]['patch'])))
+    print("\tMasks Range = [{}, {}]".format(np.max(trainData[0]['mask']), np.min(trainData[0]['mask'])))
+    #print("\tLabels Range = [{}, {}]".format(np.max(trainData[0]['label']), np.min(trainData[0]['label'])))
 
     if apply_mask_to_patch:
         print('WRN: apply_mask_to_patch is for debug only')
@@ -171,14 +176,23 @@ def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='No
     return testData, validData, trainData
 
 
-def load_nodule_raw_dataset(size=128, res=1.0):
-    testData, validData, trainData = pickle.load(open('Dataset{:.0f}-{:.1f}.p'.format(size, res), 'br'))
+def load_nodule_raw_dataset(size=128, res=1.0, sample='Normal'):
+    if res is 'Legacy':
+        filename = 'Dataset{:.0f}-{}-{}.p'.format(size, res, sample)
+    else:
+        filename = 'Dataset{:.0f}-{:.1f}-{}.p'.format(size, res, sample)
+    testData, validData, trainData = pickle.load(open(filename, 'br'))
     return testData, validData, trainData
 
 
 # =========================
 #   Prepare Data
 # =========================
+
+
+def reorder(a_list, order):
+    return [a_list[order[i]] for i in range(len(order))]
+
 
 def prepare_data(data, classes=0, new_size=None, do_augment=False, categorize=True, return_meta=False, reshuffle=False, verbose = 0):
     # Entry:
@@ -190,22 +204,28 @@ def prepare_data(data, classes=0, new_size=None, do_augment=False, categorize=Tr
     N = len(data)
     old_size = data[0][0].shape
     if new_size is not None:
+        assert(False) # imresize changes values. should be replaced
         images = np.array([imresize(entry[0], size=(new_size, new_size), interp='nearest')
                            for entry in data]).reshape(N, new_size, new_size, 1)
         masks = np.array([imresize(entry[1], size=(new_size, new_size), interp='nearest').astype('uint16')
                           for entry in data]).reshape(N, new_size, new_size, 1)
-        if verbose: print("Image size changed from {} to {}".format(old_size, images[0].shape))
     else:
-        images = np.array([entry[0] for entry in data]).reshape(N, old_size, old_size, 1)
-        masks  = np.array([entry[1] for entry in data]).reshape(N, old_size, old_size, 1)
+        images = np.array([entry[0] for entry in data]).reshape(N, old_size[0], old_size[1], 1)
+        masks  = np.array([entry[1] for entry in data]).reshape(N, old_size[0], old_size[1], 1)
+    if verbose:
+        print('prepare_data:')
+        print("\tImage size changed from {} to {}".format(old_size, images[0].shape))
+        print("\tImage Range = [{:.1f}, {:.1f}]".format(np.max(images[0]), np.min(images[0])))
+        print("\tMasks Range = [{}, {}]".format(np.max(masks[0]), np.min(masks[0])))
     labels = np.array([entry[2] for entry in data]).reshape(N, 1)
 
     if do_augment:
-        aug_images = []
-        for im, mask in zip(images, masks):
-            im, mask = augment(im, mask, min_size=128, max_angle=20, flip_ratio=0.1, crop_ratio=0.2)
-            aug_images.append(im)
-        images = np.array(aug_images)
+        assert(False)
+        #aug_images = []
+        #for im, mask in zip(images, masks):
+        #    im, mask = augment(im, mask, min_size=128, max_angle=20, flip_ratio=0.1, crop_ratio=0.2)
+        #    aug_images.append(im)
+        #images = np.array(aug_images)
 
     if reshuffle:
         new_order = np.random.permutation(N)
@@ -219,7 +239,7 @@ def prepare_data(data, classes=0, new_size=None, do_augment=False, categorize=Tr
     if return_meta:
         meta = [entry[3] for entry in data]
         if reshuffle:
-            meta = meta[new_order]
+            meta = reorder(meta, new_order)
         return images, labels, masks, meta
     else:
         return images, labels, masks
@@ -244,13 +264,14 @@ def select_same_pairs(class_A, class_B):
 
 
 def prepare_data_siamese(data, size, return_meta=False, verbose= 0):
+    if verbose: print('prepare_data_siamese:')
     if return_meta:
         images, labels, masks, meta = \
-            prepare_data(data, new_size=size, categorize=False, return_meta=True, reshuffle=True, verbose=verbose)
+            prepare_data(data, categorize=False, return_meta=True, reshuffle=True, verbose=verbose)
         if verbose: print('Loaded Meta-Data')
     else:
         images, labels, masks = \
-            prepare_data(data, new_size=size, categorize=False, return_meta=False, reshuffle=True, verbose=verbose)
+            prepare_data(data, categorize=False, return_meta=False, reshuffle=True, verbose=verbose)
     if verbose: print("benign:{}, malignant: {}".format(np.count_nonzero(labels == 0),
                                                         np.count_nonzero(labels == 1)))
 
@@ -289,7 +310,7 @@ def prepare_data_siamese(data, size, return_meta=False, verbose= 0):
     #   Handle Meta
     # =========================
     if return_meta:
-        meta_benign, meta_malign = meta[benign_filter], meta[malign_filter]
+        meta_benign, meta_malign = reorder(meta, benign_filter), reorder(meta, malign_filter)
         different_meta, d = select_different_pair(meta_benign, meta_malign, n=M)
         same_meta, sb, sm = select_same_pairs(meta_benign, meta_malign)
         assert (d == d_size)
@@ -321,7 +342,7 @@ def prepare_data_siamese(data, size, return_meta=False, verbose= 0):
                     similarity_labels[new_order],
                     (mask_sub1[new_order], mask_sub2[new_order]),
                     confidence[new_order],
-                    (meta_sub1[new_order], meta_sub2[new_order])
+                    (reorder(meta_sub1, new_order), reorder(meta_sub2, new_order))
                 )
     else:
         return (    (image_sub1[new_order], image_sub2[new_order]),
@@ -332,8 +353,19 @@ def prepare_data_siamese(data, size, return_meta=False, verbose= 0):
 
 if __name__ == "__main__":
 
+    generate_nodule_dataset(filename='LIDC/NodulePatches144-LegacyByMalignancy.p',
+                            output_filename='Dataset144-Legacy-Normal.p',
+                            test_ratio=0.2,
+                            validation_ratio=0.25,
+                            window=(-1000, 400),
+                            uniform_normalize=False,
+                            dump=True)
+
+    plt.show()
+
+'''
     generate_nodule_dataset(    filename='LIDC/NodulePatches128-LegacyByMalignancy.p',
-                                output_filename='Dataset128-Legacy-Unifrom.p',
+                                output_filename='Dataset128-Legacy-Uniform.p',
                                 test_ratio=0.2,
                                 validation_ratio=0.25,
                                 window=(-1000, 400),
@@ -349,11 +381,10 @@ if __name__ == "__main__":
                             dump=True)
 
     generate_nodule_dataset(filename='LIDC/NodulePatches144-LegacyByMalignancy.p',
-                            output_filename='Dataset144-Legacy-Unifrom.p',
+                            output_filename='Dataset144-Legacy-Uniform.p',
                             test_ratio=0.2,
                             validation_ratio=0.25,
                             window=(-1000, 400),
                             uniform_normalize=True,
                             dump=True)
-
-    plt.show()
+'''

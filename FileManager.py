@@ -20,7 +20,7 @@ class Weights(object):
 
         name = None
         if (loss is None) or (val_loss is None):
-            while name is None:
+            while (name is None) and (epoch >= 0):
                 if isinstance(epoch, str):
                     match = self.weightsTemplate.format(run, epoch, '*', '*')
                     files = glob(match)

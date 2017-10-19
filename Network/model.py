@@ -27,10 +27,18 @@ from keras.layers import GlobalMaxPooling2D
 from keras.layers import Input
 from keras.layers import MaxPooling2D
 from keras.layers import SeparableConv2D
+from keras.layers import Lambda
 from keras.models import Model
 
 
-def miniXception_loader(input_tensor=None, input_shape=None, pooling=None, weights=None, output_size=1024, return_model=False):
+# TODO Embeding
+# - Create RMAC Layer:
+#   - Multi-Scale
+#   - No L2 after Max-Pooling
+#   - L2 after Average-Pooling
+# - Try different output_size (256, 512)
+
+def miniXception_loader(input_tensor=None, input_shape=None, pooling=None, normalize=False, weights=None, output_size=1024, return_model=False):
     """Instantiates the Xception architecture.
     Optionally loads weights pre-trained
     on ImageNet. This model is available for TensorFlow only,
@@ -188,7 +196,8 @@ def miniXception_loader(input_tensor=None, input_shape=None, pooling=None, weigh
     '''
 
     x = Activation('relu', name='block13_sepconv2_act')(x)
-    x = SeparableConv2D(output_size, (3, 3), padding='same', use_bias=False, name='block13_sepconv2')(x)
+    #x = SeparableConv2D(output_size, (3, 3), padding='same', use_bias=False, name='block13_sepconv2')(x)
+    x =  Conv2D(output_size, (1, 1), strides=(1, 1), use_bias=False, name='block13_conv')(x)
     x = BatchNormalization(name='block13_sepconv2_bn')(x)
 
     '''
@@ -211,7 +220,14 @@ def miniXception_loader(input_tensor=None, input_shape=None, pooling=None, weigh
         # we have x16 reduction, so 128*128 input was reduced to 8*8
         x = MaxPooling2D((3, 3), strides=(2, 2), padding='valid', name='embed_pool')(x)
         x = GlobalAveragePooling2D(name='embedding')(x)
+    elif pooling == 'msrmac':
+        s2 = MaxPooling2D((2, 2), strides=(1, 1), padding='valid')(x)
+        s4 = MaxPooling2D((4, 4), strides=(4, 4), padding='valid')(x)
+        x = GlobalAveragePooling2D(name='embedding')(x)
 
+    if normalize:
+        x = Lambda(lambda q: K.l2_normalize(q, axis=-1))(x)
+        #x = x
 
     '''
     x = Dense(classes, activation='softmax', name='predictions')(x)

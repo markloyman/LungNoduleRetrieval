@@ -115,3 +115,15 @@ def calc_rating(meta_data, nodule_ids = None, method='mean'):
         rating = None
 
     return np.array(rating)
+
+
+'''
+def getScanStats(info_list):
+    for info in info_list:
+        scan = pl.query(pl.Scan).filter(pl.Scan.patient_id == info[0],
+                                      pl.Scan.study_instance_uid == info[1],
+                                      pl.Scan.series_instance_uid == info[2]).first()
+
+        scan.pixel_spacing
+
+'''

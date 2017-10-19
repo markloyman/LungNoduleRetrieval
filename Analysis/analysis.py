@@ -49,6 +49,13 @@ def MalignancyBySize(pred, true, size):
     plt.ylabel('True Malignancy')
 
 
+def calc_f1(precision, recall):
+    assert (precision.shape == recall.shape)
+    f1 = 2 * precision * recall / (precision + recall)
+    assert(precision.shape == f1.shape)
+    return f1
+
+
 def history_summarize(history, label=''):
     if hasattr(history, 'history'):
         history = history.history
@@ -98,6 +105,7 @@ def history_summarize(history, label=''):
         plt.grid(True)
 
     plt.subplot(313)
+    '''
     # summarize history for loss and lr
     if 'accuracy' in keys:
         measure = 'accuracy'
@@ -118,38 +126,57 @@ def history_summarize(history, label=''):
         plt.xlabel('epoch')
         plt.legend(['train', 'validation'], loc='upper left')
         plt.grid(True)
+    '''
+    if 'precision' in keys and 'recall' in keys:
+        p = 'precision'
+        r = 'recall'
+        plt.plot(calc_f1(history[p], history[r]))
+        plt.plot(calc_f1(history['val_{}'.format(p)], history['val_{}'.format(r)]))
+        plt.title('{}: {}'.format(label, measure))
+        plt.ylabel(measure)
+        plt.xlabel('epoch')
+        plt.legend(['train', 'validation'], loc='upper left')
+        plt.grid(True)
 
 
-def calc_embedding_statistics(embedding, data_dim=0):
+def calc_embedding_statistics(embedding, data_dim=0, title=''):
     max_ = np.max(embedding, axis=data_dim)
     min_ = np.min(embedding, axis=data_dim)
     mean_ = np.mean(embedding, axis=data_dim)
     std_ = np.std(embedding, axis=data_dim)
     absmean_ = np.mean(np.abs(embedding), axis=data_dim)
+    range_ = max_ - min_
 
-    plt.figure()
+    print('Dim = {}'.format(max_.shape))
 
-    plt.subplot(121)
-    plt.title('Range: [{:.1f},{:.1f}], Mean: {:.1f}'.format(np.min(max_), np.max(max_), np.mean(max_)))
-    plt.xlabel('Max')
-    plt.hist(max_)
+    plt.figure(title)
 
-    plt.subplot(122)
-    plt.title('Range: [{:.1f},{:.1f}], Mean: {:.1f}'.format(np.min(min_), np.max(min_), np.mean(min_)))
-    plt.xlabel('Min')
-    plt.hist(min_)
+    plt.subplot(321)
+    plt.title('Range: [{:.3f},{:.1f}], Mean: {:.2f}'.format(np.min(min_), np.max(min_), np.mean(min_)))
+    plt.ylabel('Min')
+    plt.hist(min_, bins=10)
 
-    plt.subplot(123)
-    plt.title('Range: [{:.1f},{:.1f}], Mean: {:.1f}'.format(np.min(mean_), np.max(mean_), np.mean(mean_)))
-    plt.xlabel('Mean')
-    plt.hist(mean_)
+    plt.subplot(322)
+    plt.title('Range: [{:.3f},{:.1f}], Mean: {:.2f}'.format(np.min(max_), np.max(max_), np.mean(max_)))
+    plt.ylabel('Max')
+    plt.hist(max_, bins=10)
 
-    plt.subplot(124)
-    plt.title('Range: [{:.1f},{:.1f}], Mean: {:.1f}'.format(np.min(std_), np.max(std_), np.mean(std_)))
-    plt.xlabel('std')
-    plt.hist(std_)
+    plt.subplot(323)
+    plt.title('Range: [{:.3f},{:.1f}], Mean: {:.2f}'.format(np.min(mean_), np.max(mean_), np.mean(mean_)))
+    plt.ylabel('Mean')
+    plt.hist(mean_, bins=10)
 
-    plt.subplot(125)
+    plt.subplot(324)
+    plt.title('Range: [{:.3f},{:.1f}], Mean: {:.2f}'.format(np.min(std_), np.max(std_), np.mean(std_)))
+    plt.ylabel('std')
+    plt.hist(std_, bins=10)
+
+    plt.subplot(325)
     plt.title('Range: [{:.1f},{:.1f}], Mean: {:.1f}'.format(np.min(absmean_), np.max(absmean_), np.mean(absmean_)))
-    plt.xlabel('AbsMean')
-    plt.hist(absmean_)
+    plt.ylabel('AbsMean')
+    plt.hist(absmean_, bins=10)
+
+    plt.subplot(326)
+    plt.title('Range: [{:.1f},{:.1f}], Mean: {:.1f}'.format(np.min(range_), np.max(range_), np.mean(range_)))
+    plt.ylabel('Range')
+    plt.hist(range_, bins=10)

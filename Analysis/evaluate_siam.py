@@ -1,17 +1,9 @@
 import pickle
 from timeit import default_timer as timer
-
 import matplotlib.pyplot as plt
 import numpy as np
-
 import sys
 sys.path.insert(0, 'E:\LungNoduleRetrieval')
-
-from Network.data import load_nodule_dataset, load_nodule_raw_dataset, prepare_data_siamese
-from Network.model import miniXception_loader
-from Network.modelUtils import siamese_margin
-from Network.siameseArch import siamArch
-from Analysis.analysis import calc_embedding_statistics
 import FileManager
 
 
@@ -43,17 +35,13 @@ evaluate = True
 # 2     Training
 DataSubSet = 1
 
+run = '029'
+epoch = 29
+WeightsFile =  FileManager.Weights('siam').name(run, epoch=epoch)
 
-run = '020'
-#WeightsFile = 'Weights/w_siam00YY_19-5.60-12.42.h5'
-#WeightsFile = 'Weights/w_siam015_40-0.08-4.56.h5'
-WeightsFile = FileManager.Weights('siam').name('020', epoch=40)
-#WeightsFile = 'Weights/w_siam00Z_00-52.79-0.34.h5'
-#WeightsFile = 'Weights/w_siam00Z_14-0.25-0.32.h5'
-#WeightsFile = 'Weights/w_siam00Y_14-0.69-0.87.h5'
-#WeightsFile = 'w_siam000_25-0.46-4.77.h5'
-#WeightsFile = 'w_siam001_30-1.78-5.15.h5'
-#WeightsFile = 'w_siam001_40-0.49-4.73.h5'
+pred_file_format = 'embed\pred_siam{}_E{}_{}.p'
+def pred_filename(run, epoch, post):
+    return pred_file_format.format(run, epoch, post)
 
 ## ========================= ##
 ## ======= Load Data ======= ##
@@ -70,44 +58,43 @@ else:
 print("{} Set Analysis".format(post))
 print('='*15)
 
-#dataset = load_nodule_raw_dataset()[DataSubSet]
-#print("Raw Data Loaded: {} entries".format(len(dataset)))
-
-# prepare test data
-images_test, labels_test, masks_test, confidence, meta = \
-    prepare_data_siamese(load_nodule_dataset(size=size, res=res, sample=sample)[DataSubSet], size=size, return_meta=True, verbose=1)
-print("Data ready: images({}), labels({})".format(images_test[0].shape, labels_test.shape))
-print("Range = [{:.2f},{:.2f}]".format(np.min(images_test[0]), np.max(images_test[0])))
-
-
-raw_dataset = load_nodule_raw_dataset(size=size, res=res, sample=sample)[DataSubSet]
-
-## ========================= ##
-## ======= Evaluate  ======= ##
-## ========================= ##
-
-model = siamArch(miniXception_loader, input_shape, 2, distance='l2')
-if WeightsFile is not None:
-    model.load_weights(WeightsFile)
-    print('Load from: {}'.format(WeightsFile))
-else:
-    print('Model without weights')
-
 start = timer()
 try:
 
-    if load:
-        pred, Size = pickle.load(open('embed\pred_siam{}_{}.p'.format(run, post), 'br'))
+    try:
+        pred, labels_test, meta = pickle.load(open(pred_filename(run, epoch=epoch, post=post), 'br'))
         print("loaded saved dump of predications")
-    else:
-        #Size = [getAnnotation(entry['info']).estimate_diameter() for entry in dataset]
+    except:
+        from Network.data import load_nodule_dataset, load_nodule_raw_dataset, prepare_data_siamese
+        from Network.model import miniXception_loader
+        from Network.modelUtils import siamese_margin
+        from Network.siameseArch import siamArch
+
+        # prepare test data
+        images_test, labels_test, masks_test, confidence, meta = \
+            prepare_data_siamese(load_nodule_dataset(size=size, res=res, sample=sample)[DataSubSet], size=size,
+                                 return_meta=True, verbose=1)
+        print("Data ready: images({}), labels({})".format(images_test[0].shape, labels_test.shape))
+        print("Range = [{:.2f},{:.2f}]".format(np.min(images_test[0]), np.max(images_test[0])))
+
+        raw_dataset = load_nodule_raw_dataset(size=size, res=res, sample=sample)[DataSubSet]
+
+        ## ========================= ##
+        ## ======= Evaluate  ======= ##
+        ## ========================= ##
+
+        model = siamArch(miniXception_loader, input_shape, 2, distance='l2', output_size=128, normalize=True)
+        if WeightsFile is not None:
+            model.load_weights(WeightsFile)
+            print('Load from: {}'.format(WeightsFile))
+        else:
+            print('Model without weights')
+
         print("Begin Predicting...")
         pred = model.predict(images_test, round=False)
         print("Predication Ready")
 
-        pickle.dump((pred, None), open('embed\pred_siam{}_{}.p'.format(run, post), 'bw'))
-
-    calc_embedding_statistics(pred)
+        pickle.dump((pred, labels_test, meta), open(pred_filename(run, epoch=epoch, post=post), 'bw'))
 
     failed_same, failed_diff = [], []
     if evaluate:

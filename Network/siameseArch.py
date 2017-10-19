@@ -12,6 +12,14 @@ from keras.optimizers import Adam
 from Network.modelUtils import siamese_margin, binary_accuracy, binary_precision_inv, binary_recall_inv, binary_assert
 
 
+def huber(a, d):
+    return K.square(d)*(K.sqrt(1+K.square(a/d)) - 1.0)
+
+
+def huber_inv(a, d=1.0):
+    return K.sqrt(d)*(K.square(1+K.sqrt(a/d)) - 1.0)
+
+
 def euclidean_distance(vects):
     x, y = vects
     return K.sqrt(K.maximum(K.sum(K.square(x - y), axis=1, keepdims=True), K.epsilon()))
@@ -44,14 +52,15 @@ class printbatch(Callback):
 
 class siamArch:
 
-    def __init__(self, model_loader, input_shape, classes=2, output_size=1024, distance='l2'):
+    def __init__(self, model_loader, input_shape, classes=2, output_size=1024, distance='l2', normalize=False):
     #   input_shape of form: (size, size,1)
 
         img_input1  = Input(shape=input_shape)
         img_input2  = Input(shape=input_shape)
         self.input_shape = input_shape
 
-        self.base =  model_loader(input_tensor=None, input_shape=input_shape, pooling='rmac', output_size=output_size, return_model=True)
+        self.base =  model_loader(input_tensor=None, input_shape=input_shape, return_model=True,
+                                  pooling='rmac', output_size=output_size, normalize=normalize)
         base1 = self.base(img_input1)
         base2 = self.base(img_input2)
 
@@ -71,12 +80,12 @@ class siamArch:
         self.data_ready  = False
         self.model_ready = False
 
-    def compile(self, learning_rate = 0.001):
+    def compile(self, learning_rate = 0.001, decay=0.1):
         binary_accuracy.__name__      = 'accuracy'
         binary_precision_inv.__name__ = 'precision'
         binary_recall_inv.__name__    = 'recall'
 
-        self.model.compile( optimizer   = Adam(lr=learning_rate, decay=0.1), #, decay=0.01*learning_rate),
+        self.model.compile( optimizer   = Adam(lr=learning_rate, decay=decay), #, decay=0.01*learning_rate),
                             loss        = contrastive_loss,
                             metrics     = [binary_accuracy, binary_precision_inv, binary_recall_inv, binary_assert]) #['binary_accuracy', 'categorical_accuracy', sensitivity, specificity, precision] )
         # lr = self.lr * (1. / (1. + self.decay * self.iterations))
@@ -108,7 +117,7 @@ class siamArch:
         #on_plateau      = ReduceLROnPlateau(monitor='val_loss', factor=0.5, epsilon=0.02, patience=20, min_lr=1e-8, verbose=1)
         #early_stop      = EarlyStopping(monitor='loss', min_delta=0.01, patience=30)
         lr_decay        = LearningRateScheduler(self.scheduler)
-        board           = TensorBoard(log_dir='./logs', histogram_freq=1, write_graph=True, write_images=True, embeddings_freq=1)
+        board           = TensorBoard(log_dir='./logs', histogram_freq=0, write_graph=False)
 
         pb = printbatch()
 

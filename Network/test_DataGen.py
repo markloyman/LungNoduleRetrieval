@@ -4,11 +4,10 @@ import matplotlib.pyplot as plt
 from Network.DataGenSiam import DataGenerator
 
 
-gen = DataGenerator(im_size=128, batch_sz=64, method='chained', use_class_weight=True, debug=True)
+gen = DataGenerator(data_size=144, model_size=128, batch_sz=64, use_class_weight=True, do_augment=True, debug=True)
 
 
 imgs, lbl, cnf = gen.next_val().__next__()
-
 
 for i in [0, 10, 20]:
 

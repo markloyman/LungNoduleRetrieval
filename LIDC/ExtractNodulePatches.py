@@ -76,8 +76,8 @@ def rescale_im_to_hu(image, intercept, slope):
 # ----- Main -----
 # ----------------
 
-PATCH_SIZE  = 128
-RES         = 0.5
+PATCH_SIZE  = 144
+RES         = 'Legacy' #0.7
 DUMP        = True
 filename = 'NodulePatches{}-{}.p'.format(PATCH_SIZE, RES)
 

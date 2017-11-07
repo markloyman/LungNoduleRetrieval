@@ -150,33 +150,34 @@ def calc_embedding_statistics(embedding, data_dim=0, title=''):
     print('Dim = {}'.format(max_.shape))
 
     plt.figure(title)
+    bins_ = 20
 
     plt.subplot(321)
     plt.title('Range: [{:.3f},{:.1f}], Mean: {:.2f}'.format(np.min(min_), np.max(min_), np.mean(min_)))
     plt.ylabel('Min')
-    plt.hist(min_, bins=10)
+    plt.hist(min_, bins=bins_)
 
     plt.subplot(322)
     plt.title('Range: [{:.3f},{:.1f}], Mean: {:.2f}'.format(np.min(max_), np.max(max_), np.mean(max_)))
     plt.ylabel('Max')
-    plt.hist(max_, bins=10)
+    plt.hist(max_, bins=bins_)
 
     plt.subplot(323)
     plt.title('Range: [{:.3f},{:.1f}], Mean: {:.2f}'.format(np.min(mean_), np.max(mean_), np.mean(mean_)))
     plt.ylabel('Mean')
-    plt.hist(mean_, bins=10)
+    plt.hist(mean_, bins=bins_)
 
     plt.subplot(324)
     plt.title('Range: [{:.3f},{:.1f}], Mean: {:.2f}'.format(np.min(std_), np.max(std_), np.mean(std_)))
     plt.ylabel('std')
-    plt.hist(std_, bins=10)
+    plt.hist(std_, bins=bins_)
 
     plt.subplot(325)
     plt.title('Range: [{:.1f},{:.1f}], Mean: {:.1f}'.format(np.min(absmean_), np.max(absmean_), np.mean(absmean_)))
     plt.ylabel('AbsMean')
-    plt.hist(absmean_, bins=10)
+    plt.hist(absmean_, bins=bins_)
 
     plt.subplot(326)
     plt.title('Range: [{:.1f},{:.1f}], Mean: {:.1f}'.format(np.min(range_), np.max(range_), np.mean(range_)))
     plt.ylabel('Range')
-    plt.hist(range_, bins=10)
+    plt.hist(range_, bins=bins_)

@@ -73,24 +73,25 @@ def normalize_all(dataset, mean=0, std=1, window=None):
     return new_dataset
 
 
-def uniform(image, mean=0, window=None):
+def uniform(image, mean=0, window=None, centered=True):
     MIN_BOUND, MAX_BOUND = window
     image = (image - MIN_BOUND) / (MAX_BOUND - MIN_BOUND)
-    mean  = (mean - MIN_BOUND) / (MAX_BOUND - MIN_BOUND)
     image = np.clip(image, 0.0, 1.0)
-    image -= mean
+    if centered:
+        mean = (mean - MIN_BOUND) / (MAX_BOUND - MIN_BOUND)
+        image -= mean
     return image
 
 
-def uniform_all(dataset, mean=0, window=None):
+def uniform_all(dataset, mean=0, window=None, centered=True):
     new_dataset = []
     for entry in dataset:
-        entry['patch'] = uniform(entry['patch'], mean, window)
+        entry['patch'] = uniform(entry['patch'], mean, window, centered=centered)
         new_dataset.append(entry)
     return new_dataset
 
 
-def generate_nodule_dataset(filename, test_ratio, validation_ratio, window=(-1000, 400), uniform_normalize=False, dump=True, output_filename='Dataset.p'):
+def generate_nodule_dataset(filename, test_ratio, validation_ratio, window=(-1000, 400), normalize='Normal', dump=True, output_filename='Dataset.p'):
     #   size of test set        N*test_ratio
     #   size of validation set  N*(1-test_ratio)*validation_ratio
     #   size of training set    N*test_ratio
@@ -118,15 +119,15 @@ def generate_nodule_dataset(filename, test_ratio, validation_ratio, window=(-100
     mean, std = getImageStatistics(trainData, window=window, verbose=True)
     print('Training Statistics: Mean {:.2f} and STD {:.2f}'.format(mean, std))
 
-    if uniform_normalize:
-        #before_mean_center = trainData
-        #before_mean_center = uniform_all(before_mean_center, window=window)
-        #mean, std = getImageStatistics(before_mean_center, verbose=False)
-
-        trainData = uniform_all(trainData, mean,  window=window)
-        testData  = uniform_all(testData,  mean,  window=window)
-        validData = uniform_all(validData, mean,  window=window)
-    else:
+    if normalize is 'Uniform':
+        trainData = uniform_all(trainData, mean,  window=window, centered=True)
+        testData  = uniform_all(testData,  mean,  window=window, centered=True)
+        validData = uniform_all(validData, mean,  window=window, centered=True)
+    elif normalize is 'UniformNC':
+        trainData = uniform_all(trainData, mean, window=window, centered=False)
+        testData  = uniform_all(testData, mean, window=window, centered=False)
+        validData = uniform_all(validData, mean, window=window, centered=False)
+    elif normalize is 'Normal':
         trainData  = normalize_all(trainData, mean, std, window=window)
         testData   = normalize_all(testData,  mean, std, window=window)
         validData  = normalize_all(validData, mean, std, window=window)
@@ -232,6 +233,7 @@ def prepare_data(data, classes=0, new_size=None, do_augment=False, categorize=Tr
         images = images[new_order]
         labels = labels[new_order]
         masks  = masks[new_order]
+        #print('permutation: {}'.format(new_order[:20]))
 
     if categorize:
         labels = to_categorical(labels, classes)
@@ -352,25 +354,29 @@ def prepare_data_siamese(data, size, return_meta=False, verbose= 0):
                 )
 
 if __name__ == "__main__":
+    random.seed(1337)
+    np.random.seed(1337)  # for reproducibility
 
-    generate_nodule_dataset(filename='LIDC/NodulePatches144-LegacyByMalignancy.p',
-                            output_filename='Dataset144-Legacy-Normal.p',
+    generate_nodule_dataset(filename='LIDC/NodulePatches144-0.7ByMalignancy.p',
+                            output_filename='Dataset144-0.7-Normal.p',
                             test_ratio=0.2,
                             validation_ratio=0.25,
                             window=(-1000, 400),
-                            uniform_normalize=False,
+                            normalize='Normal',
                             dump=True)
 
+    '''
+    generate_nodule_dataset(filename='LIDC/NodulePatches144-0.7ByMalignancy.p',
+                            output_filename='Dataset144-0.7-Normal.p',
+                            test_ratio=0.2,
+                            validation_ratio=0.25,
+                            window=(-1000, 400),
+                            normalize='Normal',
+                            dump=True)
+    '''
     plt.show()
 
 '''
-    generate_nodule_dataset(    filename='LIDC/NodulePatches128-LegacyByMalignancy.p',
-                                output_filename='Dataset128-Legacy-Uniform.p',
-                                test_ratio=0.2,
-                                validation_ratio=0.25,
-                                window=(-1000, 400),
-                                uniform_normalize=True,
-                                dump=True)
 
     generate_nodule_dataset(filename='LIDC/NodulePatches144-LegacyByMalignancy.p',
                             output_filename='Dataset144-Legacy-Normal.p',

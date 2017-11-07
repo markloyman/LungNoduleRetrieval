@@ -2,6 +2,7 @@ import pickle
 from timeit import default_timer as timer
 
 import numpy as np
+#np.random.seed(1337) # for reproducibility
 from keras import backend as K
 from keras.callbacks import ModelCheckpoint, TensorBoard, LearningRateScheduler, Callback
 from keras.layers import Input
@@ -52,7 +53,7 @@ class printbatch(Callback):
 
 class siamArch:
 
-    def __init__(self, model_loader, input_shape, classes=2, output_size=1024, distance='l2', normalize=False):
+    def __init__(self, model_loader, input_shape, classes=2, pooling='rmac', output_size=1024, distance='l2', normalize=False):
     #   input_shape of form: (size, size,1)
 
         img_input1  = Input(shape=input_shape)
@@ -60,7 +61,7 @@ class siamArch:
         self.input_shape = input_shape
 
         self.base =  model_loader(input_tensor=None, input_shape=input_shape, return_model=True,
-                                  pooling='rmac', output_size=output_size, normalize=normalize)
+                                  pooling=pooling, output_size=output_size, normalize=normalize)
         base1 = self.base(img_input1)
         base2 = self.base(img_input2)
 
@@ -89,6 +90,8 @@ class siamArch:
                             loss        = contrastive_loss,
                             metrics     = [binary_accuracy, binary_precision_inv, binary_recall_inv, binary_assert]) #['binary_accuracy', 'categorical_accuracy', sensitivity, specificity, precision] )
         # lr = self.lr * (1. / (1. + self.decay * self.iterations))
+        self.lr         = learning_rate
+        self.lr_decay   = decay
         self.model_ready = True
 
     def load_data(self, images_train, labels_train, images_valid, labels_valid):
@@ -110,6 +113,9 @@ class siamArch:
         return K.get_value(self.model.optimizer.lr)
 
     def train(self, label='', epoch=0, n_epoch=100, gen = False):
+        if self.lr_decay>0:
+            print("LR Decay: {}".format([round(self.lr / (1. + self.lr_decay * n), 5) for n in range(n_epoch)]))
+
         checkpoint      = ModelCheckpoint('./Weights/w_' + label + '_{epoch:02d}-{loss:.2f}-{val_loss:.2f}.h5',
                                          monitor='loss', save_best_only=False)
         #checkpoint_val  = ModelCheckpoint('./Weights/w_'+label+'_{epoch:02d}-{loss:.2f}-{val_loss:.2f}.h5',
@@ -189,7 +195,6 @@ class siamArch:
             predication = np.round(predication).astype('uint')
 
         return predication
-
 
     def load_weights(self, w):
         self.model.load_weights(w)

@@ -36,9 +36,10 @@ from keras.models import Model
 #   - Multi-Scale
 #   - No L2 after Max-Pooling
 #   - L2 after Average-Pooling
-# - Try different output_size (256, 512)
 
-def miniXception_loader(input_tensor=None, input_shape=None, pooling=None, normalize=False, weights=None, output_size=1024, return_model=False):
+
+def miniXception_loader(input_tensor=None, input_shape=None, weights=None, output_size=1024, return_model=False,
+                        pooling=None, normalize=False, input_transition=False):
     """Instantiates the Xception architecture.
     Optionally loads weights pre-trained
     on ImageNet. This model is available for TensorFlow only,
@@ -119,11 +120,13 @@ def miniXception_loader(input_tensor=None, input_shape=None, pooling=None, norma
 
     x = Conv2D(32, (3, 3), strides=(2, 2), use_bias=False, name='block1_conv1')(img_input)
     x = BatchNormalization(name='block1_conv1_bn')(x)
-    x = Activation('relu', name='block1_conv1_act')(x)
+    if input_transition is False:
+        x = Activation('relu', name='block1_conv1_act')(x)
 
     x = Conv2D(64, (3, 3), use_bias=False, name='block1_conv2')(x)
     x = BatchNormalization(name='block1_conv2_bn')(x)
-    x = Activation('relu', name='block1_conv2_act')(x)
+    if input_transition is False:
+        x = Activation('relu', name='block1_conv2_act')(x)
     # added dropout
     x = Dropout(rate=0.3)(x)
 
@@ -197,6 +200,7 @@ def miniXception_loader(input_tensor=None, input_shape=None, pooling=None, norma
 
     x = Activation('relu', name='block13_sepconv2_act')(x)
     #x = SeparableConv2D(output_size, (3, 3), padding='same', use_bias=False, name='block13_sepconv2')(x)
+    # SeparableConv2D doesn't allow decreasing feature size(solved in newer versions of tensorflow
     x =  Conv2D(output_size, (1, 1), strides=(1, 1), use_bias=False, name='block13_conv')(x)
     x = BatchNormalization(name='block13_sepconv2_bn')(x)
 
@@ -219,6 +223,8 @@ def miniXception_loader(input_tensor=None, input_shape=None, pooling=None, norma
     elif pooling == 'rmac':
         # we have x16 reduction, so 128*128 input was reduced to 8*8
         x = MaxPooling2D((3, 3), strides=(2, 2), padding='valid', name='embed_pool')(x)
+        #if normalize:
+        #    x = Lambda(lambda q: K.l2_normalize(q, axis=-1))(x)
         x = GlobalAveragePooling2D(name='embedding')(x)
     elif pooling == 'msrmac':
         s2 = MaxPooling2D((2, 2), strides=(1, 1), padding='valid')(x)

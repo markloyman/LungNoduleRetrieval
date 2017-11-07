@@ -5,7 +5,7 @@ import numpy as np
 import sys
 sys.path.insert(0, 'E:\LungNoduleRetrieval')
 import FileManager
-
+from Network.dataUtils import crop_center
 
 def find_full_entry(query, raw):
     for entry in raw:
@@ -22,10 +22,14 @@ def find_full_entry(query, raw):
 ## ======= Setup ======= ##
 ## ===================== ##
 
-size        = 128
+size        = 144
 input_shape = (128,128,1)
 sample = 'Normal'
 res = 'Legacy'
+
+in_size = 128
+out_size = 128
+normalize = True
 
 load     = False
 evaluate = True
@@ -35,8 +39,8 @@ evaluate = True
 # 2     Training
 DataSubSet = 1
 
-run = '029'
-epoch = 29
+run = '051'
+epoch = 22
 WeightsFile =  FileManager.Weights('siam').name(run, epoch=epoch)
 
 pred_file_format = 'embed\pred_siam{}_E{}_{}.p'
@@ -77,13 +81,19 @@ try:
         print("Data ready: images({}), labels({})".format(images_test[0].shape, labels_test.shape))
         print("Range = [{:.2f},{:.2f}]".format(np.min(images_test[0]), np.max(images_test[0])))
 
+        images_test = (np.array([crop_center(im, msk, size=in_size)[0]
+                            for im, msk in zip(images_test[0], masks_test[0])]),
+                  np.array([crop_center(im, msk, size=in_size)[0]
+                            for im, msk in zip(images_test[1], masks_test[1])]))
+        print("Image size changed to {}".format(images_test[0].shape))
+        print('Mask not updated')
         raw_dataset = load_nodule_raw_dataset(size=size, res=res, sample=sample)[DataSubSet]
 
         ## ========================= ##
         ## ======= Evaluate  ======= ##
         ## ========================= ##
 
-        model = siamArch(miniXception_loader, input_shape, 2, distance='l2', output_size=128, normalize=True)
+        model = siamArch(miniXception_loader, input_shape, 2, distance='l2', output_size=out_size, normalize=normalize)
         if WeightsFile is not None:
             model.load_weights(WeightsFile)
             print('Load from: {}'.format(WeightsFile))

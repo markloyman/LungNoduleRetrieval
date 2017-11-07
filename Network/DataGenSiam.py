@@ -1,5 +1,5 @@
 import numpy as np
-#np.random.seed(1987)  # for reproducibility
+#np.random.seed(1337) # for reproducibility
 
 from Network.data import load_nodule_dataset, prepare_data_siamese
 from Network.dataUtils import augment, crop_center, get_sample_weight, get_class_weight
@@ -8,7 +8,8 @@ class DataGenerator(object):
     """docstring for DataGenerator"""
 
     def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_sz=32,
-                        do_augment=False, augment=None, use_class_weight=False, class_weight='dummy', debug=False):
+                        do_augment=False, augment=None, use_class_weight=False, class_weight='dummy', debug=False,
+                        val_factor = 1):
 
         dataset = load_nodule_dataset(size=data_size, res=res, sample=sample, apply_mask_to_patch=debug)
 
@@ -19,8 +20,9 @@ class DataGenerator(object):
         self.data_size  = data_size
         self.model_size = model_size
 
+        self.val_factor = val_factor
         self.trainN = 1689 // self.batch_sz
-        self.valN   = 559  // self.batch_sz
+        self.valN   = val_factor * (559 // self.batch_sz)
 
         self.use_class_weight = use_class_weight
         self.class_weight_method = class_weight
@@ -42,6 +44,7 @@ class DataGenerator(object):
     def next(self, set, is_training=False):
         verbose = 1
         while 1:
+            print('Run Gen: {}'.format(np.where(is_training, 'Training', 'Validation')))
             size = self.data_size if self.do_augment else self.model_size
             images, labels, masks, confidence = \
                 prepare_data_siamese(set, size=size, verbose=verbose)
@@ -49,16 +52,17 @@ class DataGenerator(object):
             #if verbose == 0:
             #    print("reload data ({})".format(images[0].shape[0]))
 
-            if self.do_augment:
-                if is_training:
-                    images = (self.augment_all(images[0], masks[0]), self.augment_all(images[1], masks[1]))
-                else:
-                    images = (np.array([crop_center(im, msk, size=self.model_size)[0]
-                                        for im, msk in zip(images[0], masks[0])]),
-                              np.array([crop_center(im, msk, size=self.model_size)[0]
-                                        for im, msk in zip(images[1], masks[1])]))
+            if self.do_augment and is_training:
+                #print('augmentation')
+                images = (self.augment_all(images[0], masks[0]), self.augment_all(images[1], masks[1]))
+            else:
+                images = (np.array([crop_center(im, msk, size=self.model_size)[0]
+                                    for im, msk in zip(images[0], masks[0])]),
+                          np.array([crop_center(im, msk, size=self.model_size)[0]
+                                    for im, msk in zip(images[1], masks[1])]))
 
-                print("images after augment: {}".format(images[0].shape))
+            if verbose:
+                print("images after augment/crop: {}".format(images[0].shape))
 
             if self.use_class_weight:
                 class_weight = get_class_weight(confidence, method=self.class_weight_method)
@@ -87,7 +91,7 @@ class DataGenerator(object):
             if is_training:
                 assert(len(images[0]) == self.trainN)
             else:
-                assert(len(images[0]) == self.valN)
+                assert( (self.val_factor*len(images[0])) == self.valN)
 
             for im0, im1, lbl, msk0, msk1, cnf in zip(images[0], images[1], labels, masks[0], masks[1], confidence):
                 if self.use_class_weight:

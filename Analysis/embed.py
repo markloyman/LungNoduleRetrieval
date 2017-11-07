@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 
 import sys
 sys.path.insert(0, 'E:\LungNoduleRetrieval')
+from Network.dataUtils import crop_center
 from Analysis.analysis import calc_embedding_statistics
 import FileManager
 
@@ -13,21 +14,24 @@ import FileManager
 ## ======= Setup ======= ##
 ## ===================== ##
 
-size        = 128
-input_shape = (size,size,1)
+size        = 144
 res = 'Legacy'
 sample = 'Normal'
+
+normalize = True
 
 # 0     Test
 # 1     Validation
 # 2     Training
-DataSubSet = 2
+DataSubSet = 1
 
 Weights = FileManager.Weights('siam')
 
-wRuns = ['027']
-outputs = [128]
-wEpchs= [0, 10, 30] #[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50]
+wRuns = ['050', '051']
+outputs = [128, 128]
+in_size = 128
+input_shape = (in_size, in_size, 1)
+wEpchs= [22] #[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50]
 
 ## ========================= ##
 ## ======= Load Data ======= ##
@@ -72,7 +76,12 @@ try:
                                  reshuffle=False,
                                  return_meta=True,
                                  verbose=1)
-                model = siamArch(miniXception_loader, input_shape, 2, distance='l2', output_size=out_size, normalize=True)
+                images = np.array([crop_center(im, msk, size=in_size)[0]
+                                         for im, msk in zip(images, masks)])
+                print("Image size changed to {}".format(images.shape))
+                print('Mask not updated')
+
+                model = siamArch(miniXception_loader, input_shape, 2, distance='l2', output_size=out_size, normalize=normalize)
                 embed_model = model.extract_core(weights=Weights(run=run, epoch=epoch))
                 pred = embed_model.predict(images)
                 pickle.dump((images, pred, meta, labels, masks),
@@ -84,6 +93,14 @@ try:
 
             print(pred.shape)
             calc_embedding_statistics(pred, title=filename)
+
+            plt.figure()
+            #plt.subplot(211)
+            plt.plot(np.transpose( np.squeeze(pred[np.argwhere(np.squeeze(labels==0)),
+                                   np.squeeze(np.argwhere(np.std(pred, axis=0) > 0.01))])), 'blue', alpha=0.3)
+            #plt.subplot(212)
+            plt.plot(np.transpose( np.squeeze(pred[np.argwhere(np.squeeze(labels == 1)),
+                                   np.squeeze(np.argwhere(np.std(pred, axis=0) > 0.01))])), 'red', alpha=0.2)
 
 finally:
     plt.show()

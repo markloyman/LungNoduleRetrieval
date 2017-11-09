@@ -4,7 +4,7 @@ from glob import glob
 class Weights(object):
 
     def __init__(self, pre):
-        self.weightsTemplate = 'Weights/w_{}{{}}_{{}}-{{}}-{{}}.h5'.format(pre)
+        self.weightsTemplate = 'output/Weights/w_{}{{}}_{{}}-{{}}-{{}}.h5'.format(pre)
 
     def read(self, run=None, epoch=None):
         match = self.weightsTemplate.format(run,epoch,'*','*')

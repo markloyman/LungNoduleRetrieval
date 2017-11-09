@@ -61,7 +61,7 @@ try:
 
     for run, out_size in zip(wRuns, outputs):
         for epoch in wEpchs:
-            filename = './embed/embed_siam{}-{}_{}.p'.format(run, epoch, post)
+            filename = './output/embed/embed_siam{}-{}_{}.p'.format(run, epoch, post)
             try:
                 images, pred, meta, labels, masks = pickle.load(open(filename, 'br'))
             except:

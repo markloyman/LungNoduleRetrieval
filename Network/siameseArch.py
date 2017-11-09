@@ -116,14 +116,14 @@ class siamArch:
         if self.lr_decay>0:
             print("LR Decay: {}".format([round(self.lr / (1. + self.lr_decay * n), 5) for n in range(n_epoch)]))
 
-        checkpoint      = ModelCheckpoint('./Weights/w_' + label + '_{epoch:02d}-{loss:.2f}-{val_loss:.2f}.h5',
+        checkpoint      = ModelCheckpoint('./output/Weights/w_' + label + '_{epoch:02d}-{loss:.2f}-{val_loss:.2f}.h5',
                                          monitor='loss', save_best_only=False)
         #checkpoint_val  = ModelCheckpoint('./Weights/w_'+label+'_{epoch:02d}-{loss:.2f}-{val_loss:.2f}.h5',
         #                                   monitor='val_loss', save_best_only=True)
         #on_plateau      = ReduceLROnPlateau(monitor='val_loss', factor=0.5, epsilon=0.02, patience=20, min_lr=1e-8, verbose=1)
         #early_stop      = EarlyStopping(monitor='loss', min_delta=0.01, patience=30)
         lr_decay        = LearningRateScheduler(self.scheduler)
-        board           = TensorBoard(log_dir='./logs', histogram_freq=0, write_graph=False)
+        board           = TensorBoard(log_dir='./output/logs', histogram_freq=0, write_graph=False)
 
         pb = printbatch()
 
@@ -165,7 +165,7 @@ class siamArch:
             total_time = (timer() - start) / 60 / 60
 
             #history_summarize(history, label)
-            pickle.dump(history.history, open('./history/history-{}.p'.format(label), 'bw'))
+            pickle.dump(history.history, open('./output/history/history-{}.p'.format(label), 'bw'))
 
         finally:
             if total_time is None:

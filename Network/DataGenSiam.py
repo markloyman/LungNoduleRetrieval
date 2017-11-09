@@ -9,7 +9,7 @@ class DataGenerator(object):
 
     def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_sz=32,
                         do_augment=False, augment=None, use_class_weight=False, class_weight='dummy', debug=False,
-                        val_factor = 1):
+                        val_factor = 1, balanced=False):
 
         dataset = load_nodule_dataset(size=data_size, res=res, sample=sample, apply_mask_to_patch=debug)
 
@@ -21,8 +21,14 @@ class DataGenerator(object):
         self.model_size = model_size
 
         self.val_factor = val_factor
-        self.trainN = 1689 // self.batch_sz
-        self.valN   = val_factor * (559 // self.batch_sz)
+        if balanced:
+            self.trainN = 1332 // self.batch_sz
+
+        else:
+            self.trainN = 1689 // self.batch_sz
+        self.valN = val_factor * (559 // self.batch_sz)
+
+        self.balanced = balanced
 
         self.use_class_weight = use_class_weight
         self.class_weight_method = class_weight
@@ -47,7 +53,7 @@ class DataGenerator(object):
             print('Run Gen: {}'.format(np.where(is_training, 'Training', 'Validation')))
             size = self.data_size if self.do_augment else self.model_size
             images, labels, masks, confidence = \
-                prepare_data_siamese(set, size=size, verbose=verbose)
+                prepare_data_siamese(set, size=size, balanced=(self.balanced and is_training), verbose=verbose)
 
             #if verbose == 0:
             #    print("reload data ({})".format(images[0].shape[0]))

@@ -3,7 +3,7 @@ from timeit import default_timer as timer
 
 import matplotlib.pyplot as plt
 import numpy as np
-from model import miniXception_loader
+from Network.model import miniXception_loader
 
 from Analysis.analysis import MalignancyConfusionMatrix, MalignancyBySize
 from LIDC.lidcUtils import getAnnotation

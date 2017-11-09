@@ -40,10 +40,10 @@ evaluate = True
 DataSubSet = 1
 
 run = '051'
-epoch = 22
+epoch = 30
 WeightsFile =  FileManager.Weights('siam').name(run, epoch=epoch)
 
-pred_file_format = 'embed\pred_siam{}_E{}_{}.p'
+pred_file_format = 'output\embed\pred_siam{}_E{}_{}.p'
 def pred_filename(run, epoch, post):
     return pred_file_format.format(run, epoch, post)
 
@@ -77,7 +77,7 @@ try:
         # prepare test data
         images_test, labels_test, masks_test, confidence, meta = \
             prepare_data_siamese(load_nodule_dataset(size=size, res=res, sample=sample)[DataSubSet], size=size,
-                                 return_meta=True, verbose=1)
+                                 return_meta=True, verbose=1, balanced=True)
         print("Data ready: images({}), labels({})".format(images_test[0].shape, labels_test.shape))
         print("Range = [{:.2f},{:.2f}]".format(np.min(images_test[0]), np.max(images_test[0])))
 

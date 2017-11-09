@@ -154,9 +154,9 @@ def generate_nodule_dataset(filename, test_ratio, validation_ratio, window=(-100
 def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='Normal'):
 
     if res is 'Legacy':
-        filename = 'Dataset{:.0f}-{}-{}.p'.format(size, res, sample)
+        filename = 'Dataset\Dataset{:.0f}-{}-{}.p'.format(size, res, sample)
     else:
-        filename = 'Dataset{:.0f}-{:.1f}-{}.p'.format(size, res, sample)
+        filename = 'Dataset\Dataset{:.0f}-{:.1f}-{}.p'.format(size, res, sample)
 
     testData, validData, trainData = pickle.load(open(filename, 'br'))
     print('Loaded: {}'.format(filename))
@@ -179,9 +179,9 @@ def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='No
 
 def load_nodule_raw_dataset(size=128, res=1.0, sample='Normal'):
     if res is 'Legacy':
-        filename = 'Dataset{:.0f}-{}-{}.p'.format(size, res, sample)
+        filename = 'Dataset\Dataset{:.0f}-{}-{}.p'.format(size, res, sample)
     else:
-        filename = 'Dataset{:.0f}-{:.1f}-{}.p'.format(size, res, sample)
+        filename = 'Dataset\Dataset{:.0f}-{:.1f}-{}.p'.format(size, res, sample)
     testData, validData, trainData = pickle.load(open(filename, 'br'))
     return testData, validData, trainData
 
@@ -265,7 +265,7 @@ def select_same_pairs(class_A, class_B):
     return same, sa_size, sb_size
 
 
-def prepare_data_siamese(data, size, return_meta=False, verbose= 0):
+def prepare_data_siamese(data, size, balanced=False, return_meta=False, verbose= 0):
     if verbose: print('prepare_data_siamese:')
     if return_meta:
         images, labels, masks, meta = \
@@ -280,7 +280,23 @@ def prepare_data_siamese(data, size, return_meta=False, verbose= 0):
     N = images.shape[0]
     benign_filter = np.where(labels == 0)[0]
     malign_filter = np.where(labels == 1)[0]
+
+    '''
+    if balanced:
+        delta = abs(benign_filter.shape[0] - malign_filter.shape[0])
+        if benign_filter.shape[0] > malign_filter.shape[0]:
+            malign_filter = np.concatenate([malign_filter, malign_filter[:delta]])
+        elif benign_filter.shape[0] < malign_filter.shape[0]:
+            benign_filter = np.concatenate([benign_filter, benign_filter[:delta]])
+        assert(len(malign_filter) == len(benign_filter))
+        print('{}=={}'.format(len(malign_filter),len(benign_filter)))
+    '''
+
     M = min(benign_filter.shape[0], malign_filter.shape[0])
+
+    if balanced:
+        malign_filter = malign_filter[:M]
+        benign_filter = benign_filter[:M]
 
     #   Handle Patches
     # =========================

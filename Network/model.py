@@ -127,13 +127,15 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
     x = BatchNormalization(name='block1_conv2_bn')(x)
     if input_transition is False:
         x = Activation('relu', name='block1_conv2_act')(x)
-    # added dropout
-    x = Dropout(rate=0.3)(x)
+    # old dropout
+    #x = Dropout(rate=0.3)(x)
 
     residual = Conv2D(128, (1, 1), strides=(2, 2),
                       padding='same', use_bias=False)(x)
     residual = BatchNormalization()(residual)
+    #residual = Dropout(rate=0.2)(residual)
 
+    #x = Dropout(rate=0.1)(x)
     x = SeparableConv2D(128, (3, 3), padding='same', use_bias=False, name='block2_sepconv1')(x)
     x = BatchNormalization(name='block2_sepconv1_bn')(x)
     x = Activation('relu', name='block2_sepconv2_act')(x)
@@ -146,7 +148,9 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
     residual = Conv2D(256, (1, 1), strides=(2, 2),
                       padding='same', use_bias=False)(x)
     residual = BatchNormalization()(residual)
+    #residual = Dropout(rate=0.2)(residual)
 
+    x = Dropout(rate=0.1)(x)
     x = Activation('relu', name='block3_sepconv1_act')(x)
     x = SeparableConv2D(256, (3, 3), padding='same', use_bias=False, name='block3_sepconv1')(x)
     x = BatchNormalization(name='block3_sepconv1_bn')(x)
@@ -160,10 +164,12 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
     residual = Conv2D(512, (1, 1), strides=(2, 2),
                       padding='same', use_bias=False)(x)
     residual = BatchNormalization()(residual)
+    #residual = Dropout(rate=0.1)(residual)
 
+    x = Dropout(rate=0.2)(x)
     x = Activation('relu', name='block4_sepconv1_act')(x)
-    # added dropout
-    x = Dropout(rate=0.5)(x)
+    # old dropout
+    #x = Dropout(rate=0.5)(x)
     x = SeparableConv2D(512, (3, 3), padding='same', use_bias=False, name='block4_sepconv1')(x)
     x = BatchNormalization(name='block4_sepconv1_bn')(x)
     x = Activation('relu', name='block4_sepconv2_act')(x)
@@ -175,17 +181,19 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
 
     for i in range(1):
         residual = x
+        #residual = Dropout(rate=0.1)(residual)
         prefix = 'block' + str(i + 5)
 
+        x = Dropout(rate=0.3)(x)
         x = Activation('relu', name=prefix + '_sepconv1_act')(x)
         x = SeparableConv2D(512, (3, 3), padding='same', use_bias=False, name=prefix + '_sepconv1')(x)
         x = BatchNormalization(name=prefix + '_sepconv1_bn')(x)
         x = Activation('relu', name=prefix + '_sepconv2_act')(x)
         x = SeparableConv2D(512, (3, 3), padding='same', use_bias=False, name=prefix + '_sepconv2')(x)
         x = BatchNormalization(name=prefix + '_sepconv2_bn')(x)
-        x = Activation('relu', name=prefix + '_sepconv3_act')(x)
-        x = SeparableConv2D(512, (3, 3), padding='same', use_bias=False, name=prefix + '_sepconv3')(x)
-        x = BatchNormalization(name=prefix + '_sepconv3_bn')(x)
+        #x = Activation('relu', name=prefix + '_sepconv3_act')(x)
+        #x = SeparableConv2D(512, (3, 3), padding='same', use_bias=False, name=prefix + '_sepconv3')(x)
+        #x = BatchNormalization(name=prefix + '_sepconv3_bn')(x)
 
         x = layers.add([x, residual])
     '''
@@ -223,17 +231,22 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
     elif pooling == 'rmac':
         # we have x16 reduction, so 128*128 input was reduced to 8*8
         x = MaxPooling2D((3, 3), strides=(2, 2), padding='valid', name='embed_pool')(x)
-        #if normalize:
-        #    x = Lambda(lambda q: K.l2_normalize(q, axis=-1))(x)
         x = GlobalAveragePooling2D(name='embedding')(x)
     elif pooling == 'msrmac':
+        s1 = GlobalAveragePooling2D(name='embeding')(x)
+        #s1 = Lambda(lambda q: K.l2_normalize(q, axis=-1))(s1)
         s2 = MaxPooling2D((2, 2), strides=(1, 1), padding='valid')(x)
-        s4 = MaxPooling2D((4, 4), strides=(4, 4), padding='valid')(x)
-        x = GlobalAveragePooling2D(name='embedding')(x)
+        s2 = GlobalAveragePooling2D(name='embedding')(s2)
+        #s2 = Lambda(lambda q: K.l2_normalize(q, axis=-1))(s2)
+        s4 = MaxPooling2D((4, 4), strides=(2, 2), padding='valid')(x)
+        s4 = GlobalAveragePooling2D(name='embedding')(s4)
+        #s4 = Lambda(lambda q: K.l2_normalize(q, axis=-1))(s4)
+        s8 = GlobalMaxPooling2D(name='embeding')(x)
+        #s8 = Lambda(lambda q: K.l2_normalize(q, axis=-1))(s8)
+        x = layers.add([s1, s2, s4, s8])
 
     if normalize:
         x = Lambda(lambda q: K.l2_normalize(q, axis=-1))(x)
-        #x = x
 
     '''
     x = Dense(classes, activation='softmax', name='predictions')(x)

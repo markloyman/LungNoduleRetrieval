@@ -135,7 +135,7 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
     residual = BatchNormalization()(residual)
     #residual = Dropout(rate=0.2)(residual)
 
-    #x = Dropout(rate=0.1)(x)
+    x = Dropout(rate=0.1)(x)
     x = SeparableConv2D(128, (3, 3), padding='same', use_bias=False, name='block2_sepconv1')(x)
     x = BatchNormalization(name='block2_sepconv1_bn')(x)
     x = Activation('relu', name='block2_sepconv2_act')(x)
@@ -166,7 +166,7 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
     residual = BatchNormalization()(residual)
     #residual = Dropout(rate=0.1)(residual)
 
-    x = Dropout(rate=0.2)(x)
+    x = Dropout(rate=0.1)(x)
     x = Activation('relu', name='block4_sepconv1_act')(x)
     # old dropout
     #x = Dropout(rate=0.5)(x)
@@ -184,7 +184,7 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
         #residual = Dropout(rate=0.1)(residual)
         prefix = 'block' + str(i + 5)
 
-        x = Dropout(rate=0.3)(x)
+        x = Dropout(rate=0.1)(x)
         x = Activation('relu', name=prefix + '_sepconv1_act')(x)
         x = SeparableConv2D(512, (3, 3), padding='same', use_bias=False, name=prefix + '_sepconv1')(x)
         x = BatchNormalization(name=prefix + '_sepconv1_bn')(x)

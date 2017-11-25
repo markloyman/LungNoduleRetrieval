@@ -26,6 +26,7 @@ from keras.layers import GlobalAveragePooling2D
 from keras.layers import GlobalMaxPooling2D
 from keras.layers import Input
 from keras.layers import MaxPooling2D
+from keras.layers import AveragePooling2D
 from keras.layers import SeparableConv2D
 from keras.layers import Lambda
 from keras.models import Model
@@ -120,20 +121,13 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
 
     x = Conv2D(32, (3, 3), strides=(2, 2), use_bias=False, name='block1_conv1')(img_input)
     x = BatchNormalization(name='block1_conv1_bn')(x)
-    if input_transition is False:
-        x = Activation('relu', name='block1_conv1_act')(x)
+    x = Activation('relu', name='block1_conv1_act')(x)
 
-    x = Conv2D(64, (3, 3), use_bias=False, name='block1_conv2')(x)
+    x = Conv2D(128, (3, 3), use_bias=False, name='block1_conv2')(x)
     x = BatchNormalization(name='block1_conv2_bn')(x)
-    if input_transition is False:
-        x = Activation('relu', name='block1_conv2_act')(x)
-    # old dropout
-    #x = Dropout(rate=0.3)(x)
+    x = Activation('relu', name='block1_conv2_act')(x)
 
-    residual = Conv2D(128, (1, 1), strides=(2, 2),
-                      padding='same', use_bias=False)(x)
-    residual = BatchNormalization()(residual)
-    #residual = Dropout(rate=0.2)(residual)
+    residual = AveragePooling2D((3, 3), strides=(2, 2), padding='same', name='res1_pool')(x)
 
     x = Dropout(rate=0.1)(x)
     x = SeparableConv2D(128, (3, 3), padding='same', use_bias=False, name='block2_sepconv1')(x)
@@ -145,10 +139,7 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
     x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='block2_pool')(x)
     x = layers.add([x, residual])
 
-    residual = Conv2D(256, (1, 1), strides=(2, 2),
-                      padding='same', use_bias=False)(x)
-    residual = BatchNormalization()(residual)
-    #residual = Dropout(rate=0.2)(residual)
+    residual = AveragePooling2D((3, 3), strides=(2, 2), padding='same', name='res1_pool')(x)
 
     x = Dropout(rate=0.1)(x)
     x = Activation('relu', name='block3_sepconv1_act')(x)
@@ -164,12 +155,9 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
     residual = Conv2D(512, (1, 1), strides=(2, 2),
                       padding='same', use_bias=False)(x)
     residual = BatchNormalization()(residual)
-    #residual = Dropout(rate=0.1)(residual)
 
     x = Dropout(rate=0.1)(x)
     x = Activation('relu', name='block4_sepconv1_act')(x)
-    # old dropout
-    #x = Dropout(rate=0.5)(x)
     x = SeparableConv2D(512, (3, 3), padding='same', use_bias=False, name='block4_sepconv1')(x)
     x = BatchNormalization(name='block4_sepconv1_bn')(x)
     x = Activation('relu', name='block4_sepconv2_act')(x)
@@ -181,9 +169,7 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
 
     for i in range(1):
         residual = x
-        #residual = Dropout(rate=0.1)(residual)
         prefix = 'block' + str(i + 5)
-
         x = Dropout(rate=0.1)(x)
         x = Activation('relu', name=prefix + '_sepconv1_act')(x)
         x = SeparableConv2D(512, (3, 3), padding='same', use_bias=False, name=prefix + '_sepconv1')(x)
@@ -200,11 +186,10 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
     residual = Conv2D(1024, (1, 1), strides=(2, 2),
                       padding='same', use_bias=False)(x)
     residual = BatchNormalization()(residual)
-
-    x = Activation('relu', name='block13_sepconv1_act')(x)
-    x = SeparableConv2D(728, (3, 3), padding='same', use_bias=False, name='block13_sepconv1')(x)
-    x = BatchNormalization(name='block13_sepconv1_bn')(x)
     '''
+    x = Activation('relu', name='block13_sepconv1_act')(x)
+    x = SeparableConv2D(512, (3, 3), padding='same', use_bias=False, name='block13_sepconv1')(x)
+    x = BatchNormalization(name='block13_sepconv1_bn')(x)
 
     x = Activation('relu', name='block13_sepconv2_act')(x)
     #x = SeparableConv2D(output_size, (3, 3), padding='same', use_bias=False, name='block13_sepconv2')(x)

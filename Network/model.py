@@ -123,59 +123,63 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
     x = BatchNormalization(name='block1_conv1_bn')(x)
     x = Activation('relu', name='block1_conv1_act')(x)
 
-    x = Conv2D(128, (3, 3), use_bias=False, name='block1_conv2')(x)
+    x = Conv2D(64, (3, 3), use_bias=False, name='block1_conv2')(x)
     x = BatchNormalization(name='block1_conv2_bn')(x)
+    s = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='')(x)
     x = Activation('relu', name='block1_conv2_act')(x)
 
     residual = AveragePooling2D((3, 3), strides=(2, 2), padding='same', name='res1_pool')(x)
 
     x = Dropout(rate=0.1)(x)
-    x = SeparableConv2D(128, (3, 3), padding='same', use_bias=False, name='block2_sepconv1')(x)
+    x = SeparableConv2D(64, (3, 3), padding='same', use_bias=False, name='block2_sepconv1')(x)
     x = BatchNormalization(name='block2_sepconv1_bn')(x)
     x = Activation('relu', name='block2_sepconv2_act')(x)
-    x = SeparableConv2D(128, (3, 3), padding='same', use_bias=False, name='block2_sepconv2')(x)
+    x = SeparableConv2D(64, (3, 3), padding='same', use_bias=False, name='block2_sepconv2')(x)
     x = BatchNormalization(name='block2_sepconv2_bn')(x)
 
     x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='block2_pool')(x)
     x = layers.add([x, residual])
+    x = layers.concatenate([x, s])
+    s = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='')(s)
 
-    residual = AveragePooling2D((3, 3), strides=(2, 2), padding='same', name='res1_pool')(x)
+    residual = AveragePooling2D((3, 3), strides=(2, 2), padding='same', name='res2_pool')(x)
 
     x = Dropout(rate=0.1)(x)
     x = Activation('relu', name='block3_sepconv1_act')(x)
-    x = SeparableConv2D(256, (3, 3), padding='same', use_bias=False, name='block3_sepconv1')(x)
+    x = SeparableConv2D(128, (3, 3), padding='same', use_bias=False, name='block3_sepconv1')(x)
     x = BatchNormalization(name='block3_sepconv1_bn')(x)
     x = Activation('relu', name='block3_sepconv2_act')(x)
-    x = SeparableConv2D(256, (3, 3), padding='same', use_bias=False, name='block3_sepconv2')(x)
+    x = SeparableConv2D(128, (3, 3), padding='same', use_bias=False, name='block3_sepconv2')(x)
     x = BatchNormalization(name='block3_sepconv2_bn')(x)
 
     x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='block3_pool')(x)
     x = layers.add([x, residual])
+    x = layers.concatenate([x, s])
+    s = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='')(s)
 
-    residual = Conv2D(512, (1, 1), strides=(2, 2),
-                      padding='same', use_bias=False)(x)
-    residual = BatchNormalization()(residual)
+    residual = AveragePooling2D((3, 3), strides=(2, 2), padding='same', name='res3_pool')(x)
 
     x = Dropout(rate=0.1)(x)
     x = Activation('relu', name='block4_sepconv1_act')(x)
-    x = SeparableConv2D(512, (3, 3), padding='same', use_bias=False, name='block4_sepconv1')(x)
+    x = SeparableConv2D(192, (3, 3), padding='same', use_bias=False, name='block4_sepconv1')(x)
     x = BatchNormalization(name='block4_sepconv1_bn')(x)
     x = Activation('relu', name='block4_sepconv2_act')(x)
-    x = SeparableConv2D(512, (3, 3), padding='same', use_bias=False, name='block4_sepconv2')(x)
+    x = SeparableConv2D(192, (3, 3), padding='same', use_bias=False, name='block4_sepconv2')(x)
     x = BatchNormalization(name='block4_sepconv2_bn')(x)
 
     x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='block4_pool')(x)
     x = layers.add([x, residual])
+    x = layers.concatenate([x, s])
 
-    for i in range(1):
+    for i in range(3):
         residual = x
         prefix = 'block' + str(i + 5)
         x = Dropout(rate=0.1)(x)
         x = Activation('relu', name=prefix + '_sepconv1_act')(x)
-        x = SeparableConv2D(512, (3, 3), padding='same', use_bias=False, name=prefix + '_sepconv1')(x)
+        x = SeparableConv2D(256, (3, 3), padding='same', use_bias=False, name=prefix + '_sepconv1')(x)
         x = BatchNormalization(name=prefix + '_sepconv1_bn')(x)
         x = Activation('relu', name=prefix + '_sepconv2_act')(x)
-        x = SeparableConv2D(512, (3, 3), padding='same', use_bias=False, name=prefix + '_sepconv2')(x)
+        x = SeparableConv2D(256, (3, 3), padding='same', use_bias=False, name=prefix + '_sepconv2')(x)
         x = BatchNormalization(name=prefix + '_sepconv2_bn')(x)
         #x = Activation('relu', name=prefix + '_sepconv3_act')(x)
         #x = SeparableConv2D(512, (3, 3), padding='same', use_bias=False, name=prefix + '_sepconv3')(x)
@@ -188,7 +192,7 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
     residual = BatchNormalization()(residual)
     '''
     x = Activation('relu', name='block13_sepconv1_act')(x)
-    x = SeparableConv2D(512, (3, 3), padding='same', use_bias=False, name='block13_sepconv1')(x)
+    x = SeparableConv2D(256, (3, 3), padding='same', use_bias=False, name='block13_sepconv1')(x)
     x = BatchNormalization(name='block13_sepconv1_bn')(x)
 
     x = Activation('relu', name='block13_sepconv2_act')(x)
@@ -231,7 +235,7 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
         x = layers.add([s1, s2, s4, s8])
 
     if normalize:
-        x = Lambda(lambda q: K.l2_normalize(q, axis=-1))(x)
+        x = Lambda(lambda q: K.l2_normalize(q, axis=-1), name='n_embedding')(x)
 
     '''
     x = Dense(classes, activation='softmax', name='predictions')(x)

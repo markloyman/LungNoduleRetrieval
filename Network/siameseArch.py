@@ -4,14 +4,18 @@ from timeit import default_timer as timer
 import numpy as np
 #np.random.seed(1337) # for reproducibility
 from keras import backend as K
-from keras.callbacks import ModelCheckpoint, TensorBoard, LearningRateScheduler, Callback
+from keras.callbacks import ModelCheckpoint, TensorBoard, LearningRateScheduler, Callback, ReduceLROnPlateau, EarlyStopping
 from keras.layers import Input
 from keras.layers import Lambda
 from keras.models import Model
 from keras.optimizers import Adam
 
-from Network.modelUtils import siamese_margin, binary_accuracy, binary_precision_inv, binary_recall_inv, binary_assert
-
+try:
+    from Network.modelUtils import siamese_margin, binary_accuracy, binary_precision_inv, binary_recall_inv, binary_f1_inv, binary_assert
+    output_dir = './output'
+except:
+    from modelUtils import siamese_margin, binary_accuracy, binary_precision_inv, binary_recall_inv, binary_f1_inv, binary_assert
+    output_dir = '/output'
 
 def huber(a, d):
     return K.square(d)*(K.sqrt(1+K.square(a/d)) - 1.0)
@@ -62,6 +66,7 @@ class siamArch:
 
         self.base =  model_loader(input_tensor=None, input_shape=input_shape, return_model=True,
                                   pooling=pooling, output_size=output_size, normalize=normalize)
+        self.base.summary()
         base1 = self.base(img_input1)
         base2 = self.base(img_input2)
 
@@ -85,10 +90,11 @@ class siamArch:
         binary_accuracy.__name__      = 'accuracy'
         binary_precision_inv.__name__ = 'precision'
         binary_recall_inv.__name__    = 'recall'
+        binary_f1_inv.__name__        = 'f1'
 
         self.model.compile( optimizer   = Adam(lr=learning_rate, decay=decay), #, decay=0.01*learning_rate),
                             loss        = contrastive_loss,
-                            metrics     = [binary_accuracy, binary_precision_inv, binary_recall_inv, binary_assert]) #['binary_accuracy', 'categorical_accuracy', sensitivity, specificity, precision] )
+                            metrics     = [binary_accuracy, binary_f1_inv, binary_precision_inv, binary_recall_inv]) #['binary_accuracy', 'categorical_accuracy', sensitivity, specificity, precision] )
         # lr = self.lr * (1. / (1. + self.decay * self.iterations))
         self.lr         = learning_rate
         self.lr_decay   = decay
@@ -116,14 +122,18 @@ class siamArch:
         if self.lr_decay>0:
             print("LR Decay: {}".format([round(self.lr / (1. + self.lr_decay * n), 5) for n in range(n_epoch)]))
 
-        checkpoint      = ModelCheckpoint('./output/Weights/w_' + label + '_{epoch:02d}-{loss:.2f}-{val_loss:.2f}.h5',
+        checkpoint      = ModelCheckpoint(output_dir+'/Weights/w_' + label + '_{epoch:02d}-{loss:.2f}-{val_loss:.2f}.h5',
                                          monitor='loss', save_best_only=False)
         #checkpoint_val  = ModelCheckpoint('./Weights/w_'+label+'_{epoch:02d}-{loss:.2f}-{val_loss:.2f}.h5',
         #                                   monitor='val_loss', save_best_only=True)
-        #on_plateau      = ReduceLROnPlateau(monitor='val_loss', factor=0.5, epsilon=0.02, patience=20, min_lr=1e-8, verbose=1)
-        #early_stop      = EarlyStopping(monitor='loss', min_delta=0.01, patience=30)
-        lr_decay        = LearningRateScheduler(self.scheduler)
-        board           = TensorBoard(log_dir='./output/logs', histogram_freq=0, write_graph=False)
+        #on_plateau      = ReduceLROnPlateau(monitor='val_loss', factor=0.5, epsilon=1e-2, patience=5, min_lr=1e-6, verbose=1)
+        #early_stop      = EarlyStopping(monitor='loss', min_delta=1e-3, patience=5)
+        #lr_decay        = LearningRateScheduler(self.scheduler)
+        if gen:
+            board = TensorBoard(log_dir=output_dir+'/logs', histogram_freq=0, write_graph=False)
+        else:
+            board = TensorBoard(log_dir=output_dir+'/logs', histogram_freq=1, write_graph=True,
+                                write_images=True, batch_size=64, write_grads=True)
 
         pb = printbatch()
 
@@ -140,7 +150,8 @@ class siamArch:
                     validation_steps = self.data_gen.val_N(),
                     initial_epoch = epoch,
                     epochs = epoch+n_epoch,
-                    callbacks = [checkpoint, board], # on_plateau, early_stop, checkpoint_val, lr_decay, pb
+                    max_queue_size=3,
+                    callbacks = [checkpoint, board ], # early_stop, on_plateau, early_stop, checkpoint_val, lr_decay, pb
                     verbose = 2
                 )
 
@@ -165,7 +176,7 @@ class siamArch:
             total_time = (timer() - start) / 60 / 60
 
             #history_summarize(history, label)
-            pickle.dump(history.history, open('./output/history/history-{}.p'.format(label), 'bw'))
+            pickle.dump(history.history, open(output_dir+'/history/history-{}.p'.format(label), 'bw'))
 
         finally:
             if total_time is None:

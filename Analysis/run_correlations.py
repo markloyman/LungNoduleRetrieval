@@ -6,45 +6,56 @@ from Analysis.RatingCorrelator import RatingCorrelator
 # ========================
 # Setup
 # ========================
+import FileManager
+Embed = FileManager.Embed('siam')
 
-set = 'Test'
-wRuns    = ['000', '001']
-nameRuns = ['siam', 'base']
+dset = 'Valid'
+wRuns    = ['064X', '078X']
+nameRuns = ['064X', '078X']
 
-X, Y = 'embed', 'rating'
+X, Y = 'embed', 'rating' #'malig'
 
-wEpchs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50]
+metrics = ['l1', 'l2', 'cosine']
+wEpchs = [10, 20, 25, 30, 35] #[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50]
 
-for run, run_name in zip(wRuns, nameRuns):
+plt.figure()
+plt_ = [None]*len(metrics)*2
+for i in range(2 * len(metrics)):
+    plt_[i] = plt.subplot(len(metrics), 2, i + 1)
 
-    WW = ['embed_siam{}-{}_{}.p'.format(run, E, set) for E in wEpchs]
+for m, metric in enumerate(metrics):
+    for run, run_name in zip(wRuns, nameRuns):
 
-    P, S, K = [], [], []
+        WW = [Embed(run, E, dset) for E in wEpchs]
 
-    for W in WW:
-        Reg = RatingCorrelator(W)
+        P, S, K = [], [], []
 
-        Reg.evaluate_embed_distance_matrix(method='euclidean')
+        for W in WW:
+            Reg = RatingCorrelator(W)
 
-        Reg.evaluate_rating_space()
-        Reg.evaluate_rating_distance_matrix(method='euclidean')
+            Reg.evaluate_embed_distance_matrix(method=metric)
 
-        p, s, k = Reg.correlate(X,Y)
-        P.append(p)
-        S.append(s)
-        K.append(k)
+            Reg.evaluate_rating_space()
+            Reg.evaluate_rating_distance_matrix(method=metric)
 
-    P, S, K = np.array(P), np.array(S), np.array(K)
+            p, s, k = Reg.correlate(X,Y)
+            P.append(p)
+            S.append(s)
+            K.append(k)
 
-    #plt.plot(wEpchs, P)
-    plt.plot(wEpchs, S)
-    plt.plot(wEpchs, K)
+        P, S, K = np.array(P), np.array(S), np.array(K)
 
-plt.title("{}-{}: {} set".format(X,Y,set))
-plt.xlabel('Epochs')
-plt.ylabel('Correlation')
-plt.legend( [   nameRuns[0]+'_Spearman', nameRuns[0]+'Kendall',
-                nameRuns[1]+'_Spearman', nameRuns[1]+'Kendall'
-             ])
+        #plt.plot(wEpchs, P)
+        q = plt_[2 * m + 0].plot(wEpchs, S)
+        plt_[2 * m + 1].plot(wEpchs, K, color=q[0].get_color(), ls='--')
+        #labels
+        plt_[2 * m + 0].axes.yaxis.label.set_text(metric)
+        if m == 0: # first row
+            plt_[0].axes.title.set_text('Spearman')
+            plt_[1].axes.title.set_text('Kendall')
+        if m == len(metrics) - 1:  # last row
+            plt_[2*m+1].axes.xaxis.label.set_text('epochs')
+            plt_[2*m+1].legend(wRuns)
 
+print('Plots Ready...')
 plt.show()

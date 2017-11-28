@@ -23,15 +23,18 @@ normalize = True
 # 0     Test
 # 1     Validation
 # 2     Training
-DataSubSet = 1
+DataSubSet = 2
 
 Weights = FileManager.Weights('siam')
 
-wRuns = ['050', '051']
-outputs = [128, 128]
+wRuns = ['078X'] #['064X', '071' (is actually 071X), '078X', '081', '082']
+
+outputs = [128]*len(wRuns)
 in_size = 128
 input_shape = (in_size, in_size, 1)
-wEpchs= [22] #[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50]
+wEpchs= [24] #[10, 15, 17, 18, 20, 22, 23, 24, 25, 30, 35]
+
+do_eval = False
 
 ## ========================= ##
 ## ======= Load Data ======= ##
@@ -47,10 +50,6 @@ else:
     assert False
 print("{} Set Analysis".format(post))
 print('='*15)
-
-#dataset = load_nodule_raw_dataset()[DataSubSet]
-#print("Raw Data Loaded: {} entries".format(len(dataset)))
-
 
 ## ========================= ##
 ## ======= Evaluate  ======= ##
@@ -82,25 +81,30 @@ try:
                 print('Mask not updated')
 
                 model = siamArch(miniXception_loader, input_shape, 2, distance='l2', output_size=out_size, normalize=normalize)
-                embed_model = model.extract_core(weights=Weights(run=run, epoch=epoch))
+                w = Weights(run=run, epoch=epoch)
+                assert(w is not None)
+                embed_model = model.extract_core(weights=w)
                 pred = embed_model.predict(images)
-                pickle.dump((images, pred, meta, labels, masks),
-                            open(filename, 'bw'))
+                pickle.dump((images, pred, meta, labels, masks), open(filename, 'bw'))
+                #pickle.dump(((50*images).astype('int8'), (1000*np.abs(pred)).astype('uint8'), meta, labels, masks.astype('bool')),
+                #           open(filename, 'bw'))
                 print("Saved: {}".format(filename))
 
             print("Data: images({}), labels({})".format(images[0].shape, labels.shape))
             print("Range = [{:.2f},{:.2f}]".format(np.min(images[0]), np.max(images[0])))
 
-            print(pred.shape)
-            calc_embedding_statistics(pred, title=filename)
+            if do_eval:
+                print(pred.shape)
+                calc_embedding_statistics(pred, title=filename)
 
-            plt.figure()
-            #plt.subplot(211)
-            plt.plot(np.transpose( np.squeeze(pred[np.argwhere(np.squeeze(labels==0)),
-                                   np.squeeze(np.argwhere(np.std(pred, axis=0) > 0.01))])), 'blue', alpha=0.3)
-            #plt.subplot(212)
-            plt.plot(np.transpose( np.squeeze(pred[np.argwhere(np.squeeze(labels == 1)),
-                                   np.squeeze(np.argwhere(np.std(pred, axis=0) > 0.01))])), 'red', alpha=0.2)
+                plt.figure()
+                #plt.subplot(211)
+                plt.plot(np.transpose( np.squeeze(pred[np.argwhere(np.squeeze(labels==0)),
+                                       np.squeeze(np.argwhere(np.std(pred, axis=0) > 0.0))])), 'blue', alpha=0.3)
+                #plt.subplot(212)
+                plt.plot(np.transpose( np.squeeze(pred[np.argwhere(np.squeeze(labels == 1)),
+                                       np.squeeze(np.argwhere(np.std(pred, axis=0) > 0.0))])), 'red', alpha=0.2)
+
 
 finally:
     plt.show()

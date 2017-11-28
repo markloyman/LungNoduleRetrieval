@@ -4,8 +4,8 @@ import random
 from skimage.transform import resize
 from scipy.misc import imresize
 import matplotlib.pyplot as plt
-from keras.utils.np_utils import to_categorical
-from Network.dataUtils import augment
+#from keras.utils.np_utils import to_categorical
+#from Network.dataUtils import augment
 
 # =========================
 #   Generate Nodule Dataset
@@ -154,11 +154,15 @@ def generate_nodule_dataset(filename, test_ratio, validation_ratio, window=(-100
 def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='Normal'):
 
     if res is 'Legacy':
-        filename = 'Dataset\Dataset{:.0f}-{}-{}.p'.format(size, res, sample)
+        filename = '/Dataset/Dataset{:.0f}-{}-{}.p'.format(size, res, sample)
     else:
-        filename = 'Dataset\Dataset{:.0f}-{:.1f}-{}.p'.format(size, res, sample)
+        filename = '/Dataset/Dataset{:.0f}-{:.1f}-{}.p'.format(size, res, sample)
 
-    testData, validData, trainData = pickle.load(open(filename, 'br'))
+    try:
+        testData, validData, trainData = pickle.load(open(filename, 'br'))
+    except:
+        testData, validData, trainData = pickle.load(open('.'+filename, 'br'))
+
     print('Loaded: {}'.format(filename))
     print("\tImage Range = [{:.1f}, {:.1f}]".format(np.max(trainData[0]['patch']), np.min(trainData[0]['patch'])))
     print("\tMasks Range = [{}, {}]".format(np.max(trainData[0]['mask']), np.min(trainData[0]['mask'])))
@@ -166,23 +170,28 @@ def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='No
 
     if apply_mask_to_patch:
         print('WRN: apply_mask_to_patch is for debug only')
-        testData  = [(entry['patch']*(0.3+0.7*entry['mask']), entry['mask'], entry['label'], entry['info']) for entry in testData]
-        validData = [(entry['patch']*(0.3+0.7*entry['mask']), entry['mask'], entry['label'], entry['info']) for entry in validData]
-        trainData = [(entry['patch']*(0.3+0.7*entry['mask']), entry['mask'], entry['label'], entry['info']) for entry in trainData]
+        testData  = [(entry['patch']*(0.3+0.7*entry['mask']), entry['mask'], entry['label'], entry['info'], entry['size']) for entry in testData]
+        validData = [(entry['patch']*(0.3+0.7*entry['mask']), entry['mask'], entry['label'], entry['info'], entry['size']) for entry in validData]
+        trainData = [(entry['patch']*(0.3+0.7*entry['mask']), entry['mask'], entry['label'], entry['info'], entry['size']) for entry in trainData]
     else:
-        testData  = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in testData ]
-        validData = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in validData]
-        trainData = [ (entry['patch'], entry['mask'], entry['label'], entry['info']) for entry in trainData]
+        testData  = [ (entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size']) for entry in testData ]
+        validData = [ (entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size']) for entry in validData]
+        trainData = [ (entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size']) for entry in trainData]
 
     return testData, validData, trainData
 
 
-def load_nodule_raw_dataset(size=128, res=1.0, sample='Normal'):
+def load_nodule_raw_dataset(size=128, res='Legacy', sample='Normal'):
     if res is 'Legacy':
-        filename = 'Dataset\Dataset{:.0f}-{}-{}.p'.format(size, res, sample)
+        filename = '/Dataset/Dataset{:.0f}-{}-{}.p'.format(size, res, sample)
     else:
-        filename = 'Dataset\Dataset{:.0f}-{:.1f}-{}.p'.format(size, res, sample)
-    testData, validData, trainData = pickle.load(open(filename, 'br'))
+        filename = '/Dataset/Dataset{:.0f}-{:.1f}-{}.p'.format(size, res, sample)
+
+    try:
+        testData, validData, trainData = pickle.load(open(filename, 'br'))
+    except:
+        testData, validData, trainData = pickle.load(open('.'+filename, 'br'))
+
     return testData, validData, trainData
 
 
@@ -196,6 +205,7 @@ def reorder(a_list, order):
 
 
 def prepare_data(data, classes=0, new_size=None, do_augment=False, categorize=True, return_meta=False, reshuffle=False, verbose = 0):
+    from keras.utils.np_utils import to_categorical
     # Entry:
     # 0 'patch'
     # 1 'mask'
@@ -247,6 +257,35 @@ def prepare_data(data, classes=0, new_size=None, do_augment=False, categorize=Tr
         return images, labels, masks
 
 
+def select_balanced(self, some_set, labels, N, permutation):
+    b = some_set[0 == labels][:N]
+    m = some_set[1 == labels][:N]
+    merged = np.concatenate([b, m], axis=0)
+    reshuff = merged[permutation]
+    return reshuff
+
+
+def prepare_data_direct(data, size=None, classes=2, balanced=False, return_meta=False, verbose= 0):
+    images, labels, masks = \
+        prepare_data(data, classes=classes, verbose=verbose, reshuffle=True)
+    Nb = np.count_nonzero(1 - np.argmax(labels, axis=1))
+    Nm = np.count_nonzero(np.argmax(labels, axis=1))
+    N = np.minimum(Nb, Nm)
+    if verbose:
+        print("Benign: {}, Malignant: {}".format(Nb, Nm))
+    if balanced:
+        new_order = np.random.permutation(2 * N)
+        labels_ = np.argmax(labels, axis=1)
+        images = select_balanced(images, labels_, N, new_order)
+        labels = select_balanced(labels, labels_, N, new_order)
+        masks = select_balanced(masks, labels_, N, new_order)
+        if verbose:
+            Nb = np.count_nonzero(1 - np.argmax(labels, axis=1))
+            Nm = np.count_nonzero(np.argmax(labels, axis=1))
+            print("Balanced - Benign: {}, Malignant: {}".format(Nb, Nm))
+    return images, labels, masks
+
+
 def select_different_pair(class_A, class_B, n):
     different = [(a, b) for a, b in zip(
         np.concatenate( [[a, a] for a in class_A[:n]] )[:-1],
@@ -280,18 +319,6 @@ def prepare_data_siamese(data, size, balanced=False, return_meta=False, verbose=
     N = images.shape[0]
     benign_filter = np.where(labels == 0)[0]
     malign_filter = np.where(labels == 1)[0]
-
-    '''
-    if balanced:
-        delta = abs(benign_filter.shape[0] - malign_filter.shape[0])
-        if benign_filter.shape[0] > malign_filter.shape[0]:
-            malign_filter = np.concatenate([malign_filter, malign_filter[:delta]])
-        elif benign_filter.shape[0] < malign_filter.shape[0]:
-            benign_filter = np.concatenate([benign_filter, benign_filter[:delta]])
-        assert(len(malign_filter) == len(benign_filter))
-        print('{}=={}'.format(len(malign_filter),len(benign_filter)))
-    '''
-
     M = min(benign_filter.shape[0], malign_filter.shape[0])
 
     if balanced:

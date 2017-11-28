@@ -1,5 +1,4 @@
 import pickle
-
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.decomposition import PCA
@@ -8,6 +7,8 @@ from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
 
 from LIDC.lidcUtils import calc_rating
 from Network.data import load_nodule_raw_dataset
+
+#def calc_rating(rating, method='mean'):
 
 
 def accuracy(true, pred):
@@ -21,6 +22,7 @@ def accuracy(true, pred):
 def precision(query, nn):
     mask = (query == nn).astype('uint')
     np.sum(mask)
+    assert(False)
 
 
 class Retriever:
@@ -31,11 +33,11 @@ class Retriever:
 
         self.nod_ids = None
 
-        return None
-
     def load_embedding(self, filename):
 
-        self.images, self.embedding, self.meta_data, self.labels = pickle.load(open('./embed/{}'.format(filename),'br'))
+        self.images, self.embedding, self.meta_data, self.labels, self.masks \
+            = pickle.load(open(filename, 'br'))
+            #= pickle.load(open('./output/embed/{}'.format(filename), 'br'))
         self.len = len(self.meta_data)
         self.nod_ids = [None]*self.len
 
@@ -43,6 +45,8 @@ class Retriever:
         self.labels = np.squeeze(self.labels)
 
         print("Loaded {} entries from {}".format(self.len, filename))
+
+        return self.embedding
 
     def load_rating(self, dataset):
         images, mask, rating, meta, labels, nod_ids = \
@@ -58,21 +62,23 @@ class Retriever:
 
         print("Loaded {} entries from dataset".format(self.len))
 
-    def fit(self, n):
-        self.n = n
-        nbrs = NearestNeighbors(n_neighbors=(n + 1), algorithm='auto', metric='l1').fit(self.embedding)
+    def fit(self, n=None, metric='l1'):
+        if n is None:
+            self.n = self.embedding.shape[0]-1
+        else:
+            self.n = n
+        nbrs = NearestNeighbors(n_neighbors=self.n, algorithm='auto', metric=metric).fit(self.embedding)
 
         distances, indices = nbrs.kneighbors(self.embedding)
         self.indices = indices[:, 1:]
         self.distances = distances[:, 1:]
 
-    #def fit_rating(self, n):
-    #    self.n = n
-    #    space = [calc_rating(meta) for meta in self.meta_data]
-    #    nbrs = NearestNeighbors(n_neighbors=(n + 1), algorithm='brute', metric='l1').fit(space)
-    #    distances, indices = nbrs.kneighbors(space)
-    #    self.indices   = indices[:, 1:]
-    #    self.distances = distances[:, 1:]
+    def ret_nbrs(self, n_top=None):
+        if n_top == None:
+            n_top = self.n
+        assert n_top <= self.n
+
+        return self.indices[:,:n_top], self.distances[:,:n_top]
 
     def ret(self, query, n_top=None, return_distance=False):
         if n_top==None: n_top = self.n
@@ -139,7 +145,7 @@ class Retriever:
             pred[test_index] = clf.predict(self.embedding[test_index])
         acc = accuracy(self.labels, pred)
         print('Classification Accuracy: {}'.format(acc))
-        return pred, acc
+        return (pred, self.labels), acc
 
     def evaluate_precision(self, pred = None, plot=False, split=False):
         #if pred is None:
@@ -201,19 +207,26 @@ if __name__ == "__main__":
     #leg = ['Chained-E15', 'Chained-E25', 'Base-E30', 'Base-E40']
     #WW = ['embed_siam000-10_Test.p', 'embed_siam000-15_Test.p', 'embed_siam000-20_Test.p', 'embed_siam000-25_Test.p', 'embed_siam000-30_Test.p',
     #      'embed_siam000-35_Test.p', 'embed_siam000-40_Test.p', 'embed_siam000-45_Test.p', 'embed_siam000-50_Test.p']
+    from Analysis.RatingCorrelator import calc_distance_matrix
+    import Analysis.metric_space_indexes as index
+    import FileManager
+    Embed = FileManager.Embed('siam')
 
-    set = 'Train'
-    wRuns  =  ['000', '001']
-    run = wRuns[0]
+    dset = 'Valid'
+    wRuns  =  wRuns = ['064X', '078X'] #['064X', '071' (is actually 071X), '078X', '081', '082']
+    #run = wRuns[0]
 
-    wEpchs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50]
-    WW = ['embed_siam{}-{}_{}.p'.format(run, E, set) for E in wEpchs]
+    wEpchs = [10, 20, 25, 30, 35]
+    #WW = ['embed_siam{}-{}_{}.p'.format(run, E, dset) for E in wEpchs]
+    #WW = [ Embed(run, E, dset) for E in wEpchs]
 
     leg = ['E{}'.format(E) for E in wEpchs]
 
-    doClass = False
-    doRet   = False
-    doRatingRet = True
+    doClass         = False
+    doRet           = False
+    doRatingRet     = False
+    doMetricSpaceIndexes = True
+    doPCA           = False
 
     #Ret = Retriever(WW[-4], atitle='chn', aset=set)
     #Ret.fit(3)
@@ -224,13 +237,14 @@ if __name__ == "__main__":
     ##  ------------------------
 
     if doClass:
-
-        NN = [3, 5, 7, 9, 11, 13, 17, 21, 27]
-
+        run = wRuns[0]
+        NN = [3, 5, 7, 11, 17]
+        WW = [Embed(run, E, dset) for E in wEpchs]
 
         Pred_L1O = []
         for W in WW:
-            Ret = Retriever(W, atitle='', aset='')
+            Ret = Retriever(title='', dset='')
+            Ret.load_embedding(W)
 
             pred_l1o = []
             for N in NN:
@@ -241,11 +255,14 @@ if __name__ == "__main__":
 
         #Pred_L1O = np.transpose(np.array(Pred_L1O))
         Pred_L1O = (np.array(Pred_L1O))
-        plt.figure()
+        plt.figure(run+'_'+dset)
         plt.plot(wEpchs,Pred_L1O, '-*')
-        plt.title('KNN Classification (Accuracy)')
+        plt.title('KNN Classification')
+        plt.ylabel('ACC')
+        plt.xlabel('K')
         plt.legend(NN)
 
+        print('Done Classification.')
 
     ##  ------------------------
     #       Retrieval
@@ -253,52 +270,78 @@ if __name__ == "__main__":
 
     if doRet:
 
-        NN = [3, 5, 13]
+        NN = [3, 5, 7, 11, 17]
 
-        Prec, Prec_b, Prec_m = [], [], []
+        for run in wRuns:
+            Prec, Prec_b, Prec_m = [], [], []
+            WW = [Embed(run, E, dset) for E in wEpchs]
 
-        for W in WW:
-            Ret = Retriever(W, atitle='', aset='')
+            for W in WW:
+                Ret = Retriever(title='', dset='')
+                Ret.load_embedding(W)
 
-            prec, prec_b, prec_m = [], [], []
-            for N in NN:
-                Ret.fit(N)
-                p =         Ret.evaluate_precision(plot=False, split=False)
-                pm, pb =    Ret.evaluate_precision(plot=False, split=True)
-                prec.append(p)
-                prec_b.append(pb)
-                prec_m.append(pm)
+                prec, prec_b, prec_m = [], [], []
+                for N in NN:
+                    Ret.fit(N)
+                    p =         Ret.evaluate_precision(plot=False, split=False)
+                    pm, pb =    Ret.evaluate_precision(plot=False, split=True)
+                    prec.append(p)
+                    prec_b.append(pb)
+                    prec_m.append(pm)
 
-            Prec.append(np.array(prec))
-            Prec_b.append(np.array(prec_b))
-            Prec_m.append(np.array(prec_m))
+                Prec.append(np.array(prec))
+                Prec_b.append(np.array(prec_b))
+                Prec_m.append(np.array(prec_m))
 
-        #Pred_L1O = np.transpose(np.array(Pred_L1O))
-        Prec   = (np.array(Prec))
-        Prec_m = (np.array(Prec_m))
-        Prec_b = (np.array(Prec_b))
+            #Pred_L1O = np.transpose(np.array(Pred_L1O))
+            Prec   = (np.array(Prec))
+            Prec_m = (np.array(Prec_m))
+            Prec_b = (np.array(Prec_b))
 
-        plt.figure('Retrieval (Precision)')
+            plt.figure('RET_'+run+'_'+dset)
 
-        plt.subplot(311)
-        plt.plot(wEpchs, Prec, '-*')
-        plt.legend(NN)
-        plt.title('Retrieval (Precision)')
+            plt.subplot(311)
+            plt.plot(wEpchs, Prec, '-*')
+            plt.legend(NN)
+            plt.title('Retrieval')
+            plt.grid(which='major', axis='y')
+            plt.ylim([0.7, 0.9])
+            plt.ylabel('Precision')
+            plt.xlabel('K')
 
-        plt.subplot(312)
-        plt.plot(wEpchs, Prec_b, '-*')
-        plt.legend(NN)
-        plt.title('Benign')
+            f1 = 2*Prec_b*Prec_m / (Prec_b+Prec_m)
+            plt.subplot(312)
+            plt.plot(wEpchs, f1, '-*')
+            plt.legend(NN)
+            plt.title('F1')
+            plt.grid(which='major', axis='y')
+            plt.ylim([0.7, 0.9])
+            plt.ylabel('Precision')
+            plt.xlabel('K')
 
-        plt.subplot(313)
-        plt.plot(wEpchs, Prec_m, '-*')
-        plt.legend(NN)
-        plt.title('Malignant')
+            plt.subplot(325)
+            plt.grid(which='major', axis='y')
+            plt.plot(wEpchs, Prec_b, '-*')
+            plt.legend(NN)
+            plt.title('Benign')
+            plt.ylim([0.6, 1.0])
+            plt.ylabel('Precision')
+            plt.xlabel('K')
 
+            plt.subplot(326)
+            plt.plot(wEpchs, Prec_m, '-*')
+            plt.legend(NN)
+            plt.title('Malignant')
+            plt.ylim([0.6, 1.0])
+            plt.grid(which='major', axis='y')
+            plt.ylabel('Precision')
+            plt.xlabel('K')
+
+        print('Done Retrieval.')
 
     if doRatingRet:
         N = 5
-        testData, validData, trainData = load_nodule_raw_dataset()
+        testData, validData, trainData = load_nodule_raw_dataset(size=144, res='Legacy', sample='Normal')
         if set is 'Train':  data = trainData
         if set is 'Test':   data = testData
         if set is 'Valid':  data = validData
@@ -314,12 +357,96 @@ if __name__ == "__main__":
         #pickle.dump(anns, open('tmp.p', 'bw'))
 
         Ret = Retriever(title='', dset=set)
-        Ret.load_embedding(WW[-4])
+        Ret.load_embedding(WW[0])
         Ret.fit(N)
         Ret.show_ret(135, method='single')
-            
-    #Ret = Retriever(WW[-2], atitle='Epch40', aset='Test')
-    #Ret.fit(n=7)
-    #Ret.pca()
+
+    if doMetricSpaceIndexes:
+        metrics = ['l1', 'l2', 'cosine']
+        plt.figure()
+        p = [None]*len(metrics)*5
+        for i in range(5*len(metrics)):
+            p[i] = plt.subplot(len(metrics), 5, i + 1)
+        for m, metric in enumerate(metrics):
+            for r,run in enumerate(wRuns):
+                WW = [Embed(run, E, dset) for E in wEpchs]
+                # init
+                idx_hubness = np.zeros(len(WW))
+                idx_hubness_std = np.zeros(len(WW))
+                idx_symmetry = np.zeros(len(WW))
+                idx_symmetry_std = np.zeros(len(WW))
+                idx_concentration = np.zeros(len(WW))
+                idx_concentration_std = np.zeros(len(WW))
+                idx_contrast = np.zeros(len(WW))
+                idx_contrast_std = np.zeros(len(WW))
+                idx_kummar = np.zeros(len(WW))
+                # calculate
+                for e, W in enumerate(WW):
+                    Ret = Retriever(title='{}'.format(run), dset=dset)
+                    embd = Ret.load_embedding(W)
+                    Ret.fit(metric=metric)
+                    indices, distances = Ret.ret_nbrs()
+                    distance_matrix = calc_distance_matrix(embd, metric)
+                    # hubness
+                    K = [3, 5, 7, 9, 11, 13]
+                    h = np.zeros(len(K))
+                    for i in range(len(K)):
+                        h[i] = index.hubness(indices, K[i])
+                    idx_hubness[e] = np.mean(h)
+                    idx_hubness_std[e] = np.std(h)
+                    #   symmetry
+                    K = [3, 5, 7, 9, 11, 13]
+                    s = np.zeros(len(K))
+                    for i in range(len(K)):
+                        s[i] = index.symmetry(indices, K[i])
+                    idx_symmetry[e] = np.mean(s)
+                    idx_symmetry_std[e] = np.std(s)
+                    # kumar index
+                    tau, l_e = index.kumar(distances, res=0.001)
+                    idx_kummar[e] = tau
+                    idx_concentration[e] = index.concentration(distance_matrix)[0]
+                    idx_concentration_std[e] = index.concentration(distance_matrix)[1]
+                    idx_contrast[e] = index.relative_contrast_imp(distance_matrix)[0]
+                    idx_contrast_std[e] = index.relative_contrast_imp(distance_matrix)[1]
+                # plot
+                #   hubness
+                q = p[5 * m + 0].plot(wEpchs, idx_hubness)
+                p[5 * m + 0].plot(wEpchs, idx_hubness + idx_hubness_std, color=q[0].get_color(), ls='--')
+                p[5 * m + 0].plot(wEpchs, idx_hubness - idx_hubness_std, color=q[0].get_color(), ls='--')
+                #   symmetry
+                q = p[5 * m + 1].plot(wEpchs, idx_symmetry)
+                p[5 * m + 1].plot(wEpchs, idx_symmetry + idx_symmetry_std, color=q[0].get_color(), ls='--')
+                p[5 * m + 1].plot(wEpchs, idx_symmetry - idx_symmetry_std, color=q[0].get_color(), ls='--')
+                #   contrast
+                q = p[5 * m + 2].plot(wEpchs, idx_contrast)
+                p[5 * m + 2].plot(wEpchs, idx_contrast + idx_contrast_std, color=q[0].get_color(), ls='--')
+                p[5 * m + 2].plot(wEpchs, idx_contrast - idx_contrast_std, color=q[0].get_color(), ls='--')
+                #   concentration
+                q = p[5 * m + 3].plot(wEpchs, idx_concentration)
+                p[5 * m + 3].plot(wEpchs, idx_concentration + idx_concentration_std, color=q[0].get_color(), ls='--')
+                p[5 * m + 3].plot(wEpchs, idx_concentration - idx_concentration_std, color=q[0].get_color(), ls='--')
+                #   kumar
+                p[5 * m + 4].plot(wEpchs, idx_kummar)
+                # labels
+                if r == 0: #first column
+                    p[5 * m + 0].axes.yaxis.label.set_text(metric)
+                if m == 0: #first row
+                    p[5 * m + 0].axes.title.set_text('hubness')
+                    p[5 * m + 1].axes.title.set_text('symmetry')
+                    p[5 * m + 2].axes.title.set_text('contrast')
+                    p[5 * m + 3].axes.title.set_text('concentration')
+                    p[5 * m + 4].axes.title.set_text('kumar')
+                if m == len(metrics)-1:  # last row
+                    p[5 * m + 2].axes.xaxis.label.set_text('epochs')
+        p[-1].legend(wRuns)
+        print('Done doMetricSpaceIndexes')
+    if doPCA:
+        for run in wRuns:
+            Ret = Retriever(title=run, dset=dset)
+            Ret.load_embedding(Embed(run, 24, dset))
+            Ret.pca()
 
     plt.show()
+
+
+

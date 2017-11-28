@@ -88,10 +88,12 @@ def CheckPatch(entry, in_dicom=False):
 
 
 def calc_rating(meta_data, nodule_ids = None, method='mean'):
-
     if method is not 'single':
-        assert(nodule_ids is not None)
-
+        #assert(nodule_ids is not None)
+        if nodule_ids is None:
+            nodule_ids = meta_data[3]
+    if isinstance(nodule_ids, str):
+        nodule_ids = [nodule_ids]
     if method is 'single':
         # currently only one of the ratings is taken into account
         ann     = getAnnotation(meta_data, return_all=False)

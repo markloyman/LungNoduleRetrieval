@@ -3,10 +3,9 @@ import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial.distance import pdist, cdist, squareform
-from scipy.stats import pearsonr, spearmanr, kendalltau
+from scipy.stats import pearsonr, spearmanr, kendalltau, wasserstein_distance
 from sklearn import linear_model
-from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.metrics import pairwise
+from sklearn.metrics import mean_squared_error, r2_score, pairwise
 from sklearn.neighbors import DistanceMetric
 
 from LIDC.lidcUtils import calc_rating
@@ -15,18 +14,35 @@ from LIDC.lidcUtils import calc_rating
 # from scipy.spatial import distance as Distance
 
 
-
 def calc_distance_matrix(X, method):
-    if method in ['chebyshev', 'euclidean']:
+    rating_mean = np.array(
+        [3.75904203, 1.01148583, 5.50651678, 3.79985337, 3.96358749, 1.67269469, 1.56867058, 4.4591072, 2.55197133])
+    rating_std = np.array(
+        [1.09083287, 0.11373469, 1.02463593, 0.80119638, 1.04281277, 0.89359593, 0.89925905, 1.04813052, 1.12151403])
+
+    if len(method) > 4 and method[-4:] == 'norm':
+        X -= rating_mean
+        X /= rating_std
+
+    if method in ['chebyshev', 'euclidean', 'l1', 'l2']:
         DM = DistanceMetric.get_metric(method).pairwise(X)
-    elif method is 'cosine':
+    elif method in ['l1_norm', 'l2_norm']:
+        DM = DistanceMetric.get_metric(method[:-5]).pairwise(X)
+    elif method in ['cosine', 'cosine_norm']:
         DM = pairwise.cosine_distances(X)
-    elif method in ['correlation', 'cityblock']:
+    elif method in ['correlation', 'cityblock', 'braycurtis', 'canberra', 'hamming', 'jaccard', 'kulsinski']:
         DM = squareform(pdist(X, method))
+    elif method in ['emd']:
+        l = len(X)
+        DM = np.zeros((l, l))
+        for x in range(l):
+            for y in range(l):
+                DM[x, y] = wasserstein_distance(X[x], X[y])
     else:
         return None
 
     return DM
+
 
 def calc_cross_distance_matrix(X, Y, method):
     if method in ['chebyshev', 'euclidean', 'cosine', 'correlation', 'cityblock']:
@@ -36,6 +52,7 @@ def calc_cross_distance_matrix(X, Y, method):
         return None
 
     return DM
+
 
 def flatten_dm(DM):
     return DM[np.triu_indices(DM.shape[0], 1)].reshape(-1, 1)
@@ -56,7 +73,7 @@ class RatingCorrelator:
         self.title  = title
         self.set    = set
 
-        self.images, self.embedding, self.meta_data, self.labels = pickle.load(open('./embed/{}'.format(filename),'br'))
+        self.images, self.embedding, self.meta_data, self.labels, self.masks = pickle.load(open(filename,'br'))
         self.len = len(self.meta_data)
 
         self.images = np.squeeze(self.images)
@@ -72,13 +89,14 @@ class RatingCorrelator:
         self.embed_metric           = ''
 
     def evaluate_rating_space(self):
-        self.rating = [calc_rating(meta) for meta in self.meta_data]
+        self.rating = [calc_rating(meta, method='mean') for meta in self.meta_data]
         self.rating_distance_matrix = None # reset after recalculating the ratings
 
     def evaluate_rating_distance_matrix(self, method='chebyshev'):
         self.rating_distance_matrix = calc_distance_matrix(self.rating, method)
         assert self.rating_distance_matrix.shape[0] == self.embed_distance_matrix.shape[0]
         self.rating_metric = method
+        return self.rating_distance_matrix
 
     def evaluate_embed_distance_matrix(self, method='euclidean'):
         self.embed_distance_matrix = calc_distance_matrix(self.embedding, method)
@@ -115,14 +133,14 @@ class RatingCorrelator:
         return xVec
 
     def load_distance_matrix(self, name, flat=True):
-        if name is 'embed':
+        if name == 'embed':
             xVec = self.embed_distance_matrix
             xMet = self.embed_metric
-        elif name is 'rating':
+        elif name == 'rating':
             xVec = self.rating_distance_matrix
             xMet = self.rating_metric
-        elif name is 'malig':
-            malig_rating = [calc_rating(meta, 'malig') for meta in self.meta_data]
+        elif name == 'malig':
+            malig_rating = [calc_rating(meta, method='malig') for meta in self.meta_data]
             malig_rating = np.array(malig_rating).reshape(-1, 1).astype('float64')
             xVec = calc_distance_matrix(malig_rating, method='euclidean')
             xMet = 'euclidean'
@@ -264,9 +282,9 @@ class RatingCorrelator:
         spear, spear_p  = spearmanr(x_dm, y_dm)[0],     spearmanr(x_dm, y_dm)[1]
         kend, kend_p    = kendalltau(x_dm, y_dm)[0],    kendalltau(x_dm, y_dm)[1]
 
-        print('\tPearson = {}, with p={}'.  format(pear,  pear_p))
-        print('\tSpearman = {}, with p={}'. format(spear, spear_p))
-        print('\tKendall = {}, with p={}'.  format(kend,  kend_p))
+        print('\tPearson =\t {:.2f}, with p={:.2f}'.  format(pear,  pear_p))
+        print('\tSpearman =\t {:.2f}, with p={:.2f}'. format(spear, spear_p))
+        print('\tKendall =\t {:.2f}, with p={:.2f}'.  format(kend,  kend_p))
 
         return pear, spear, kend
 
@@ -282,10 +300,10 @@ if __name__ == "__main__":
     #   Kendall tau distance
     #   Spearman's rank correlation
     #   Distance Correlation
+    import FileManager
+    Embed = FileManager.Embed('siam')
 
-    filename = 'embed_siam000-5_Train.p'
-
-    Reg = RatingCorrelator(filename)
+    Reg = RatingCorrelator(Embed(run='064X',epoch=30,dset='Valid'))
 
     Reg.evaluate_embed_distance_matrix(method='euclidean')
 

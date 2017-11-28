@@ -6,7 +6,7 @@ from sklearn.neighbors import DistanceMetric
 from sklearn.metrics import pairwise
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
-from scipy.stats import pearsonr, spearmanr, kendalltau
+from scipy.stats import pearsonr, spearmanr, kendalltau, wasserstein_distance
 from scipy.spatial.distance import pdist, cdist, squareform
 
 import LIDC.lidcUtils
@@ -56,6 +56,12 @@ def calc_distance_matrix(X, method):
         DM = squareform(pdist(X, 'minkowski', 3))
     elif method in ['correlation', 'braycurtis', 'canberra', 'chebyshev', 'cityblock', 'cosine', 'dice', 'euclidean', 'hamming', 'jaccard', 'kulsinski', 'matching', 'rogerstanimoto', 'russellrao', 'sokalmichener', 'sokalsneath', 'yule']:
         DM = squareform(pdist(X, method))
+    elif method in ['emd']:
+        l = len(X)
+        DM = np.zeros((l, l))
+        for x in range(l):
+            for y in range(l):
+                DM[x, y] = wasserstein_distance(X[x], X[y])
     else:
         return None
 
@@ -82,8 +88,8 @@ def flatten_dm(DM):
 #            , 'manhaten'
 #            ]
 
-metrics =   ['cityblock', 'euclidean', 'seuclidean', 'minkowski3', 'chebyshev', 'cosine', 'correlation', 'hamming', 'mahalanobis', 'braycurtis', 'canberra', 'jaccard']
-#
+#metrics =   ['cityblock', 'euclidean', 'seuclidean', 'minkowski3', 'chebyshev', 'cosine', 'correlation', 'hamming', 'mahalanobis', 'braycurtis', 'canberra', 'jaccard']
+metrics =   ['cityblock', 'euclidean', 'seuclidean', 'minkowski3', 'chebyshev', 'cosine', 'hamming', 'mahalanobis', 'emd']
 
 dataset = pickle.load(open('NodulePatches.p', 'br'))
 Ratings = np.concatenate([entry['rating'] for entry in dataset])

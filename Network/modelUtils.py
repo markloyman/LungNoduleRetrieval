@@ -21,6 +21,20 @@ def binary_assert(y_true, y_pred, margin=siamese_margin):
     return y_pred
 
 
+def binary_f1(y_true, y_pred, margin=siamese_margin):
+    p = binary_precision(y_true, y_pred, margin=margin)
+    r = binary_recall(y_true, y_pred)
+    f1 = 2.0 * p * r / (p + r)
+    return f1
+
+
+def binary_f1_inv(y_true, y_pred, margin=siamese_margin):
+    p = binary_precision_inv(y_true, y_pred, margin=margin)
+    r = binary_recall_inv(y_true, y_pred)
+    f1 = 2.0 * p * r / (p + r)
+    return f1
+
+
 def binary_accuracy(y_true, y_pred, margin=siamese_margin):
     y_pred = K.round(K.clip(y_pred/margin, 0, 1))
     return K.mean(K.equal(y_true, y_pred), axis=-1)
@@ -80,6 +94,13 @@ def binary_precision_inv(y_true, y_pred, margin=siamese_margin):
 # ------------------------ #
 # ==== Categorical Metrics ==== #
 # ------------------------ #
+
+
+def f1(y_true, y_pred):
+    p = precision(y_true, y_pred)
+    r = recall(y_true, y_pred)
+    f = 2.0 * p * r / (p + r + smooth)
+    return f
 
 
 def sensitivity(y_true, y_pred):

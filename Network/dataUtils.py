@@ -71,15 +71,16 @@ def crop_center(image, mask, size=None):
 
     mask_y = np.where(np.sum(mask, axis=1))[0]
     mask_x = np.where(np.sum(mask, axis=0))[0]
-    center = np.median(mask_y), np.median(mask_x)
+    center = np.median(mask_y).astype('int'), np.median(mask_x).astype('int')
 
-    cx, cy = max(center[0], size/2), max(center[1], size/2)
-    cx, cy = min(cx, image.shape[0] - size/2), min(cy, image.shape[1] - size/2)
+    cx, cy = max(center[0], size//2), max(center[1], size//2)
+    cx, cy = min(cx, image.shape[0] - size//2), min(cy, image.shape[1] - size//2)
 
-    x0 = np.round(cx - size/2).astype('uint')
-    y0 = np.round(cy - size/2).astype('uint')
-
-    return image[y0:y0+size, x0:x0+size], mask[y0:y0+size, x0:x0+size]
+    x0 = np.round(cx - size//2).astype('int')
+    y0 = np.round(cy - size//2).astype('int')
+    size = np.round(size).astype('int')
+    
+    return image[y0:(y0+size), x0:(x0+size)], mask[y0:(y0+size), x0:(x0+size)]
 
 
 def crop(image, mask, fix_size=None, min_size=0, ratio=1.0, stdev=0.15):
@@ -183,8 +184,11 @@ def test_augment(dataset):
 
 if __name__ == "__main__":
 
-    from Network.data import load_nodule_dataset
-
+    try:
+        from Network.data import load_nodule_dataset
+    except:
+        from data import load_nodule_dataset
+		
     data = load_nodule_dataset()
     test_augment(data[2])
 

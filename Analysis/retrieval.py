@@ -144,7 +144,7 @@ class Retriever:
             clf.fit(self.embedding[train_index], self.labels[train_index])
             pred[test_index] = clf.predict(self.embedding[test_index])
         acc = accuracy(self.labels, pred)
-        print('Classification Accuracy: {}'.format(acc))
+        print('Classification Accuracy: {:.2f}'.format(acc))
         return (pred, self.labels), acc
 
     def evaluate_precision(self, pred = None, plot=False, split=False):
@@ -210,11 +210,11 @@ if __name__ == "__main__":
     from Analysis.RatingCorrelator import calc_distance_matrix
     import Analysis.metric_space_indexes as index
     import FileManager
-    Embed = FileManager.Embed('siam')
+    #Embed = FileManager.Embed('siam')
 
     dset = 'Valid'
-    wRuns  =  wRuns = ['064X', '078X'] #['064X', '071' (is actually 071X), '078X', '081', '082']
-    #run = wRuns[0]
+    wRuns = ['064X', '078X', '026'] #['064X', '071' (is actually 071X), '078X', '081', '082']
+    wRunsNet = ['siam', 'siam', 'dir']
 
     wEpchs = [10, 20, 25, 30, 35]
     #WW = ['embed_siam{}-{}_{}.p'.format(run, E, dset) for E in wEpchs]
@@ -222,8 +222,8 @@ if __name__ == "__main__":
 
     leg = ['E{}'.format(E) for E in wEpchs]
 
-    doClass         = False
-    doRet           = False
+    doClass         = True
+    doRet           = True
     doRatingRet     = False
     doMetricSpaceIndexes = True
     doPCA           = False
@@ -237,30 +237,32 @@ if __name__ == "__main__":
     ##  ------------------------
 
     if doClass:
-        run = wRuns[0]
-        NN = [3, 5, 7, 11, 17]
-        WW = [Embed(run, E, dset) for E in wEpchs]
+        plt.figure('KNN Classification - ' + dset)
+        for run, net_type, idx in zip(wRuns, wRunsNet, range(len(wRuns))):
+            NN = [3, 5, 7, 11, 17]
+            Embed = FileManager.Embed(net_type)
+            WW = [Embed(run, E, dset) for E in wEpchs]
 
-        Pred_L1O = []
-        for W in WW:
-            Ret = Retriever(title='', dset='')
-            Ret.load_embedding(W)
+            Pred_L1O = []
+            for W in WW:
+                Ret = Retriever(title='{}-{}'.format(net_type, run), dset=dset)
+                Ret.load_embedding(W)
 
-            pred_l1o = []
-            for N in NN:
-                Ret.fit(N)
-                pred_l1o.append(Ret.classify_leave1out()[1])
+                pred_l1o = []
+                for N in NN:
+                    Ret.fit(N)
+                    pred_l1o.append(Ret.classify_leave1out()[1])
 
-            Pred_L1O.append(np.array(pred_l1o))
+                Pred_L1O.append(np.array(pred_l1o))
 
-        #Pred_L1O = np.transpose(np.array(Pred_L1O))
-        Pred_L1O = (np.array(Pred_L1O))
-        plt.figure(run+'_'+dset)
-        plt.plot(wEpchs,Pred_L1O, '-*')
-        plt.title('KNN Classification')
-        plt.ylabel('ACC')
-        plt.xlabel('K')
-        plt.legend(NN)
+            Pred_L1O = (np.array(Pred_L1O))
+            plt.subplot(1, len(wRuns), idx+1)
+            plt.plot(wEpchs,Pred_L1O, '-*')
+            plt.grid(which='major', axis='y')
+            plt.title('{}-{}'.format(net_type, run))
+            plt.ylabel('ACC')
+            plt.xlabel('K')
+            plt.legend(NN)
 
         print('Done Classification.')
 
@@ -272,7 +274,9 @@ if __name__ == "__main__":
 
         NN = [3, 5, 7, 11, 17]
 
-        for run in wRuns:
+        for run, net_type, idx in zip(wRuns, wRunsNet, range(len(wRuns))):
+            NN = [3, 5, 7, 11, 17]
+            Embed = FileManager.Embed(net_type)
             Prec, Prec_b, Prec_m = [], [], []
             WW = [Embed(run, E, dset) for E in wEpchs]
 
@@ -368,7 +372,8 @@ if __name__ == "__main__":
         for i in range(5*len(metrics)):
             p[i] = plt.subplot(len(metrics), 5, i + 1)
         for m, metric in enumerate(metrics):
-            for r,run in enumerate(wRuns):
+            for run, net_type, r in zip(wRuns, wRunsNet, range(len(wRuns))):
+                Embed = FileManager.Embed(net_type)
                 WW = [Embed(run, E, dset) for E in wEpchs]
                 # init
                 idx_hubness = np.zeros(len(WW))
@@ -440,6 +445,7 @@ if __name__ == "__main__":
                     p[5 * m + 2].axes.xaxis.label.set_text('epochs')
         p[-1].legend(wRuns)
         print('Done doMetricSpaceIndexes')
+
     if doPCA:
         for run in wRuns:
             Ret = Retriever(title=run, dset=dset)

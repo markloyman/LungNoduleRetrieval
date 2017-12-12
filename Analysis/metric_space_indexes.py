@@ -127,9 +127,14 @@ if __name__ == "__main__":
     for metric, m, in zip(metrics, range(len(metrics))):
 
         distance_matrix = calc_distance_matrix(rating, method=metric)
+        norm = 'None'
         if len(metric) > 5 and metric[-4:] == 'norm':
             metric = metric[:-5]
-        Ret.fit(len(data)-1, metric=metric)
+            norm = 'Norm'
+        if len(metric) > 5 and metric[-4:] == 'scale':
+            metric = metric[:-5]
+            norm = 'Scale'
+        Ret.fit(len(data)-1, metric=metric, normalization=norm)
         indices, distances = Ret.ret_nbrs()
 
         #   Hubness

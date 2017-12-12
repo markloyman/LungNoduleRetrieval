@@ -7,9 +7,7 @@ from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
 
 from LIDC.lidcUtils import calc_rating
 from Network.data import load_nodule_raw_dataset
-
-#def calc_rating(rating, method='mean'):
-
+from Network.dataUtils import rating_normalize
 
 def accuracy(true, pred):
     pred = np.clip(pred, 0, 1)
@@ -62,12 +60,15 @@ class Retriever:
 
         print("Loaded {} entries from dataset".format(self.len))
 
-    def fit(self, n=None, metric='l1'):
+    def fit(self, n=None, metric='l1', normalization='None'):
         if n is None:
             self.n = self.embedding.shape[0]-1
         else:
             self.n = n
-        nbrs = NearestNeighbors(n_neighbors=self.n, algorithm='auto', metric=metric).fit(self.embedding)
+        if normalization!='None':
+            nbrs = NearestNeighbors(n_neighbors=self.n, algorithm='auto', metric=metric).fit(self.embedding)
+        else:
+            nbrs = NearestNeighbors(n_neighbors=self.n, algorithm='auto', metric=metric).fit(rating_normalize(self.embedding, normalization))
 
         distances, indices = nbrs.kneighbors(self.embedding)
         self.indices = indices[:, 1:]
@@ -216,6 +217,8 @@ if __name__ == "__main__":
     wRuns = ['078X', '094X', '095X']#['064X', '078X', '026'] #['064X', '071' (is actually 071X), '078X', '081', '082']
     wRunsNet = ['siam', 'siam', 'siam']#, 'dir']
     run_metrics = ['l2', 'cosine', 'l1']
+
+    rating_normalizaion = 'None' # 'None', 'Normal', 'Scale'
 
     wEpchs = [10, 20, 25, 30, 35]
     #WW = ['embed_siam{}-{}_{}.p'.format(run, E, dset) for E in wEpchs]

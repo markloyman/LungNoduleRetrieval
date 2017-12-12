@@ -8,10 +8,10 @@ from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
 from scipy.stats import pearsonr, spearmanr, kendalltau, wasserstein_distance
 from scipy.spatial.distance import pdist, cdist, squareform
+from Analysis.analysis import calc_distance_matrix, calc_cross_distance_matrix
+from Network.dataUtils import rating_normalize
 
-import LIDC.lidcUtils
-
-
+''''
 def calc_distance_matrix(X, method):
     precalc_var = np.array(
         [1.3731895, 0.03974337, 0.89052489, 0.89331349, 1.37905025, 1.09002916, 1.07042897, 1.33024606, 1.33381279])
@@ -75,7 +75,7 @@ def calc_cross_distance_matrix(X, Y, method):
         return None
 
     return DM
-
+'''
 def flatten_dm(DM):
     return DM[np.triu_indices(DM.shape[0], 1)].reshape(-1, 1)
 
@@ -90,9 +90,10 @@ def flatten_dm(DM):
 
 #metrics =   ['cityblock', 'euclidean', 'seuclidean', 'minkowski3', 'chebyshev', 'cosine', 'correlation', 'hamming', 'mahalanobis', 'braycurtis', 'canberra', 'jaccard']
 metrics =   ['cityblock', 'euclidean', 'seuclidean', 'minkowski3', 'chebyshev', 'cosine', 'hamming', 'mahalanobis', 'emd']
+normalization = 'None' # 'None', 'Scale', 'Normal'
 
 dataset = pickle.load(open('NodulePatches.p', 'br'))
-Ratings = np.concatenate([entry['rating'] for entry in dataset])
+Ratings = np.concatenate([rating_normalize(entry['rating'], method=normalization) for entry in dataset])
 
 for metric in metrics[:]:
 
@@ -101,7 +102,7 @@ for metric in metrics[:]:
     intra = []
     for entry in dataset:
 
-        dm = calc_distance_matrix(entry['rating'], metric)
+        dm = calc_distance_matrix(rating_normalize(entry['rating'], method=normalization), metric)
         if dm.shape[0] > 1:
             dm = flatten_dm(dm)
             intra.append(np.mean(dm))

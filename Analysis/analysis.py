@@ -2,9 +2,41 @@ import itertools
 import numpy as np
 import matplotlib.pyplot as plt
 # from skimage.transform import resize
+from scipy.spatial.distance import pdist, cdist, squareform
 from sklearn.metrics import confusion_matrix
+from sklearn.metrics import pairwise
+from sklearn.neighbors import DistanceMetric
 
 from Network import dataUtils
+
+
+def calc_distance_matrix(X, method):
+    if method in ['chebyshev', 'euclidean', 'l1', 'l2']:
+        DM = DistanceMetric.get_metric(method).pairwise(X)
+    elif method in ['cosine']:
+        DM = pairwise.cosine_distances(X)
+    elif method in ['correlation', 'cityblock', 'braycurtis', 'canberra', 'hamming', 'jaccard', 'kulsinski']:
+        DM = squareform(pdist(X, method))
+    elif method in ['emd']:
+        l = len(X)
+        DM = np.zeros((l, l))
+        for x in range(l):
+            for y in range(l):
+                DM[x, y] = wasserstein_distance(X[x], X[y])
+    else:
+        return None
+
+    return DM
+
+
+def calc_cross_distance_matrix(X, Y, method):
+    if method in ['chebyshev', 'euclidean', 'cosine', 'correlation', 'cityblock']:
+        #DM = squareform(cdist(X, Y, method))
+        DM = cdist(X, Y, method)
+    else:
+        return None
+
+    return DM
 
 
 def MalignancyConfusionMatrix(pred, true):

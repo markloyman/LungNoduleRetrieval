@@ -3,26 +3,31 @@ import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial.distance import pdist, cdist, squareform
-from scipy.stats import pearsonr, spearmanr, kendalltau, wasserstein_distance
+from scipy.stats import pearsonr, spearmanr, kendalltau #, wasserstein_distance
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score, pairwise
 from sklearn.neighbors import DistanceMetric
 
 from LIDC.lidcUtils import calc_rating
+from Analysis.analysis import calc_distance_matrix, calc_cross_distance_matrix
+from Network.dataUtils import rating_normalize
 
-
-# from scipy.spatial import distance as Distance
-
-
+'''
 def calc_distance_matrix(X, method):
     rating_mean = np.array(
         [3.75904203, 1.01148583, 5.50651678, 3.79985337, 3.96358749, 1.67269469, 1.56867058, 4.4591072, 2.55197133])
     rating_std = np.array(
         [1.09083287, 0.11373469, 1.02463593, 0.80119638, 1.04281277, 0.89359593, 0.89925905, 1.04813052, 1.12151403])
-
+    rating_min = np.array(
+        [1, 1, 1, 1, 1, 1, 1, 1, 1])
+    rating_max = np.array(
+        [5, 4, 6, 5, 5, 5, 5, 5, 5])
     if len(method) > 4 and method[-4:] == 'norm':
         X -= rating_mean
         X /= rating_std
+
+    if len(method) > 4 and method[-4:] == 'scale':
+        X = (X - rating_min)/(rating_max - rating_min)
 
     if method in ['chebyshev', 'euclidean', 'l1', 'l2']:
         DM = DistanceMetric.get_metric(method).pairwise(X)
@@ -52,7 +57,7 @@ def calc_cross_distance_matrix(X, Y, method):
         return None
 
     return DM
-
+'''
 
 def flatten_dm(DM):
     return DM[np.triu_indices(DM.shape[0], 1)].reshape(-1, 1)
@@ -64,7 +69,6 @@ def linear_regression(x, y):
     y_pred = regr.predict(x)
 
     return mean_squared_error(y, y_pred), r2_score(y, y_pred)
-
 
 
 class RatingCorrelator:

@@ -5,6 +5,26 @@ from sklearn.utils import class_weight
 import matplotlib.pyplot as plt
 
 
+def rating_normalize(rating, method):
+    rating_mean = np.array(
+        [3.75904203, 1.01148583, 5.50651678, 3.79985337, 3.96358749, 1.67269469, 1.56867058, 4.4591072, 2.55197133])
+    rating_std = np.array(
+        [1.09083287, 0.11373469, 1.02463593, 0.80119638, 1.04281277, 0.89359593, 0.89925905, 1.04813052, 1.12151403])
+    rating_min = np.array(
+        [1, 1, 1, 1, 1, 1, 1, 1, 1])
+    rating_max = np.array(
+        [5, 4, 6, 5, 5, 5, 5, 5, 5])
+
+    if method == 'norm':
+        rating -= rating_mean
+        rating /= rating_std
+
+    if method == 'scale':
+        rating = (rating - rating_min)/(rating_max - rating_min)
+
+    return rating
+
+
 def uncategorize(hot_labels):
     labels = np.argmax(hot_labels, axis=1)
     return labels

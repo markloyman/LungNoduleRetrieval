@@ -26,7 +26,7 @@ def calc_distance_matrix(X, method):
 
     if method in ['chebyshev', 'euclidean', 'l1', 'l2']:
         DM = DistanceMetric.get_metric(method).pairwise(X)
-    elif method in ['l1_norm', 'l2_norm']:
+    elif method in ['l1_norm', 'l2_norm', 'chebyshev_norm']:
         DM = DistanceMetric.get_metric(method[:-5]).pairwise(X)
     elif method in ['cosine', 'cosine_norm']:
         DM = pairwise.cosine_distances(X)

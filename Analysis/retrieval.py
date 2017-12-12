@@ -213,8 +213,9 @@ if __name__ == "__main__":
     #Embed = FileManager.Embed('siam')
 
     dset = 'Valid'
-    wRuns = ['064X', '078X', '026'] #['064X', '071' (is actually 071X), '078X', '081', '082']
-    wRunsNet = ['siam', 'siam', 'dir']
+    wRuns = ['078X', '094X', '095X']#['064X', '078X', '026'] #['064X', '071' (is actually 071X), '078X', '081', '082']
+    wRunsNet = ['siam', 'siam', 'siam']#, 'dir']
+    run_metrics = ['l2', 'cosine', 'l1']
 
     wEpchs = [10, 20, 25, 30, 35]
     #WW = ['embed_siam{}-{}_{}.p'.format(run, E, dset) for E in wEpchs]
@@ -238,7 +239,7 @@ if __name__ == "__main__":
 
     if doClass:
         plt.figure('KNN Classification - ' + dset)
-        for run, net_type, idx in zip(wRuns, wRunsNet, range(len(wRuns))):
+        for run, net_type, idx, metric in zip(wRuns, wRunsNet, range(len(wRuns)), run_metrics):
             NN = [3, 5, 7, 11, 17]
             Embed = FileManager.Embed(net_type)
             WW = [Embed(run, E, dset) for E in wEpchs]
@@ -250,7 +251,7 @@ if __name__ == "__main__":
 
                 pred_l1o = []
                 for N in NN:
-                    Ret.fit(N)
+                    Ret.fit(N, metric=metric)
                     pred_l1o.append(Ret.classify_leave1out()[1])
 
                 Pred_L1O.append(np.array(pred_l1o))
@@ -274,7 +275,7 @@ if __name__ == "__main__":
 
         NN = [3, 5, 7, 11, 17]
 
-        for run, net_type, idx in zip(wRuns, wRunsNet, range(len(wRuns))):
+        for run, net_type, idx, metric in zip(wRuns, wRunsNet, range(len(wRuns)), run_metrics):
             NN = [3, 5, 7, 11, 17]
             Embed = FileManager.Embed(net_type)
             Prec, Prec_b, Prec_m = [], [], []
@@ -286,7 +287,7 @@ if __name__ == "__main__":
 
                 prec, prec_b, prec_m = [], [], []
                 for N in NN:
-                    Ret.fit(N)
+                    Ret.fit(N,  metric=metric)
                     p =         Ret.evaluate_precision(plot=False, split=False)
                     pm, pb =    Ret.evaluate_precision(plot=False, split=True)
                     prec.append(p)

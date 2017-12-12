@@ -14,8 +14,10 @@ import FileManager
 ## ======= Setup ======= ##
 ## ===================== ##
 
+network = 'siam'
+
 size        = 144
-res = 'Legacy'
+res = 0.5 #'Legacy'
 sample = 'Normal'
 
 normalize = True
@@ -23,16 +25,17 @@ normalize = True
 # 0     Test
 # 1     Validation
 # 2     Training
-DataSubSet = 2
+DataSubSet = 1
 
-Weights = FileManager.Weights('siam')
+Weights = FileManager.Weights(network)
+Embed   = FileManager.Embed(network)
 
-wRuns = ['078X'] #['064X', '071' (is actually 071X), '078X', '081', '082']
+wRuns = ['095X'] #['064X', '071' (is actually 071X), '078X', '081', '082']
 
 outputs = [128]*len(wRuns)
 in_size = 128
 input_shape = (in_size, in_size, 1)
-wEpchs= [24] #[10, 15, 17, 18, 20, 22, 23, 24, 25, 30, 35]
+wEpchs= [10, 15, 17, 18, 20, 22, 23, 24, 25, 30, 35]
 
 do_eval = False
 
@@ -60,13 +63,14 @@ try:
 
     for run, out_size in zip(wRuns, outputs):
         for epoch in wEpchs:
-            filename = './output/embed/embed_siam{}-{}_{}.p'.format(run, epoch, post)
+            filename = Embed(run, epoch, post)
             try:
                 images, pred, meta, labels, masks = pickle.load(open(filename, 'br'))
             except:
                 from Network.data import load_nodule_dataset, load_nodule_raw_dataset, prepare_data
                 from Network.model import miniXception_loader
                 from Network.siameseArch import siamArch
+                from Network.directArch import directArch
 
                 # prepare test data
                 images, labels, masks, meta = \
@@ -79,11 +83,18 @@ try:
                                          for im, msk in zip(images, masks)])
                 print("Image size changed to {}".format(images.shape))
                 print('Mask not updated')
-
-                model = siamArch(miniXception_loader, input_shape, 2, distance='l2', output_size=out_size, normalize=normalize)
+                if network == 'dir':
+                    model = directArch(miniXception_loader, input_shape, classes=2, output_size=out_size, normalize=normalize, pooling='rmac')
+                elif network == 'siam':
+                    model = siamArch(miniXception_loader, input_shape, 2, distance='l2', output_size=out_size, normalize=normalize, pooling='rmac')
+                else:
+                    assert(False)
                 w = Weights(run=run, epoch=epoch)
                 assert(w is not None)
-                embed_model = model.extract_core(weights=w)
+                if network=='dir':
+                    embed_model = model.extract_core(weights=w, repool=True)
+                else:
+                    embed_model = model.extract_core(weights=w)
                 pred = embed_model.predict(images)
                 pickle.dump((images, pred, meta, labels, masks), open(filename, 'bw'))
                 #pickle.dump(((50*images).astype('int8'), (1000*np.abs(pred)).astype('uint8'), meta, labels, masks.astype('bool')),

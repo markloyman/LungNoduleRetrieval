@@ -62,7 +62,8 @@ def lambda_p(nbrs_distances, res=0.1):
     lmbd = []
     sigma = np.max(nbrs_distances[:, 0])
     eps  = res*(1 + np.min(nbrs_distances[:, 0]) // res)
-    n = (1.1 * np.max(nbrs_distances) / eps).astype('int')
+    assert (eps > 0)
+    n = (1.1 * (np.max(nbrs_distances)/sigma - 1) / eps).astype('int')
     for e in range(n):
         thresh = (e*eps+1)*sigma
         C = np.count_nonzero(nbrs_distances // thresh, axis=1)
@@ -73,7 +74,7 @@ def lambda_p(nbrs_distances, res=0.1):
 
 def kumar(nbrs_distances, res=0.0025):
     l, e = lambda_p(nbrs_distances, res=res)
-    tau = res*np.sum(l[np.bitwise_and(l > 0, l < 1)])
+    tau = res*np.sum(l[np.bitwise_and(l > 0.0001, l < 1)])
     return tau, (l, e)
 
 
@@ -89,8 +90,8 @@ if __name__ == "__main__":
     # 2     Training
     # =======================
     DataSubSet = 2
-    #metrics = ['l1', 'l2', 'cosine', 'l1_norm', 'l2_norm', 'cosine_norm']
-    metrics = ['l1', 'l2', 'cosine']
+    metrics = ['l1', 'l2', 'cosine', 'l1_norm', 'l2_norm', 'cosine_norm']
+    #metrics = ['l1', 'l2', 'cosine']
 
     do_hubness = False
     # =======================

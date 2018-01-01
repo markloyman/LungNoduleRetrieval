@@ -80,6 +80,19 @@ def flatten_dm(DM):
     return DM[np.triu_indices(DM.shape[0], 1)].reshape(-1, 1)
 
 
+def test_rules(metric):
+    a = np.array([1, 1, 1, 1, 1, 1])
+
+    b = np.array([2, 2, 1, 1, 1, 1])
+    c = np.array([3, 1, 1, 1, 1, 1])
+
+    e = np.array([2, 2, 2, 2, 2, 2])
+    f = np.array([2, 2, 2, 2, 2, 1])
+
+    rule1 = calc_distance_matrix(np.vstack([a, b]), metric)[0,1] < calc_distance_matrix(np.vstack([a, c]), metric)[0,1]
+    rule2 = calc_distance_matrix(np.vstack([e, f]), metric)[0,1] < calc_distance_matrix(np.vstack([a, e]), metric)[0,1]
+
+    return rule1, rule2
 
 #metrics =   [ 'euclidean'    # L2
 #            , 'chebyshev'    # L-inf
@@ -88,12 +101,20 @@ def flatten_dm(DM):
 #            , 'manhaten'
 #            ]
 
-#metrics =   ['cityblock', 'euclidean', 'seuclidean', 'minkowski3', 'chebyshev', 'cosine', 'correlation', 'hamming', 'mahalanobis', 'braycurtis', 'canberra', 'jaccard']
-metrics =   ['cityblock', 'euclidean', 'seuclidean', 'minkowski3', 'chebyshev', 'cosine', 'hamming', 'mahalanobis', 'emd']
-normalization = 'None' # 'None', 'Scale', 'Normal'
+#metrics =   ['cityblock', 'euclidean', 'seuclidean', 'minkowski3', 'chebyshev', 'cosine', 'correlation', 'hamming', 'mahalanobis', 'braycurtis', 'canberra', 'jaccard', 'emd']
+metrics = ['cityblock', 'euclidean', 'chebyshev', 'cosine', 'canberra']
+normalization = 'Scale'  # 'None', 'Scale', 'Normal'
 
-dataset = pickle.load(open('NodulePatches.p', 'br'))
+dataset = pickle.load(open('LIDC/NodulePatches128-0.5.p', 'br'))
+print("Loaded {} entries".format(len(dataset)))
+
 Ratings = np.concatenate([rating_normalize(entry['rating'], method=normalization) for entry in dataset])
+print("Ratings speard over {} annotations".format(Ratings.shape))
+
+for metric in metrics[:]:
+    t1, t2 = test_rules(metric)
+    print("Metric: {} -\t{}\t{}".format(metric, t1, t2))
+
 
 for metric in metrics[:]:
 
@@ -104,20 +125,25 @@ for metric in metrics[:]:
 
         dm = calc_distance_matrix(rating_normalize(entry['rating'], method=normalization), metric)
         if dm.shape[0] > 1:
-            dm = flatten_dm(dm)
-            intra.append(np.mean(dm))
-        else:
-            intra.append(dm)
+            fdm = flatten_dm(dm)
+            intra.append(fdm)
+        #else:
+        #    intra.append(dm)
 
-    intra_dist = np.mean(intra)
+    intra = np.concatenate(intra)
+    intra_dist, intra_dist_std = np.mean(intra), np.std(intra)
 
     # inter
     # ========
     dm = calc_distance_matrix(Ratings, metric)
     dm = flatten_dm(dm)
 
-    innter_dist = np.mean(dm)
+    innter_dist, innter_dist_std = np.mean(dm), np.std(dm)
 
-    print('Metric: {} - \tFactor = {:.2f}'.format(metric, intra_dist/innter_dist))
+    print('Metric: {} - \tFactor = {:.2f} ({:.2f} : {:.2f} : {:.2f})'.format(metric,
+                                                          intra_dist/innter_dist,
+                                                          (intra_dist+intra_dist_std)/innter_dist
+                                                          ))
     #print('\tinter dist = {:.2f}'.format(innter_dist))
     #print('\tintra dist = {:.2f}'.format(intra_dist))
+

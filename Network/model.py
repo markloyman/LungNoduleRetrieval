@@ -26,9 +26,9 @@ from keras.layers import GlobalAveragePooling2D
 from keras.layers import GlobalMaxPooling2D
 from keras.layers import Input
 from keras.layers import MaxPooling2D
-from keras.layers import AveragePooling2D
 from keras.layers import SeparableConv2D
 from keras.layers import Lambda
+from keras.layers import Flatten
 from keras.models import Model
 
 
@@ -125,61 +125,63 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
 
     x = Conv2D(64, (3, 3), use_bias=False, name='block1_conv2')(x)
     x = BatchNormalization(name='block1_conv2_bn')(x)
-    s = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='')(x)
     x = Activation('relu', name='block1_conv2_act')(x)
 
-    residual = AveragePooling2D((3, 3), strides=(2, 2), padding='same', name='res1_pool')(x)
+    residual = Conv2D(128, (1, 1), strides=(2, 2),
+                      padding='same', use_bias=False)(x)
+    residual = BatchNormalization()(residual)
 
     x = Dropout(rate=0.1)(x)
-    x = SeparableConv2D(64, (3, 3), padding='same', use_bias=False, name='block2_sepconv1')(x)
+    x = SeparableConv2D(128, (3, 3), padding='same', use_bias=False, name='block2_sepconv1')(x)
     x = BatchNormalization(name='block2_sepconv1_bn')(x)
     x = Activation('relu', name='block2_sepconv2_act')(x)
-    x = SeparableConv2D(64, (3, 3), padding='same', use_bias=False, name='block2_sepconv2')(x)
+    x = SeparableConv2D(128, (3, 3), padding='same', use_bias=False, name='block2_sepconv2')(x)
     x = BatchNormalization(name='block2_sepconv2_bn')(x)
 
     x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='block2_pool')(x)
     x = layers.add([x, residual])
-    x = layers.concatenate([x, s])
-    s = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='')(s)
 
-    residual = AveragePooling2D((3, 3), strides=(2, 2), padding='same', name='res2_pool')(x)
+    residual = Conv2D(256, (1, 1), strides=(2, 2),
+                      padding='same', use_bias=False)(x)
+    residual = BatchNormalization()(residual)
 
     x = Dropout(rate=0.1)(x)
     x = Activation('relu', name='block3_sepconv1_act')(x)
-    x = SeparableConv2D(128, (3, 3), padding='same', use_bias=False, name='block3_sepconv1')(x)
+    x = SeparableConv2D(256, (3, 3), padding='same', use_bias=False, name='block3_sepconv1')(x)
     x = BatchNormalization(name='block3_sepconv1_bn')(x)
     x = Activation('relu', name='block3_sepconv2_act')(x)
-    x = SeparableConv2D(128, (3, 3), padding='same', use_bias=False, name='block3_sepconv2')(x)
+    x = SeparableConv2D(256, (3, 3), padding='same', use_bias=False, name='block3_sepconv2')(x)
     x = BatchNormalization(name='block3_sepconv2_bn')(x)
 
     x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='block3_pool')(x)
     x = layers.add([x, residual])
-    x = layers.concatenate([x, s])
-    s = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='')(s)
 
-    residual = AveragePooling2D((3, 3), strides=(2, 2), padding='same', name='res3_pool')(x)
+    residual = Conv2D(512, (1, 1), strides=(2, 2),
+                      padding='same', use_bias=False)(x)
+    residual = BatchNormalization()(residual)
 
     x = Dropout(rate=0.1)(x)
     x = Activation('relu', name='block4_sepconv1_act')(x)
-    x = SeparableConv2D(192, (3, 3), padding='same', use_bias=False, name='block4_sepconv1')(x)
+
+    x = SeparableConv2D(512, (3, 3), padding='same', use_bias=False, name='block4_sepconv1')(x)
     x = BatchNormalization(name='block4_sepconv1_bn')(x)
     x = Activation('relu', name='block4_sepconv2_act')(x)
-    x = SeparableConv2D(192, (3, 3), padding='same', use_bias=False, name='block4_sepconv2')(x)
+    x = SeparableConv2D(512, (3, 3), padding='same', use_bias=False, name='block4_sepconv2')(x)
     x = BatchNormalization(name='block4_sepconv2_bn')(x)
 
     x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='block4_pool')(x)
     x = layers.add([x, residual])
-    x = layers.concatenate([x, s])
 
-    for i in range(3):
+    for i in range(1):
         residual = x
         prefix = 'block' + str(i + 5)
+
         x = Dropout(rate=0.1)(x)
         x = Activation('relu', name=prefix + '_sepconv1_act')(x)
-        x = SeparableConv2D(256, (3, 3), padding='same', use_bias=False, name=prefix + '_sepconv1')(x)
+        x = SeparableConv2D(512, (3, 3), padding='same', use_bias=False, name=prefix + '_sepconv1')(x)
         x = BatchNormalization(name=prefix + '_sepconv1_bn')(x)
         x = Activation('relu', name=prefix + '_sepconv2_act')(x)
-        x = SeparableConv2D(256, (3, 3), padding='same', use_bias=False, name=prefix + '_sepconv2')(x)
+        x = SeparableConv2D(512, (3, 3), padding='same', use_bias=False, name=prefix + '_sepconv2')(x)
         x = BatchNormalization(name=prefix + '_sepconv2_bn')(x)
         #x = Activation('relu', name=prefix + '_sepconv3_act')(x)
         #x = SeparableConv2D(512, (3, 3), padding='same', use_bias=False, name=prefix + '_sepconv3')(x)
@@ -190,16 +192,17 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
     residual = Conv2D(1024, (1, 1), strides=(2, 2),
                       padding='same', use_bias=False)(x)
     residual = BatchNormalization()(residual)
-    '''
+
     x = Activation('relu', name='block13_sepconv1_act')(x)
-    x = SeparableConv2D(256, (3, 3), padding='same', use_bias=False, name='block13_sepconv1')(x)
+    x = SeparableConv2D(728, (3, 3), padding='same', use_bias=False, name='block13_sepconv1')(x)
     x = BatchNormalization(name='block13_sepconv1_bn')(x)
+    '''
 
     x = Activation('relu', name='block13_sepconv2_act')(x)
     #x = SeparableConv2D(output_size, (3, 3), padding='same', use_bias=False, name='block13_sepconv2')(x)
     # SeparableConv2D doesn't allow decreasing feature size(solved in newer versions of tensorflow
     x =  Conv2D(output_size, (1, 1), strides=(1, 1), use_bias=False, name='block13_conv')(x)
-    x = BatchNormalization(name='block13_sepconv2_bn')(x)
+    x = BatchNormalization(name='pre_embed')(x)
 
     '''
     x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='block13_pool')(x)
@@ -220,19 +223,20 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
     elif pooling == 'rmac':
         # we have x16 reduction, so 128*128 input was reduced to 8*8
         x = MaxPooling2D((3, 3), strides=(2, 2), padding='valid', name='embed_pool')(x)
-        x = GlobalAveragePooling2D(name='embedding')(x)
+        x = GlobalAveragePooling2D(name='embeding')(x)
     elif pooling == 'msrmac':
-        s1 = GlobalAveragePooling2D(name='embeding')(x)
-        #s1 = Lambda(lambda q: K.l2_normalize(q, axis=-1))(s1)
+        s1 = GlobalAveragePooling2D(name='s1')(x)
         s2 = MaxPooling2D((2, 2), strides=(1, 1), padding='valid')(x)
-        s2 = GlobalAveragePooling2D(name='embedding')(s2)
-        #s2 = Lambda(lambda q: K.l2_normalize(q, axis=-1))(s2)
+        s2 = GlobalAveragePooling2D(name='s2')(s2)
         s4 = MaxPooling2D((4, 4), strides=(2, 2), padding='valid')(x)
-        s4 = GlobalAveragePooling2D(name='embedding')(s4)
-        #s4 = Lambda(lambda q: K.l2_normalize(q, axis=-1))(s4)
-        s8 = GlobalMaxPooling2D(name='embeding')(x)
-        #s8 = Lambda(lambda q: K.l2_normalize(q, axis=-1))(s8)
-        x = layers.add([s1, s2, s4, s8])
+        s4 = GlobalAveragePooling2D(name='s4')(s4)
+        s8 = GlobalMaxPooling2D(name='s8')(x)
+        x = layers.add([s1, s2, s4, s8], name='embeding')
+    elif pooling == 'conv':
+        x = Conv2D(output_size, (8, 8), strides=(1, 1), use_bias=False, name='embed_conv')(x)
+        x = Flatten(name='embeding')(x)
+    else:
+        x = Flatten(name='embeding')(x)
 
     if normalize:
         x = Lambda(lambda q: K.l2_normalize(q, axis=-1), name='n_embedding')(x)

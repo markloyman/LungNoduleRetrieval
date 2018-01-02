@@ -11,18 +11,19 @@ def rating_normalize(rating, method):
     rating_std = np.array(
         [1.09083287, 0.11373469, 1.02463593, 0.80119638, 1.04281277, 0.89359593, 0.89925905, 1.04813052, 1.12151403])
     rating_min = np.array(
-        [1, 1, 1, 1, 1, 1, 1, 1, 1])
+        [1., 1., 1., 1., 1., 1., 1., 1., 1.])
     rating_max = np.array(
-        [5, 4, 6, 5, 5, 5, 5, 5, 5])
+        [5., 4., 6., 5., 5., 5., 5., 5., 5.])
 
-    if method == 'norm':
-        rating -= rating_mean
-        rating /= rating_std
+    if method == 'Norm' or method == 'Normal':
+        #rating = rating.astype('float')
+        rating_norm = (rating - rating_mean) / rating_std
+    elif method == 'Scale':
+        rating_norm = 2.0*(rating - rating_min)/(rating_max - rating_min)-1.0
+    else:
+        rating_norm = rating
 
-    if method == 'scale':
-        rating = (rating - rating_min)/(rating_max - rating_min)
-
-    return rating
+    return rating_norm
 
 
 def uncategorize(hot_labels):
@@ -179,15 +180,15 @@ def augment(image, mask, size=0, max_angle=0, flip_ratio=0.0, crop_ratio=1.0, cr
     do_flip = rand() < flip_ratio
 
     # apply
-    image = rotate(image, angle, reshape=False, mode='nearest')
-    mask  = rotate(mask,  angle, reshape=False, mode='nearest')
+    image_r = rotate(image, angle, reshape=False, mode='nearest')
+    mask_r  = rotate(mask,  angle, reshape=False, mode='nearest')
 
-    image, mask = crop(image, mask, fix_size=size, ratio=crop_ratio, stdev=crop_stdev)
+    image_r, mask_r = crop(image_r, mask_r, fix_size=size, ratio=crop_ratio, stdev=crop_stdev)
 
     if do_flip:
-        image, mask = np.fliplr(image), np.fliplr(mask)
+        image_r, mask_r = np.fliplr(image_r), np.fliplr(mask_r)
 
-    return image, mask
+    return image_r, mask_r
 
 
 def test_augment(dataset):

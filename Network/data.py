@@ -46,23 +46,26 @@ def getImageStatistics(data, window=None, verbose=False):
         plt.hist(images, bins=500)
 
     if window is not None:
-        images = np.clip(images, window[0], window[1])
+        images_ = np.clip(images, window[0], window[1])
+    else:
+        images_ = images
         #images = images[(images>=window[0])*(images<=window[1])]
 
-    mean   = np.mean(images)
-    std    = np.std(images)
+    mean   = np.mean(images_)
+    std    = np.std(images_)
 
     return mean, std
 
 
 def normalize(image, mean, std, window=None):
     assert std > 0
+    image_n = image
     if window is not None:
-        image = np.clip(image, window[0], window[1])
-    image = image - mean
-    image = image.astype('float') / std
+        image_n = np.clip(image_n, window[0], window[1])
+    image_n = image_n - mean
+    image_n = image_n.astype('float') / std
 
-    return image
+    return image_n
 
 
 def normalize_all(dataset, mean=0, std=1, window=None):
@@ -75,12 +78,12 @@ def normalize_all(dataset, mean=0, std=1, window=None):
 
 def uniform(image, mean=0, window=None, centered=True):
     MIN_BOUND, MAX_BOUND = window
-    image = (image - MIN_BOUND) / (MAX_BOUND - MIN_BOUND)
-    image = np.clip(image, 0.0, 1.0)
+    image_u = (image - MIN_BOUND) / (MAX_BOUND - MIN_BOUND)
+    image_u = np.clip(image_u, 0.0, 1.0)
     if centered:
         mean = (mean - MIN_BOUND) / (MAX_BOUND - MIN_BOUND)
-        image -= mean
-    return image
+        image_u -= mean
+    return image_u
 
 
 def uniform_all(dataset, mean=0, window=None, centered=True):
@@ -153,7 +156,7 @@ def generate_nodule_dataset(filename, test_ratio, validation_ratio, window=(-100
 
 def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='Normal'):
 
-    if res is 'Legacy':
+    if type(res) == str:
         filename = '/Dataset/Dataset{:.0f}-{}-{}.p'.format(size, res, sample)
     else:
         filename = '/Dataset/Dataset{:.0f}-{:.1f}-{}.p'.format(size, res, sample)
@@ -182,7 +185,7 @@ def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='No
 
 
 def load_nodule_raw_dataset(size=128, res='Legacy', sample='Normal'):
-    if res is 'Legacy':
+    if type(res) == str:
         filename = '/Dataset/Dataset{:.0f}-{}-{}.p'.format(size, res, sample)
     else:
         filename = '/Dataset/Dataset{:.0f}-{:.1f}-{}.p'.format(size, res, sample)
@@ -400,8 +403,8 @@ if __name__ == "__main__":
     random.seed(1337)
     np.random.seed(1337)  # for reproducibility
 
-    generate_nodule_dataset(filename='LIDC/NodulePatches144-0.7ByMalignancy.p',
-                            output_filename='Dataset144-0.7-Normal.p',
+    generate_nodule_dataset(filename='LIDC/NodulePatches144-0.5-IByMalignancy.p',
+                            output_filename='Dataset144-0.5I-Normal.p',
                             test_ratio=0.2,
                             validation_ratio=0.25,
                             window=(-1000, 400),

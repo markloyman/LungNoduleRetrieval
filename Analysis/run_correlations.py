@@ -9,14 +9,27 @@ from Analysis.RatingCorrelator import RatingCorrelator
 import FileManager
 #Embed = FileManager.Embed('siam')
 
-dset = 'Valid'
-wRuns    = ['064X', '078X', '026']
-wRunNet = ['siam', 'siam', 'dir']
+dset = 'Test'
+#wRuns    = ['064X', '078X', '026']
+#wRunNet = ['siam', 'siam', 'dir']
 
-X, Y = 'embed', 'malig' #'malig' 'rating'
 
-metrics = ['l1', 'l2', 'cosine']
-wEpchs = [10, 20, 25, 30, 35] #[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50]
+#wRuns   = ['103']
+#wRunNet = ['dir']
+#wDist   = ['l2']
+
+#wRuns   = ['100']
+#wRunNet = ['siam']
+#wDist   = ['cosine']
+
+wRuns   = ['100', '101', '103', '103']
+wRunNet = ['siam', 'siam', 'siam', 'dir']
+wDist   = ['l2', 'l1', 'cosine', 'l2']
+
+X, Y = 'malig', 'rating' #'malig' 'rating'
+
+metrics = ['l2']  #['l2', 'l1', 'cosine']
+wEpchs = [30, 35] #[20, 25, 30, 35, 40, 45]  #[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50]
 
 plt.figure()
 plt_ = [None]*len(metrics)*2
@@ -24,15 +37,15 @@ for i in range(2 * len(metrics)):
     plt_[i] = plt.subplot(len(metrics), 2, i + 1)
 
 for m, metric in enumerate(metrics):
-    for run, net_type in zip(wRuns, wRunNet):
+    for run, net_type, dist in zip(wRuns, wRunNet, wDist):
         Embed = FileManager.Embed(net_type)
         WW = [Embed(run, E, dset) for E in wEpchs]
 
         P, S, K = [], [], []
         for W in WW:
             Reg = RatingCorrelator(W)
-            Reg.evaluate_embed_distance_matrix(method=metric)
-            Reg.evaluate_rating_space()
+            Reg.evaluate_embed_distance_matrix(method=dist)
+            Reg.evaluate_rating_space(norm='Normal')
             Reg.evaluate_rating_distance_matrix(method=metric)
 
             p, s, k = Reg.correlate(X, Y)

@@ -65,12 +65,9 @@ class Retriever:
             self.n = self.embedding.shape[0]-1
         else:
             self.n = n
-        if normalization!='None':
-            nbrs = NearestNeighbors(n_neighbors=self.n, algorithm='auto', metric=metric).fit(self.embedding)
-        else:
-            nbrs = NearestNeighbors(n_neighbors=self.n, algorithm='auto', metric=metric).fit(rating_normalize(self.embedding, normalization))
 
-        distances, indices = nbrs.kneighbors(self.embedding)
+        nbrs = NearestNeighbors(n_neighbors=(self.n+1), algorithm='auto', metric=metric).fit(rating_normalize(self.embedding, normalization))
+        distances, indices = nbrs.kneighbors(rating_normalize(self.embedding, normalization))
         self.indices = indices[:, 1:]
         self.distances = distances[:, 1:]
 
@@ -96,14 +93,12 @@ class Retriever:
         L = 'BM'
         #ann = getAnnotation(meta)
         #ann.visualize_in_scan()
-        if nods is None:
-            feature_vals = calc_rating(meta, method='single')
-            print('single -> {}'.format(feature_vals))
-        else:
-            feature_vals = calc_rating(meta, nodule_ids=nods)
-            print('mean ->: {}'.format(feature_vals))
-
-
+        #if nods is None:
+        #    feature_vals = calc_rating(meta, method='single')
+        #    print('single -> {}'.format(feature_vals))
+        #else:
+        feature_vals = calc_rating(meta, nodule_ids=nods)
+        print('mean ->: {}'.format(feature_vals))
 
         plt.figure()
         plt.title("{} - {} ({})".format(title, L[label], np.round(feature_vals, 1)))
@@ -213,23 +208,28 @@ if __name__ == "__main__":
     import FileManager
     #Embed = FileManager.Embed('siam')
 
-    dset = 'Valid'
-    wRuns = ['078X', '094X', '095X']#['064X', '078X', '026'] #['064X', '071' (is actually 071X), '078X', '081', '082']
-    wRunsNet = ['siam', 'siam', 'siam']#, 'dir']
-    run_metrics = ['l2', 'cosine', 'l1']
+    dset = 'Train'
 
-    rating_normalizaion = 'None' # 'None', 'Normal', 'Scale'
+    wRuns = ['101', '103']  #['064X', '078X', '026'] #['064X', '071' (is actually 071X), '078X', '081', '082']
+    wRunsNet = ['siam', 'siam']  #, 'dir']
+    run_metrics = ['l1', 'l2']
 
-    wEpchs = [10, 20, 25, 30, 35]
+    #wRuns = ['103']
+    #wRunsNet = ['dir']  # , 'dir']
+    #run_metrics = ['l2']
+
+    rating_normalizaion = 'Normal' # 'None', 'Normal', 'Scale'
+
+    wEpchs = [30, 35, 40, 45] #, 20, 25, 30, 35, 40, 45]
     #WW = ['embed_siam{}-{}_{}.p'.format(run, E, dset) for E in wEpchs]
     #WW = [ Embed(run, E, dset) for E in wEpchs]
 
     leg = ['E{}'.format(E) for E in wEpchs]
 
-    doClass         = True
-    doRet           = True
-    doRatingRet     = False
-    doMetricSpaceIndexes = True
+    doClass         = False
+    doRet           = False
+    doRatingRet     = True
+    doMetricSpaceIndexes = False
     doPCA           = False
 
     #Ret = Retriever(WW[-4], atitle='chn', aset=set)
@@ -265,7 +265,7 @@ if __name__ == "__main__":
             plt.grid(which='major', axis='y')
             plt.title('{}-{}'.format(net_type, run))
             plt.ylabel('ACC')
-            plt.xlabel('K')
+            plt.xlabel('epoch')
             plt.legend(NN)
 
         print('Done Classification.')
@@ -308,51 +308,52 @@ if __name__ == "__main__":
 
             plt.figure('RET_'+run+'_'+dset)
 
-            plt.subplot(311)
+            plt.subplot(211)
             plt.plot(wEpchs, Prec, '-*')
             plt.legend(NN)
             plt.title('Retrieval')
             plt.grid(which='major', axis='y')
             plt.ylim([0.7, 0.9])
             plt.ylabel('Precision')
-            plt.xlabel('K')
+            plt.xlabel('epoch')
 
             f1 = 2*Prec_b*Prec_m / (Prec_b+Prec_m)
-            plt.subplot(312)
+            plt.subplot(212)
             plt.plot(wEpchs, f1, '-*')
             plt.legend(NN)
             plt.title('F1')
             plt.grid(which='major', axis='y')
             plt.ylim([0.7, 0.9])
-            plt.ylabel('Precision')
-            plt.xlabel('K')
+            plt.ylabel('Retrieval Index')
+            plt.xlabel('epoch')
 
-            plt.subplot(325)
-            plt.grid(which='major', axis='y')
-            plt.plot(wEpchs, Prec_b, '-*')
-            plt.legend(NN)
-            plt.title('Benign')
-            plt.ylim([0.6, 1.0])
-            plt.ylabel('Precision')
-            plt.xlabel('K')
+            #plt.subplot(325)
+            #plt.grid(which='major', axis='y')
+            #plt.plot(wEpchs, Prec_b, '-*')
+            #plt.legend(NN)
+            #plt.title('Benign')
+            #plt.ylim([0.6, 1.0])
+            #plt.ylabel('Precision')
+            #plt.xlabel('epoch')
 
-            plt.subplot(326)
-            plt.plot(wEpchs, Prec_m, '-*')
-            plt.legend(NN)
-            plt.title('Malignant')
-            plt.ylim([0.6, 1.0])
-            plt.grid(which='major', axis='y')
-            plt.ylabel('Precision')
-            plt.xlabel('K')
+            #plt.subplot(326)
+            #plt.plot(wEpchs, Prec_m, '-*')
+            #plt.legend(NN)
+            #plt.title('Malignant')
+            #plt.ylim([0.6, 1.0])
+            #plt.grid(which='major', axis='y')
+            #plt.ylabel('Precision')
+            #plt.xlabel('epoch')
 
         print('Done Retrieval.')
 
     if doRatingRet:
+        Embed = FileManager.Embed('siam')
         N = 5
-        testData, validData, trainData = load_nodule_raw_dataset(size=144, res='Legacy', sample='Normal')
-        if set is 'Train':  data = trainData
-        if set is 'Test':   data = testData
-        if set is 'Valid':  data = validData
+        testData, validData, trainData = load_nodule_raw_dataset(size=144, res='0.5I', sample='Normal')
+        if dset is 'Train':  data = trainData
+        if dset is 'Test':   data = testData
+        if dset is 'Valid':  data = validData
 
         #Ret = Retriever(title='Ratings', dset=set)
         #Ret.load_rating(data)
@@ -364,18 +365,28 @@ if __name__ == "__main__":
         #anns = getAnnotation(info, nodule_ids=nod_ids, return_all=True)
         #pickle.dump(anns, open('tmp.p', 'bw'))
 
-        Ret = Retriever(title='', dset=set)
-        Ret.load_embedding(WW[0])
+        Ret = Retriever(title='', dset=dset)
+        Ret.load_embedding(Embed('100', 40, dset))
         Ret.fit(N)
-        Ret.show_ret(135, method='single')
+
+        Ret.show_ret(322)
+        Ret.show_ret(153)
+        Ret.show_ret(745)
+        Ret.show_ret(339)
+
+        Ret.show_ret(737)
+        Ret.show_ret(295)
+        Ret.show_ret(262)
+        Ret.show_ret(315)
 
     if doMetricSpaceIndexes:
-        metrics = ['l1', 'l2', 'cosine']
+        metrics = ['l2']
         plt.figure()
         p = [None]*len(metrics)*5
         for i in range(5*len(metrics)):
             p[i] = plt.subplot(len(metrics), 5, i + 1)
         for m, metric in enumerate(metrics):
+            print("Begin: {} metric".format(metric))
             for run, net_type, r in zip(wRuns, wRunsNet, range(len(wRuns))):
                 Embed = FileManager.Embed(net_type)
                 WW = [Embed(run, E, dset) for E in wEpchs]
@@ -397,21 +408,36 @@ if __name__ == "__main__":
                     indices, distances = Ret.ret_nbrs()
                     distance_matrix = calc_distance_matrix(embd, metric)
                     # hubness
-                    K = [3, 5, 7, 9, 11, 13]
+                    K = [3, 5, 7, 11, 17]
                     h = np.zeros(len(K))
+                    #plt.figure()
                     for i in range(len(K)):
-                        h[i] = index.hubness(indices, K[i])
+                        h_ = index.hubness(indices, K[i])
+                        h[i] = h_[0]
+                        if K[i] == 3:
+                            j = 1
+                        elif K[i] == 7:
+                            j = 2
+                        elif K[i] == 11:
+                            j = 3
+                        else:
+                            j = 0
+                        if False: #j != 0:
+                            plt.subplot(len(metrics), 3, m * 3 + j)
+                            plt.title('k-occ: {}'.format(net_type))
+                            plt.ylabel('k={}'.format(K[i]))
+                            plt.plot(np.array(range(len(h_[1]))), h_[1])
                     idx_hubness[e] = np.mean(h)
                     idx_hubness_std[e] = np.std(h)
                     #   symmetry
-                    K = [3, 5, 7, 9, 11, 13]
+                    K = [3, 5, 7, 11, 17]
                     s = np.zeros(len(K))
                     for i in range(len(K)):
                         s[i] = index.symmetry(indices, K[i])
                     idx_symmetry[e] = np.mean(s)
                     idx_symmetry_std[e] = np.std(s)
                     # kumar index
-                    tau, l_e = index.kumar(distances, res=0.001)
+                    tau, l_e = index.kumar(distances, res=0.0001)
                     idx_kummar[e] = tau
                     idx_concentration[e] = index.concentration(distance_matrix)[0]
                     idx_concentration_std[e] = index.concentration(distance_matrix)[1]
@@ -444,16 +470,17 @@ if __name__ == "__main__":
                     p[5 * m + 1].axes.title.set_text('symmetry')
                     p[5 * m + 2].axes.title.set_text('contrast')
                     p[5 * m + 3].axes.title.set_text('concentration')
-                    p[5 * m + 4].axes.title.set_text('kumar')
+                    p[5 * m + 4].axes.title.set_text('kumari')
                 if m == len(metrics)-1:  # last row
                     p[5 * m + 2].axes.xaxis.label.set_text('epochs')
-        p[-1].legend(wRuns)
+        p[-1].legend(wRunsNet)
         print('Done doMetricSpaceIndexes')
 
     if doPCA:
-        for run in wRuns:
+        for run, net_type in zip(wRuns, wRunsNet):
+            Embed = FileManager.Embed(net_type)
             Ret = Retriever(title=run, dset=dset)
-            Ret.load_embedding(Embed(run, 24, dset))
+            Ret.load_embedding(Embed(run, 40, dset))
             Ret.pca()
 
     plt.show()

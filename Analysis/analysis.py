@@ -17,7 +17,12 @@ def calc_distance_matrix(X, method):
         DM = pairwise.cosine_distances(X)
     elif method in ['correlation', 'cityblock', 'braycurtis', 'canberra', 'hamming', 'jaccard', 'kulsinski']:
         DM = squareform(pdist(X, method))
+    elif method in ['minkowski3']:
+        DM = squareform(pdist(X, 'minkowski', 3))
+    elif method in ['dot']:
+        DM = squareform(pdist(X, lambda u, v: np.dot(u, v)))
     elif method in ['emd']:
+        from scipy.stats import wasserstein_distance
         l = len(X)
         DM = np.zeros((l, l))
         for x in range(l):

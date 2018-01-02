@@ -92,8 +92,8 @@ class RatingCorrelator:
         self.rating_metric          = ''
         self.embed_metric           = ''
 
-    def evaluate_rating_space(self):
-        self.rating = [calc_rating(meta, method='mean') for meta in self.meta_data]
+    def evaluate_rating_space(self, norm='none'):
+        self.rating = [rating_normalize(calc_rating(meta, method='mean'), method=norm) for meta in self.meta_data]
         self.rating_distance_matrix = None # reset after recalculating the ratings
 
     def evaluate_rating_distance_matrix(self, method='chebyshev'):

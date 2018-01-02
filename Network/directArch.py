@@ -25,13 +25,19 @@ class directArch:
     def __init__(self, model_loader, input_shape, classes=2, pooling='rmac', output_size=1024, normalize=False):
     #   input_shape of form: (size, size,1)
 
-        img_input   = Input(shape=input_shape)
-        self.base   = model_loader(input_tensor=None, input_shape=input_shape, return_model=True,
-                                  pooling=pooling, output_size=output_size, normalize=normalize)
-        pred_layer  = Dense(output_size, activation='relu')(self.base(img_input))
-        pred_layer  = Dense(classes, activation='softmax', name='predictions')(pred_layer)
+        self.img_input   = Input(shape=input_shape)
+        self.input_shape = input_shape
+        self.output_size = output_size
+        self.pooling = pooling
+        self.normalize = normalize
+        self.model_loader = model_loader
+        self.base = model_loader(input_tensor=self.img_input, input_shape=input_shape,
+                                 pooling=pooling, output_size=output_size, normalize=normalize)
+        pred_layer = Dense(classes, activation='softmax', name='predictions')(self.base)
 
-        self.model = Model(img_input, pred_layer, name='directArch')
+        self.model = Model(self.img_input, pred_layer, name='directArch')
+
+        self.input_shape = input_shape
         self.data_ready  = False
         self.model_ready = False
 
@@ -60,7 +66,7 @@ class directArch:
                                            monitor='val_loss', save_best_only=False)
         #on_plateau       = ReduceLROnPlateau(monitor='val_loss', factor=0.5, epsilon=0.05, patience=10, min_lr=1e-8, verbose=1)
         early_stop       = EarlyStopping(monitor='loss', min_delta=0.05, patience=15)
-        if gen:
+        if True or gen:
             board            = TensorBoard(log_dir=output_dir+'/logs', histogram_freq=0, write_graph=False)
         else:
             board = TensorBoard(log_dir=output_dir + '/logs', histogram_freq=1, write_graph=True,
@@ -135,5 +141,34 @@ class directArch:
         self.model.load_weights('Weights/'+w)
         return None
 
-    def extract_core(self):
-        return self.base
+    def extract_core(self, weights=None, repool=False):
+        if repool:
+            from keras.layers import GlobalAveragePooling2D
+            from keras.layers import MaxPooling2D
+            from keras.layers import Lambda
+            import keras.backend as K
+            no_pool_model = Model(inputs=self.img_input,
+                                  outputs=Dense(2, activation='softmax', name='predictions')(self.model_loader(input_tensor=self.img_input, input_shape=self.input_shape,
+                                  pooling='none', output_size=self.output_size, normalize=self.normalize)),
+                                  name='no-pool')
+            no_pool_model.load_weights(weights)
+            no_pool_model.layers.pop() # remove dense
+            no_pool_model.layers.pop() # remove normal
+            no_pool_model.layers.pop()  # remove flatten
+            x = no_pool_model.layers[-1].output
+            if self.pooling == 'rmac':
+                x = MaxPooling2D((3, 3), strides=(2, 2), padding='valid', name='embed_pool')(x)
+                x = GlobalAveragePooling2D(name='embeding')(x)
+            else:
+                assert(False)
+            if self.normalize:
+                x = Lambda(lambda q: K.l2_normalize(q, axis=-1), name='n_embedding')(x)
+            model = Model(no_pool_model.input, x)
+
+        else:
+            if weights is not None:
+                self.model.load_weights(weights)
+            model = Model(  inputs  = self.img_input,
+                        outputs = self.base,
+                        name    ='directEmbed')
+        return model

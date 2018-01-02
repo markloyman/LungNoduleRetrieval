@@ -12,7 +12,7 @@ class DataGenerator(object):
 
     def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_sz=32,
                         do_augment=False, augment=None, use_class_weight=False, class_weight='dummy', debug=False,
-                        val_factor = 1, balanced=False, group_by_size=False):
+                        val_factor = 1, balanced=False):
 
         dataset = load_nodule_dataset(size=data_size, res=res, sample=sample, apply_mask_to_patch=debug)
 
@@ -32,7 +32,6 @@ class DataGenerator(object):
         self.valN = val_factor * (559 // self.batch_sz)
 
         self.balanced = balanced
-        self.group_by_size = group_by_size
 
         self.use_class_weight = use_class_weight
         self.class_weight_method = class_weight
@@ -54,28 +53,11 @@ class DataGenerator(object):
     def next(self, set, is_training=False):
         verbose = 1
         epoch = 0
-        cycle = 0
-        counter = 0
         while 1:
-            print('Run Gen: {} ({}.{}.{})'.format(np.where(is_training, 'Training', 'Validation'), epoch, cycle, counter))
+            print('Run Gen: {}'.format(np.where(is_training, 'Training', 'Validation')))
             size = self.data_size if self.do_augment else self.model_size
-            delta_epoch = 1
-            if is_training and self.group_by_size:
-                nodule_size = np.array([entry[4] for entry in set])
-                S = 10+6*np.random.rand()
-                if cycle % 3 == 0:
-                    data_mask = nodule_size <= S
-                    delta_epoch = 0
-                    counter = 0
-                elif cycle % 3 == 1:
-                    data_mask = nodule_size > S
-                    delta_epoch = 0
-                data_mask = np.array([True] * len(set))
-                subset = [entry for entry, m in zip(set, data_mask) if m]
-            else:
-                subset = set
             images, labels, masks, confidence = \
-                prepare_data_siamese(subset, size=size, balanced=(self.balanced and is_training), verbose=verbose)
+                prepare_data_siamese(set, size=size, balanced=(self.balanced and is_training), verbose=verbose)
 
             if self.do_augment and is_training and (epoch >= self.augment['epoch']):
                     if epoch == self.augment['epoch']:
@@ -114,16 +96,12 @@ class DataGenerator(object):
                 if verbose == 1:
                     print("discard last unfull batch -> sets:{}".format(len(images[0])))
 
-            if cycle % 3 == 2:
-                if is_training:
-                    assert(len(images[0]) == self.trainN)
-                else:
-                    assert( (self.val_factor*len(images[0])) == self.valN)
+            if is_training:
+                assert(len(images[0]) == self.trainN)
+            else:
+                assert( (self.val_factor*len(images[0])) == self.valN)
 
             for im0, im1, lbl, msk0, msk1, cnf in zip(images[0], images[1], labels, masks[0], masks[1], confidence):
-                if is_training and self.group_by_size and (counter == self.trainN):
-                    break
-                counter += 1
                 if self.use_class_weight:
                     w = get_sample_weight(cnf,  wD=class_weight['D'],
                                                 wSB=class_weight['SB'],
@@ -135,8 +113,7 @@ class DataGenerator(object):
                     yield ([im0, im1], lbl, w)
                 else:
                     yield ([im0, im1], lbl)
-            epoch = epoch + delta_epoch
-            cycle = cycle + 1
+            epoch = epoch +1
             verbose = 0
 
 

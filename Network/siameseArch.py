@@ -35,6 +35,13 @@ def l1_distance(vects):
     return K.sum(K.abs(x - y), axis=1, keepdims=True)
 
 
+def cosine_distance(vects):
+    x, y = vects
+    x = K.l2_normalize(x, axis=-1)
+    y = K.l2_normalize(y, axis=-1)
+    return 1.0 - K.batch_dot(x, y, axes=-1)
+
+
 def eucl_dist_output_shape(shapes):
     shape1, shape2 = shapes
     return (shape1[0], 1)
@@ -66,15 +73,18 @@ class siamArch:
 
         self.base =  model_loader(input_tensor=None, input_shape=input_shape, return_model=True,
                                   pooling=pooling, output_size=output_size, normalize=normalize)
-        self.base.summary()
+        #self.base.summary()
         base1 = self.base(img_input1)
         base2 = self.base(img_input2)
 
-        if distance is 'l2':
+        if distance == 'l2':
             distance_layer = Lambda(euclidean_distance,
                                 output_shape=eucl_dist_output_shape)([base1, base2])
-        elif distance is 'l1':
+        elif distance == 'l1':
             distance_layer = Lambda(l1_distance,
+                                output_shape=eucl_dist_output_shape)([base1, base2])
+        elif distance == 'cosine':
+            distance_layer = Lambda(cosine_distance,
                                 output_shape=eucl_dist_output_shape)([base1, base2])
         else:
             assert(False)
@@ -129,7 +139,7 @@ class siamArch:
         #on_plateau      = ReduceLROnPlateau(monitor='val_loss', factor=0.5, epsilon=1e-2, patience=5, min_lr=1e-6, verbose=1)
         #early_stop      = EarlyStopping(monitor='loss', min_delta=1e-3, patience=5)
         #lr_decay        = LearningRateScheduler(self.scheduler)
-        if gen:
+        if True or gen:
             board = TensorBoard(log_dir=output_dir+'/logs', histogram_freq=0, write_graph=False)
         else:
             board = TensorBoard(log_dir=output_dir+'/logs', histogram_freq=1, write_graph=True,

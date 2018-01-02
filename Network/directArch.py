@@ -12,19 +12,20 @@ from keras.metrics import categorical_accuracy
 try:
     from Analysis.analysis import history_summarize
     from Network.dataUtils import get_class_weight
-    from Network.modelUtils import sensitivity, f1, precision, specificity
+    from Network.modelUtils import sensitivity, f1, precision, specificity, root_mean_squared_error
     output_dir = './output'
 except:
     from dataUtils import get_class_weight
-    from modelUtils import sensitivity, f1, precision, specificity
+    from modelUtils import sensitivity, f1, precision, specificity, root_mean_squared_error
     output_dir = '/output'
 
 
 class directArch:
 
-    def __init__(self, model_loader, input_shape, classes=2, pooling='rmac', output_size=1024, normalize=False):
+    def __init__(self, model_loader, input_shape, objective='malignancy', pooling='rmac', output_size=1024, normalize=False):
     #   input_shape of form: (size, size,1)
 
+        self.objective = objective
         self.img_input   = Input(shape=input_shape)
         self.input_shape = input_shape
         self.output_size = output_size
@@ -33,7 +34,13 @@ class directArch:
         self.model_loader = model_loader
         self.base = model_loader(input_tensor=self.img_input, input_shape=input_shape,
                                  pooling=pooling, output_size=output_size, normalize=normalize)
-        pred_layer = Dense(classes, activation='softmax', name='predictions')(self.base)
+        if objective=='malignancy':
+            pred_layer = Dense(2, activation='softmax', name='predictions')(self.base)
+        elif objective=='rating':
+            pred_layer = Dense(9, activation='linear', name='predictions')(self.base)
+        else:
+            print("ERR: Illegual objective given ({})".format(objective))
+            assert(False)
 
         self.model = Model(self.img_input, pred_layer, name='directArch')
 
@@ -41,12 +48,18 @@ class directArch:
         self.data_ready  = False
         self.model_ready = False
 
-    def compile(self, learning_rate = 0.001, decay=0.1):
+    def compile(self, learning_rate = 0.001, decay=0.1, loss = 'categorical_crossentropy'):
         categorical_accuracy.__name__ = 'accuracy'
         sensitivity.__name__ = 'recall'
+        root_mean_squared_error.__name__ = 'rmse'
+        metrics = []
+        if self.objective == 'malignancy':
+            metrics = [categorical_accuracy, f1, sensitivity, precision, specificity]
+        elif self.objective == 'rating':
+            metrics = [root_mean_squared_error]
         self.model.compile( optimizer   = Adam(lr=learning_rate, decay=decay),
-                            loss        = 'categorical_crossentropy', #'categorical_crossentropy', mean_squared_error
-                            metrics     = [categorical_accuracy, f1, sensitivity, precision, specificity] )
+                            loss        = loss, #'categorical_crossentropy', mean_squared_error
+                            metrics     = metrics )
         self.model_ready = True
 
     def load_data(self, images_train, labels_train, images_valid, labels_valid, batch_sz=32):
@@ -58,19 +71,22 @@ class directArch:
         self.data_ready = True
 
     def load_generator(self, data_gen):
+        assert(data_gen.objective == self.objective)
         self.data_gen = data_gen
 
-    def train(self, label='', epoch=0, n_epoch=100, gen = False):
-
-        checkpoint = ModelCheckpoint(output_dir+'/Weights/w_' + label + '_{epoch:02d}-{accuracy:.2f}-{val_accuracy:.2f}.h5',
+    def train(self, label='', epoch=0, n_epoch=100, gen = False, do_graph=False):
+        check = 'loss'
+        if self.objective == 'malignancy':
+            check = 'accuracy'
+        checkpoint = ModelCheckpoint(output_dir+'/Weights/w_' + label + '_{{epoch:02d}}-{{{}:.2f}}-{{val_{}:.2f}}.h5'.format(check, check),
                                            monitor='val_loss', save_best_only=False)
         #on_plateau       = ReduceLROnPlateau(monitor='val_loss', factor=0.5, epsilon=0.05, patience=10, min_lr=1e-8, verbose=1)
         early_stop       = EarlyStopping(monitor='loss', min_delta=0.05, patience=15)
-        if True or gen:
-            board            = TensorBoard(log_dir=output_dir+'/logs', histogram_freq=0, write_graph=False)
+        if gen:
+            board            = TensorBoard(log_dir=output_dir+'/logs', histogram_freq=0, write_graph=do_graph)
         else:
-            board = TensorBoard(log_dir=output_dir + '/logs', histogram_freq=1, write_graph=True,
-                                write_images=True, batch_size=64, write_grads=True)
+            board = TensorBoard(log_dir=output_dir + '/logs', histogram_freq=1, write_graph=do_graph,
+                                write_images=True, batch_size=32, write_grads=True)
                                 #embeddings_freq=5, embeddings_layer_names='n_embedding', embeddings_metadata='meta.tsv')
         start = timer()
         total_time = None

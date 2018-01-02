@@ -14,10 +14,10 @@ import FileManager
 ## ======= Setup ======= ##
 ## ===================== ##
 
-network = 'siam'
+network = 'dirR'
 
 size        = 144
-res = 0.5 #'Legacy'
+res = '0.5I' #'Legacy'
 sample = 'Normal'
 
 normalize = True
@@ -30,12 +30,12 @@ DataSubSet = 1
 Weights = FileManager.Weights(network)
 Embed   = FileManager.Embed(network)
 
-wRuns = ['095X'] #['064X', '071' (is actually 071X), '078X', '081', '082']
+wRuns = ['002'] #['064X', '071' (is actually 071X), '078X', '081', '082']
 
 outputs = [128]*len(wRuns)
 in_size = 128
 input_shape = (in_size, in_size, 1)
-wEpchs= [10, 15, 17, 18, 20, 22, 23, 24, 25, 30, 35]
+wEpchs= [5, 10, 15, 20, 25, 30, 35, 40, 45]
 
 do_eval = False
 
@@ -84,15 +84,18 @@ try:
                 print("Image size changed to {}".format(images.shape))
                 print('Mask not updated')
                 if network == 'dir':
-                    model = directArch(miniXception_loader, input_shape, classes=2, output_size=out_size, normalize=normalize, pooling='rmac')
+                    model = directArch(miniXception_loader, input_shape, objective="malignancy", output_size=out_size, normalize=normalize, pooling='max')
                 elif network == 'siam':
                     model = siamArch(miniXception_loader, input_shape, 2, distance='l2', output_size=out_size, normalize=normalize, pooling='rmac')
+                elif network == 'dirR':
+                    model = directArch(miniXception_loader, input_shape, objective="rating", output_size=out_size,
+                                       normalize=normalize, pooling='max')
                 else:
                     assert(False)
                 w = Weights(run=run, epoch=epoch)
                 assert(w is not None)
                 if network=='dir':
-                    embed_model = model.extract_core(weights=w, repool=True)
+                    embed_model = model.extract_core(weights=w, repool=False)
                 else:
                     embed_model = model.extract_core(weights=w)
                 pred = embed_model.predict(images)

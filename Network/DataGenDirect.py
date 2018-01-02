@@ -10,15 +10,13 @@ except:
 class DataGeneratorDir(object):
     """docstring for DataGenerator"""
 
-    def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_sz=32,
+    def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_sz=32, objective='malignancy',
                         do_augment=False, augment=None, use_class_weight=False, class_weight='dummy', debug=False,
                         val_factor = 1, balanced=False):
 
-        dataset = load_nodule_dataset(size=data_size, res=res, sample=sample, apply_mask_to_patch=debug)
-        labels = np.array([entry[2] for entry in dataset[2]])
-        Nb = np.count_nonzero(1 - labels)
-        Nm = np.count_nonzero(labels)
+        self.objective = objective
 
+        dataset = load_nodule_dataset(size=data_size, res=res, sample=sample, apply_mask_to_patch=debug)
         self.train_set = dataset[2]
         self.valid_set = dataset[1]
 
@@ -27,22 +25,42 @@ class DataGeneratorDir(object):
         self.model_size = model_size
 
         self.val_factor = val_factor
-        if balanced:
-            self.trainN = 2*np.minimum(Nb, Nm) // self.batch_sz
-            #self.trainN = 666 // self.batch_sz
-        else:
-            self.trainN = (Nb+Nm) // self.batch_sz
-            #self.trainN = 1023 // self.batch_sz
-        self.valN = val_factor * (339 // self.batch_sz)
 
-        self.balanced = balanced
+        if objective == 'malignancy':
+            labels = np.array([entry[2] for entry in dataset[2]])
+            Nb = np.count_nonzero(1 - labels)
+            Nm = np.count_nonzero(labels)
 
-        self.use_class_weight = use_class_weight
-        if use_class_weight:
-            self.class_weight = get_class_weight(labels, class_weight)
-            print("Class Weight -> Benign: {:.2f}, Malignant: {:.2f}".format(self.class_weight[0], self.class_weight[1]))
-        else:
+            if balanced:
+                self.trainN = 2*np.minimum(Nb, Nm) // self.batch_sz
+                #self.trainN = 666 // self.batch_sz
+            else:
+                self.trainN = (Nb+Nm) // self.batch_sz
+                #self.trainN = 1023 // self.batch_sz
+            self.valN = val_factor * (339 // self.batch_sz)
+
+            self.balanced = balanced
+
+            self.use_class_weight = use_class_weight
+            if use_class_weight:
+                self.class_weight = get_class_weight(labels, class_weight)
+                print("Class Weight -> Benign: {:.2f}, Malignant: {:.2f}".format(self.class_weight[0], self.class_weight[1]))
+            else:
+                self.class_weight = None
+        elif objective == 'rating':
+            self.trainN = len(self.train_set) // batch_sz
+            self.valN = len(self.valid_set) // batch_sz
+            if balanced:
+                print("WRN: objective rating does not support balanced")
+            self.balanced = False
+            if use_class_weight:
+                print("WRN: objective rating does not support use class weight")
+            self.use_class_weight = False
             self.class_weight = None
+        else:
+            print("ERR: Illegual objective given ({})".format(objective))
+            assert (False)
+
         self.do_augment = do_augment
         self.augment = augment
         if do_augment: assert(augment is not None)
@@ -73,7 +91,7 @@ class DataGeneratorDir(object):
             size = self.data_size if self.do_augment else self.model_size
             #images, labels, masks, confidence = \
             images, labels, masks = \
-                prepare_data_direct(set, classes=2, size=self.model_size, verbose=verbose)
+                prepare_data_direct(set, objective=self.objective, classes=2, size=self.model_size, verbose=verbose)
             #prepare_data(set, classes=2, verbose=verbose, reshuffle=True)
             Nb = np.count_nonzero(1-np.argmax(labels, axis=1))
             Nm = np.count_nonzero(np.argmax(labels, axis=1))

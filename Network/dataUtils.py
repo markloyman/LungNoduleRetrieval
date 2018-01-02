@@ -55,9 +55,12 @@ def get_class_weight(labels, method='balanced'):
         CW['SB'] = n / (4.0 * sb)
         CW['SM'] = n / (4.0 * sm)
     elif method is 'dummy':
-        CW['D'] = 1
-        CW['SB'] = 1
-        CW['SM'] = 1
+        unique_labels = np.unique(labels)
+        for l in unique_labels:
+            CW[l] = 1
+        #CW['D'] = 1
+        #CW['SB'] = 1
+        #CW['SM'] = 1
     else:
         print("Illegal class weight method: {}".format(method))
         assert(False)

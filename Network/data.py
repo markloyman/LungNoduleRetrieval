@@ -173,13 +173,13 @@ def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='No
 
     if apply_mask_to_patch:
         print('WRN: apply_mask_to_patch is for debug only')
-        testData  = [(entry['patch']*(0.3+0.7*entry['mask']), entry['mask'], entry['label'], entry['info'], entry['size']) for entry in testData]
-        validData = [(entry['patch']*(0.3+0.7*entry['mask']), entry['mask'], entry['label'], entry['info'], entry['size']) for entry in validData]
-        trainData = [(entry['patch']*(0.3+0.7*entry['mask']), entry['mask'], entry['label'], entry['info'], entry['size']) for entry in trainData]
+        testData  = [(entry['patch']*(0.3+0.7*entry['mask']), entry['mask'], entry['label'], entry['info'], entry['size'], entry['rating']) for entry in testData]
+        validData = [(entry['patch']*(0.3+0.7*entry['mask']), entry['mask'], entry['label'], entry['info'], entry['size'], entry['rating']) for entry in validData]
+        trainData = [(entry['patch']*(0.3+0.7*entry['mask']), entry['mask'], entry['label'], entry['info'], entry['size'], entry['rating']) for entry in trainData]
     else:
-        testData  = [ (entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size']) for entry in testData ]
-        validData = [ (entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size']) for entry in validData]
-        trainData = [ (entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size']) for entry in trainData]
+        testData  = [ (entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size'], entry['rating']) for entry in testData ]
+        validData = [ (entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size'], entry['rating']) for entry in validData]
+        trainData = [ (entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size'], entry['rating']) for entry in trainData]
 
     return testData, validData, trainData
 
@@ -207,7 +207,7 @@ def reorder(a_list, order):
     return [a_list[order[i]] for i in range(len(order))]
 
 
-def prepare_data(data, classes=0, new_size=None, do_augment=False, categorize=True, return_meta=False, reshuffle=False, verbose = 0):
+def prepare_data(data, objective='malignancy', classes=0, new_size=None, do_augment=False, categorize=True, return_meta=False, reshuffle=False, verbose = 0):
     from keras.utils.np_utils import to_categorical
     # Entry:
     # 0 'patch'
@@ -231,7 +231,14 @@ def prepare_data(data, classes=0, new_size=None, do_augment=False, categorize=Tr
         print("\tImage size changed from {} to {}".format(old_size, images[0].shape))
         print("\tImage Range = [{:.1f}, {:.1f}]".format(np.max(images[0]), np.min(images[0])))
         print("\tMasks Range = [{}, {}]".format(np.max(masks[0]), np.min(masks[0])))
-    labels = np.array([entry[2] for entry in data]).reshape(N, 1)
+
+    if objective == 'malignancy':
+        labels = np.array([entry[2] for entry in data]).reshape(N, 1)
+    elif objective == 'rating':
+        labels = np.array([np.mean(entry[5], axis=0) for entry in data]).reshape(N, 9)
+    else:
+        print("ERR: Illegual objective given ({})".format(objective))
+        assert (False)
 
     if do_augment:
         assert(False)
@@ -268,9 +275,9 @@ def select_balanced(self, some_set, labels, N, permutation):
     return reshuff
 
 
-def prepare_data_direct(data, size=None, classes=2, balanced=False, return_meta=False, verbose= 0):
+def prepare_data_direct(data, objective='malignancy', size=None, classes=2, balanced=False, return_meta=False, verbose= 0):
     images, labels, masks = \
-        prepare_data(data, classes=classes, verbose=verbose, reshuffle=True)
+        prepare_data(data, objective=objective, classes=classes, categorize=(objective=='malignancy'), verbose=verbose, reshuffle=True)
     Nb = np.count_nonzero(1 - np.argmax(labels, axis=1))
     Nm = np.count_nonzero(np.argmax(labels, axis=1))
     N = np.minimum(Nb, Nm)

@@ -66,8 +66,10 @@ out_size = 128
 
 epochs = args.epochs if (args.epochs != 0) else 60
 
-# DIR / SIAM / DIR_RATING
-choose_model = "DIR_RATING"
+# DIR / SIAM / DIR_RATING / SIAM_RATING
+choose_model = "SIAM_RATING"
+
+print("Running training for --** {} **-- model".format(choose_model))
 
 ## --------------------------------------- ##
 ## ------- Run Direct Architecture ------- ##
@@ -114,7 +116,8 @@ if choose_model is "DIR_RATING":
     #run = 'dirR003'  # mse, linear activation
     #run = 'dirR004'  # logcosh
     #run = 'dirR005'  # binary_crossentropy
-    run = 'dirR006'  # mse, batch_sz=64
+    #run = 'dirR006'  # mse, batch_sz=64
+    run = 'dirR007'  # mse, data-aug
 
     use_gen = True
 
@@ -126,10 +129,10 @@ if choose_model is "DIR_RATING":
     if use_gen:
         data_augment_params = {'max_angle': 0, 'flip_ratio': 0.1, 'crop_stdev': 0.05, 'epoch': 0}
         generator = DataGeneratorDir(
-                data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=64,
+                data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=32,
                 objective='rating',
                 val_factor=1, balanced=False,
-                do_augment=False, augment=data_augment_params,
+                do_augment=True, augment=data_augment_params,
                 use_class_weight=False, class_weight='balanced')
         model.load_generator(generator)
     else:
@@ -154,17 +157,38 @@ if choose_model is "SIAM":
     #run = 'siam101'  # base model, res=0.5I, l1 | b: lr->e-2
     #run = 'siam102'  # base model, res=0.5I, l2, msrmac
     #run = 'siam103'  # base model, res=0.5I, cosine
-    run = 'siam104'  # base model, res=0.5I, l1, norm-l1
+    #run = 'siam104'  # base model, res=0.5I, l1, norm-l1
+    run = 'siam999'  # junk
 
     # model
     data_augment_params = {'max_angle': 0, 'flip_ratio': 0.1, 'crop_stdev': 0.05, 'epoch': 0}
-    generator = DataGenerator(data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=128,
+    generator = DataGenerator(data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=64,
                               val_factor=5, balanced=True,
                               do_augment=False, augment=data_augment_params,
                               use_class_weight=False)
 
     model = siamArch(miniXception_loader, input_shape, output_size=out_size,
-                     distance='l1', normalize=normalize, pooling='rmac')
+                     distance='l2', normalize=normalize, pooling='rmac')
+    model.model.summary()
+    model.compile(learning_rate=1e-3, decay=0)
+    model.load_generator(generator)
+
+    model.train(label=run, n_epoch=epochs, gen=True)
+
+if choose_model is "SIAM_RATING":
+
+    run = 'siamR999'  #
+
+    # model
+    data_augment_params = {'max_angle': 0, 'flip_ratio': 0.1, 'crop_stdev': 0.05, 'epoch': 0}
+    generator = DataGenerator(data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=64,
+                              val_factor=1, balanced=True,
+                              objective="rating",
+                              do_augment=False, augment=data_augment_params,
+                              use_class_weight=False)
+
+    model = siamArch(miniXception_loader, input_shape, output_size=out_size, objective="rating",
+                     distance='l2', normalize=normalize, pooling='rmac')
     model.model.summary()
     model.compile(learning_rate=1e-3, decay=0)
     model.load_generator(generator)

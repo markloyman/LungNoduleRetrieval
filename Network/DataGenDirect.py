@@ -90,28 +90,29 @@ class DataGeneratorDir(object):
             print('Run Gen {}: {}'.format(epoch, np.where(is_training, 'Training', 'Validation')))
             size = self.data_size if self.do_augment else self.model_size
             #images, labels, masks, confidence = \
-            images, labels, masks = \
+            images, labels, classes, masks = \
                 prepare_data_direct(set, objective=self.objective, classes=2, size=self.model_size, verbose=verbose)
             #prepare_data(set, classes=2, verbose=verbose, reshuffle=True)
-            Nb = np.count_nonzero(1-np.argmax(labels, axis=1))
-            Nm = np.count_nonzero(np.argmax(labels, axis=1))
+            Nb = np.count_nonzero(1-classes)
+            Nm = np.count_nonzero(classes)
             N = np.minimum(Nb, Nm)
             if verbose:
                 print("Benign: {}, Malignant: {}".format(Nb, Nm))
             if self.balanced and is_training:
                 new_order = np.random.permutation(2*N)
-                labels_ = np.argmax(labels, axis=1)
+                labels_ = np.argmax(classes, axis=1)
                 images = self.select_balanced(images, labels_, N, new_order)
                 labels = self.select_balanced(labels, labels_, N, new_order)
+                classes = self.select_balanced(classes, labels_, N, new_order)
                 masks = self.select_balanced(masks, labels_, N, new_order)
                 if verbose:
-                    Nb = np.count_nonzero(1 - np.argmax(labels, axis=1))
-                    Nm = np.count_nonzero(np.argmax(labels, axis=1))
+                    Nb = np.count_nonzero(1 - np.argmax(classes, axis=1))
+                    Nm = np.count_nonzero(np.argmax(classes, axis=1))
                     print("Balanced - Benign: {}, Malignant: {}".format(Nb, Nm))
             if self.do_augment and is_training and (epoch >= self.augment['epoch']):
                     if epoch == self.augment['epoch']:
                         print("Begin augmenting")
-                    images = self.augment_all(images)
+                    images = self.augment_all(images, masks)
             else:
                 images = np.array([crop_center(im, msk, size=self.model_size)[0]
                                     for im, msk in zip(images, masks)])
@@ -125,6 +126,7 @@ class DataGeneratorDir(object):
             split_idx = [b for b in range(self.batch_sz, images.shape[0], self.batch_sz)]
             images = np.array_split(images, split_idx)
             labels = np.array_split(labels,  split_idx)
+            classes = np.array_split(classes, split_idx)
             masks  = np.array_split(masks, split_idx)
             #confidence = np.array_split(confidence,  split_idx)
 
@@ -134,6 +136,7 @@ class DataGeneratorDir(object):
             if images[-1].shape[0] < self.batch_sz:
                 images = images[:-1]
                 labels = labels[:-1]
+                classes = classes[:-1]
                 masks  = masks[:-1]
                 #if self.use_class_weight:
                 #    confidence = confidence[:-1]

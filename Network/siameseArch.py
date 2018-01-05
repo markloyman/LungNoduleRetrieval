@@ -64,7 +64,7 @@ class printbatch(Callback):
 
 class siamArch:
 
-    def __init__(self, model_loader, input_shape, classes=2, pooling='rmac', output_size=1024, distance='l2', normalize=False):
+    def __init__(self, model_loader, input_shape, objective="malignancy", pooling='rmac', output_size=1024, distance='l2', normalize=False):
     #   input_shape of form: (size, size,1)
 
         img_input1  = Input(shape=input_shape)
@@ -89,6 +89,8 @@ class siamArch:
         else:
             assert(False)
 
+        self.objective = objective
+
         self.model =    Model(  inputs=[img_input1,img_input2],
                                 outputs = distance_layer,
                                 name='siameseArch')
@@ -102,9 +104,20 @@ class siamArch:
         binary_recall_inv.__name__    = 'recall'
         binary_f1_inv.__name__        = 'f1'
 
+        if self.objective == "malignancy":
+            loss = contrastive_loss
+            metrics = [binary_accuracy, binary_f1_inv, binary_precision_inv, binary_recall_inv]
+            #['binary_accuracy', 'categorical_accuracy', sensitivity, specificity, precision] )
+        elif self.objective == "rating":
+            loss = 'mean_squared_error'
+            metrics = []
+        else:
+            print("ERR: {} is not a valid objective".format(self.objective))
+            assert (False)
+
         self.model.compile( optimizer   = Adam(lr=learning_rate, decay=decay), #, decay=0.01*learning_rate),
-                            loss        = contrastive_loss,
-                            metrics     = [binary_accuracy, binary_f1_inv, binary_precision_inv, binary_recall_inv]) #['binary_accuracy', 'categorical_accuracy', sensitivity, specificity, precision] )
+                            loss        = loss,
+                            metrics     = metrics)
         # lr = self.lr * (1. / (1. + self.decay * self.iterations))
         self.lr         = learning_rate
         self.lr_decay   = decay
@@ -119,6 +132,7 @@ class siamArch:
         self.data_ready = True
 
     def load_generator(self, data_gen):
+        assert(data_gen.objective == self.objective)
         self.data_gen = data_gen
 
     def scheduler(self, epoch):

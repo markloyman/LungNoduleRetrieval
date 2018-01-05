@@ -207,7 +207,7 @@ def reorder(a_list, order):
     return [a_list[order[i]] for i in range(len(order))]
 
 
-def prepare_data(data, objective='malignancy', classes=0, new_size=None, do_augment=False, categorize=True, return_meta=False, reshuffle=False, verbose = 0):
+def prepare_data(data, objective='malignancy', new_size=None, do_augment=False, categorize=0, return_meta=False, reshuffle=False, verbose = 0):
     from keras.utils.np_utils import to_categorical
     # Entry:
     # 0 'patch'
@@ -234,8 +234,10 @@ def prepare_data(data, objective='malignancy', classes=0, new_size=None, do_augm
 
     if objective == 'malignancy':
         labels = np.array([entry[2] for entry in data]).reshape(N, 1)
+        classes = labels
     elif objective == 'rating':
-        labels = np.array([np.mean(entry[5], axis=0) for entry in data]).reshape(N, 9)
+        labels  = np.array([np.mean(entry[5], axis=0) for entry in data]).reshape(N, 9)
+        classes = np.array([entry[2] for entry in data]).reshape(N, 1)
     else:
         print("ERR: Illegual objective given ({})".format(objective))
         assert (False)
@@ -252,19 +254,20 @@ def prepare_data(data, objective='malignancy', classes=0, new_size=None, do_augm
         new_order = np.random.permutation(N)
         images = images[new_order]
         labels = labels[new_order]
+        classes = classes[new_order]
         masks  = masks[new_order]
         #print('permutation: {}'.format(new_order[:20]))
 
-    if categorize:
-        labels = to_categorical(labels, classes)
+    if categorize > 0:
+        labels = to_categorical(labels, categorize)
 
     if return_meta:
         meta = [entry[3] for entry in data]
         if reshuffle:
             meta = reorder(meta, new_order)
-        return images, labels, masks, meta
+        return images, labels, classes, masks, meta
     else:
-        return images, labels, masks
+        return images, labels, classes, masks
 
 
 def select_balanced(self, some_set, labels, N, permutation):
@@ -276,24 +279,25 @@ def select_balanced(self, some_set, labels, N, permutation):
 
 
 def prepare_data_direct(data, objective='malignancy', size=None, classes=2, balanced=False, return_meta=False, verbose= 0):
-    images, labels, masks = \
-        prepare_data(data, objective=objective, classes=classes, categorize=(objective=='malignancy'), verbose=verbose, reshuffle=True)
-    Nb = np.count_nonzero(1 - np.argmax(labels, axis=1))
-    Nm = np.count_nonzero(np.argmax(labels, axis=1))
+    images, labels, classes, masks = \
+        prepare_data(data, objective=objective, categorize=(2 if (objective=='malignancy') else 0), verbose=verbose, reshuffle=True)
+    Nb = np.count_nonzero(1 - classes)
+    Nm = np.count_nonzero(classes)
     N = np.minimum(Nb, Nm)
     if verbose:
         print("Benign: {}, Malignant: {}".format(Nb, Nm))
     if balanced:
         new_order = np.random.permutation(2 * N)
-        labels_ = np.argmax(labels, axis=1)
+        labels_ = np.argmax(classes, axis=1)
         images = select_balanced(images, labels_, N, new_order)
         labels = select_balanced(labels, labels_, N, new_order)
+        classes = select_balanced(classes, labels_, N, new_order)
         masks = select_balanced(masks, labels_, N, new_order)
         if verbose:
-            Nb = np.count_nonzero(1 - np.argmax(labels, axis=1))
-            Nm = np.count_nonzero(np.argmax(labels, axis=1))
+            Nb = np.count_nonzero(1 - np.argmax(classes, axis=1))
+            Nm = np.count_nonzero(np.argmax(classes, axis=1))
             print("Balanced - Benign: {}, Malignant: {}".format(Nb, Nm))
-    return images, labels, masks
+    return images, labels, classes, masks
 
 
 def select_different_pair(class_A, class_B, n):
@@ -314,21 +318,21 @@ def select_same_pairs(class_A, class_B):
     return same, sa_size, sb_size
 
 
-def prepare_data_siamese(data, size, balanced=False, return_meta=False, verbose= 0):
+def prepare_data_siamese(data, size, objective="malignancy", balanced=False, return_meta=False, verbose= 0):
     if verbose: print('prepare_data_siamese:')
     if return_meta:
         images, labels, masks, meta = \
-            prepare_data(data, categorize=False, return_meta=True, reshuffle=True, verbose=verbose)
+            prepare_data(data, categorize=0, objective=objective, return_meta=True, reshuffle=True, verbose=verbose)
         if verbose: print('Loaded Meta-Data')
     else:
-        images, labels, masks = \
-            prepare_data(data, categorize=False, return_meta=False, reshuffle=True, verbose=verbose)
-    if verbose: print("benign:{}, malignant: {}".format(np.count_nonzero(labels == 0),
-                                                        np.count_nonzero(labels == 1)))
+        images, labels, classes, masks = \
+            prepare_data(data, categorize=0, objective=objective, return_meta=False, reshuffle=True, verbose=verbose)
+    if verbose: print("benign:{}, malignant: {}".format(np.count_nonzero(classes == 0),
+                                                        np.count_nonzero(classes == 1)))
 
     N = images.shape[0]
-    benign_filter = np.where(labels == 0)[0]
-    malign_filter = np.where(labels == 1)[0]
+    benign_filter = np.where(classes == 0)[0]
+    malign_filter = np.where(classes == 1)[0]
     M = min(benign_filter.shape[0], malign_filter.shape[0])
 
     if balanced:
@@ -346,8 +350,19 @@ def prepare_data_siamese(data, size, balanced=False, return_meta=False, verbose=
     image_sub1 = np.array([pair[0] for pair in image_pairs])
     image_sub2 = np.array([pair[1] for pair in image_pairs])
 
-    similarity_labels = np.concatenate([np.repeat(0, len(same)),
+    if objective == "malignancy":
+        similarity_labels = np.concatenate([np.repeat(0, len(same)),
                                         np.repeat(1, len(different))])
+    elif objective == "rating":
+        lbls_benign, lbls_malign = labels[benign_filter], labels[malign_filter]
+        diff_lbls, d_size = select_different_pair(lbls_benign, lbls_malign, n=M)
+        same_lbls, sb_size, sm_size = select_same_pairs(lbls_benign, lbls_malign)
+
+        label_pairs = same_lbls + diff_lbls
+        similarity_labels = np.array([np.sqrt((a-b).dot(a-b)) for a, b in label_pairs])
+    else:
+        print("ERR: {} is not a valid objective".format(objective))
+        assert(False)
 
     #   Handle Masks
     # =========================

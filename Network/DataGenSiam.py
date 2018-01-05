@@ -10,9 +10,11 @@ except:
 class DataGenerator(object):
     """docstring for DataGenerator"""
 
-    def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_sz=32,
+    def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_sz=32, objective="malignancy",
                         do_augment=False, augment=None, use_class_weight=False, class_weight='dummy', debug=False,
                         val_factor = 1, balanced=False):
+
+        self.objective = objective
 
         dataset = load_nodule_dataset(size=data_size, res=res, sample=sample, apply_mask_to_patch=debug)
 
@@ -57,8 +59,8 @@ class DataGenerator(object):
             print('Run Gen: {}'.format(np.where(is_training, 'Training', 'Validation')))
             size = self.data_size if self.do_augment else self.model_size
             images, labels, masks, confidence = \
-                prepare_data_siamese(set, size=size, balanced=(self.balanced and is_training), verbose=verbose)
-
+                prepare_data_siamese(set, size=size, balanced=(self.balanced and is_training),
+                                     objective=self.objective, verbose=verbose)
             if self.do_augment and is_training and (epoch >= self.augment['epoch']):
                     if epoch == self.augment['epoch']:
                         print("Begin augmenting")

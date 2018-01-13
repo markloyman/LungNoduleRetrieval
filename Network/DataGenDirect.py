@@ -91,7 +91,7 @@ class DataGeneratorDir(object):
             size = self.data_size if self.do_augment else self.model_size
             #images, labels, masks, confidence = \
             images, labels, classes, masks = \
-                prepare_data_direct(set, objective=self.objective, classes=2, size=self.model_size, verbose=verbose)
+                prepare_data_direct(set, objective=self.objective, classes=2, size=self.model_size, verbose=verbose)[:4]
             #prepare_data(set, classes=2, verbose=verbose, reshuffle=True)
             Nb = np.count_nonzero(1-classes)
             Nm = np.count_nonzero(classes)

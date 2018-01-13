@@ -314,8 +314,8 @@ if __name__ == "__main__":
     Reg.evaluate_rating_space()
     Reg.evaluate_rating_distance_matrix(method='euclidean')
 
-    #Reg.linear_regression()
-    #Reg.scatter('embed', 'rating', yMethod='chebyshev')
+    Reg.linear_regression()
+    Reg.scatter('embed', 'rating', xMethod="euclidean", yMethod='euclidean', sub=True)
     #Reg.scatter('malig', 'rating', yMethod='euclidean', sub=True)
     #Reg.scatter('embed', 'malig', sub=True)
     #Reg.malig_regression(method='euclidean')

@@ -12,11 +12,11 @@ from keras.metrics import categorical_accuracy
 try:
     from Analysis.analysis import history_summarize
     from Network.dataUtils import get_class_weight
-    from Network.modelUtils import sensitivity, f1, precision, specificity, root_mean_squared_error
+    from Network.metrics import sensitivity, f1, precision, specificity, root_mean_squared_error
     output_dir = './output'
 except:
     from dataUtils import get_class_weight
-    from modelUtils import sensitivity, f1, precision, specificity, root_mean_squared_error
+    from metrics import sensitivity, f1, precision, specificity, root_mean_squared_error
     output_dir = '/output'
 
 
@@ -154,7 +154,7 @@ class directArch:
 
 
     def load_weights(self, w):
-        self.model.load_weights('Weights/'+w)
+        self.model.load_weights(w)
         return None
 
     def extract_core(self, weights=None, repool=False):

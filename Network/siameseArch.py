@@ -11,10 +11,10 @@ from keras.models import Model
 from keras.optimizers import Adam
 
 try:
-    from Network.modelUtils import siamese_margin, binary_accuracy, binary_precision_inv, binary_recall_inv, binary_f1_inv, binary_assert
+    from Network.metrics import siamese_margin, binary_accuracy, binary_precision_inv, binary_recall_inv, binary_f1_inv, binary_assert, pearson_correlation
     output_dir = './output'
 except:
-    from modelUtils import siamese_margin, binary_accuracy, binary_precision_inv, binary_recall_inv, binary_f1_inv, binary_assert
+    from metrics import siamese_margin, binary_accuracy, binary_precision_inv, binary_recall_inv, binary_f1_inv, binary_assert, pearson_correlation
     output_dir = '/output'
 
 def huber(a, d):
@@ -98,19 +98,19 @@ class siamArch:
         self.data_ready  = False
         self.model_ready = False
 
-    def compile(self, learning_rate = 0.001, decay=0.1):
+    def compile(self, learning_rate = 0.001, decay=0.1, loss = 'mean_squared_error'):
         binary_accuracy.__name__      = 'accuracy'
         binary_precision_inv.__name__ = 'precision'
         binary_recall_inv.__name__    = 'recall'
         binary_f1_inv.__name__        = 'f1'
+        pearson_correlation.__name__  = 'corr'
 
         if self.objective == "malignancy":
             loss = contrastive_loss
             metrics = [binary_accuracy, binary_f1_inv, binary_precision_inv, binary_recall_inv]
             #['binary_accuracy', 'categorical_accuracy', sensitivity, specificity, precision] )
         elif self.objective == "rating":
-            loss = 'mean_squared_error'
-            metrics = []
+            metrics = [pearson_correlation]
         else:
             print("ERR: {} is not a valid objective".format(self.objective))
             assert (False)

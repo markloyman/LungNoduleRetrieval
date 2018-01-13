@@ -14,7 +14,7 @@ import FileManager
 ## ======= Setup ======= ##
 ## ===================== ##
 
-network = 'dirR'
+network = 'siamR'
 
 size        = 144
 res = '0.5I' #'Legacy'
@@ -25,12 +25,12 @@ normalize = True
 # 0     Test
 # 1     Validation
 # 2     Training
-DataSubSet = 1
+DataSubSet = 2
 
 Weights = FileManager.Weights(network)
 Embed   = FileManager.Embed(network)
 
-wRuns = ['002'] #['064X', '071' (is actually 071X), '078X', '081', '082']
+wRuns = ['006XX'] #['064X', '071' (is actually 071X), '078X', '081', '082']
 
 outputs = [128]*len(wRuns)
 in_size = 128
@@ -73,7 +73,7 @@ try:
                 from Network.directArch import directArch
 
                 # prepare test data
-                images, labels, masks, meta = \
+                images, labels, classes, masks, meta = \
                     prepare_data(load_nodule_dataset(size=size, res=res, sample=sample)[DataSubSet],
                                  categorize=False,
                                  reshuffle=False,
@@ -86,10 +86,12 @@ try:
                 if network == 'dir':
                     model = directArch(miniXception_loader, input_shape, objective="malignancy", output_size=out_size, normalize=normalize, pooling='max')
                 elif network == 'siam':
-                    model = siamArch(miniXception_loader, input_shape, 2, distance='l2', output_size=out_size, normalize=normalize, pooling='rmac')
+                    model = siamArch(miniXception_loader, input_shape, distance='l2', output_size=out_size, normalize=normalize, pooling='rmac')
                 elif network == 'dirR':
                     model = directArch(miniXception_loader, input_shape, objective="rating", output_size=out_size,
                                        normalize=normalize, pooling='max')
+                elif network == 'siamR':
+                    model = siamArch(miniXception_loader, input_shape, distance='l2', output_size=out_size, normalize=normalize, pooling='rmac', objective="rating")
                 else:
                     assert(False)
                 w = Weights(run=run, epoch=epoch)

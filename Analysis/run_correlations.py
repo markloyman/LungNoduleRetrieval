@@ -9,7 +9,7 @@ from Analysis.RatingCorrelator import RatingCorrelator
 import FileManager
 #Embed = FileManager.Embed('siam')
 
-dset = 'Test'
+dset = 'Train'
 #wRuns    = ['064X', '078X', '026']
 #wRunNet = ['siam', 'siam', 'dir']
 
@@ -22,14 +22,15 @@ dset = 'Test'
 #wRunNet = ['siam']
 #wDist   = ['cosine']
 
-wRuns   = ['100', '101', '103', '103']
-wRunNet = ['siam', 'siam', 'siam', 'dir']
-wDist   = ['l2', 'l1', 'cosine', 'l2']
+wRuns   = ['006XX']  #['100', '101', '103', '103']
+wRunNet = ['siamR']  #['siam', 'siam', 'siam', 'dir']
+wDist   = ['l2']  #['l2', 'l1', 'cosine', 'l2']
 
-X, Y = 'malig', 'rating' #'malig' 'rating'
+X, Y = 'embed', 'rating' #'malig' 'rating'
 
 metrics = ['l2']  #['l2', 'l1', 'cosine']
-wEpchs = [30, 35] #[20, 25, 30, 35, 40, 45]  #[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50]
+rating_norm='Scale'
+wEpchs = [10, 15, 20, 25, 30, 35, 40, 45] #[20, 25, 30, 35, 40, 45]  #[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50]
 
 plt.figure()
 plt_ = [None]*len(metrics)*2
@@ -45,7 +46,7 @@ for m, metric in enumerate(metrics):
         for W in WW:
             Reg = RatingCorrelator(W)
             Reg.evaluate_embed_distance_matrix(method=dist)
-            Reg.evaluate_rating_space(norm='Normal')
+            Reg.evaluate_rating_space(norm=rating_norm)
             Reg.evaluate_rating_distance_matrix(method=metric)
 
             p, s, k = Reg.correlate(X, Y)
@@ -68,6 +69,13 @@ for m, metric in enumerate(metrics):
         if m == len(metrics) - 1:  # last row
             plt_[2*m+1].axes.xaxis.label.set_text('epochs')
             plt_[2*m+1].legend(wRuns)
+
+Embed = FileManager.Embed('siamR')
+Reg = RatingCorrelator(Embed('006XX', 40, dset))
+Reg.evaluate_embed_distance_matrix(method='l2')
+Reg.evaluate_rating_space(norm=rating_norm)
+Reg.evaluate_rating_distance_matrix(method='l2')
+Reg.scatter('embed', 'rating', xMethod="euclidean", yMethod='euclidean', sub=False)
 
 print('Plots Ready...')
 plt.show()

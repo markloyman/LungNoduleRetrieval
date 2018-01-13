@@ -48,24 +48,24 @@ def recall(true, pred, thresh):
 size        = 144
 input_shape = (128,128,1)
 sample = 'Normal'
-res = 'Legacy'
+res = '0.5I'
 
 in_size = 128
 out_size = 128
 normalize = True
 
 load     = False
-evaluate = True
+evaluate = False
 force = False
 
 # 0     Test
 # 1     Validation
 # 2     Training
-DataSubSet = 1
+DataSubSet = 2
 
-run = '064X'
-epoch = 24
-WeightsFile =  FileManager.Weights('siam').name(run, epoch=epoch)
+run = '000'
+epoch = 5
+WeightsFile =  FileManager.Weights('siamR').name(run, epoch=epoch)
 
 pred_file_format = '.\output\embed\pred_siam{}_E{}_{}.p'
 def pred_filename(run, epoch, post):
@@ -95,15 +95,16 @@ try:
         pred, labels_test, meta = pickle.load(open(pred_filename(run, epoch=epoch, post=post), 'br'))
         print("loaded saved dump of predications")
         from Network.data import load_nodule_raw_dataset
-        from Network.modelUtils import siamese_margin
+        from Network.metrics import siamese_margin
     except:
-        from Network.data import load_nodule_dataset, load_nodule_raw_dataset, prepare_data_siamese
+        from Network.data import load_nodule_dataset, load_nodule_raw_dataset, prepare_data_siamese, prepare_data_siamese_simple
         from Network.model import miniXception_loader
-        from Network.modelUtils import siamese_margin
+        from Network.metrics import siamese_margin
         from Network.siameseArch import siamArch
 
         # prepare model
-        model = siamArch(miniXception_loader, input_shape, 2, distance='l2', output_size=out_size, normalize=normalize)
+        #model = siamArch(miniXception_loader, input_shape, 2, distance='l2', output_size=out_size, normalize=normalize)
+        model = siamArch(miniXception_loader, input_shape, objective="rating", distance='l2', pooling="rmac", output_size=out_size, normalize=normalize)
         if WeightsFile is not None:
             model.load_weights(WeightsFile)
             print('Load from: {}'.format(WeightsFile))
@@ -116,9 +117,9 @@ try:
         meta_all_1 = []
         for i in range(1):
             # prepare test data
-            images_test, labels_test, masks_test, confidence, meta = \
-                prepare_data_siamese(load_nodule_dataset(size=size, res=res, sample=sample)[DataSubSet], size=size,
-                                     return_meta=True, verbose=1, balanced=True)
+            images_test, labels_test,  masks_test, confidence, meta = \
+                prepare_data_siamese_simple(load_nodule_dataset(size=size, res=res, sample=sample)[DataSubSet], size=size,
+                                     return_meta=True, objective="rating", verbose=1, balanced=True)
             print("Data ready: images({}), labels({})".format(images_test[0].shape, labels_test.shape))
             print("Range = [{:.2f},{:.2f}]".format(np.min(images_test[0]), np.max(images_test[0])))
 
@@ -148,11 +149,13 @@ try:
     ## ======= Evaluate  ======= ##
     ## ========================= ##
 
-    raw_dataset = load_nodule_raw_dataset(size=size, res=res, sample=sample)[DataSubSet]
-
-    failed_same, failed_diff = [], []
-    K = 12
     if evaluate:
+
+        raw_dataset = load_nodule_raw_dataset(size=size, res=res, sample=sample)[DataSubSet]
+
+        failed_same, failed_diff = [], []
+        K = 12
+
         p = np.zeros(K)
         r = np.zeros(K)
         for t in range(K):

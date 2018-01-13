@@ -1,10 +1,10 @@
 import numpy as np
 
 try:
-    from Network.data import load_nodule_dataset, prepare_data_siamese
+    from Network.data import load_nodule_dataset, prepare_data_siamese, prepare_data_siamese_simple
     from Network.dataUtils import augment, crop_center, get_sample_weight, get_class_weight
 except:
-    from data import load_nodule_dataset, prepare_data_siamese
+    from data import load_nodule_dataset, prepare_data_siamese, prepare_data_siamese_simple
     from dataUtils import augment, crop_center, get_sample_weight, get_class_weight
 
 class DataGenerator(object):
@@ -26,16 +26,20 @@ class DataGenerator(object):
         self.model_size = model_size
 
         self.val_factor = val_factor
-        if balanced:
-            self.trainN = 1332 // self.batch_sz
+        if objective == "malignancy":
+            if balanced:
+                self.trainN = 1332 // self.batch_sz
+            else:
+                self.trainN = 1689 // self.batch_sz
+            self.valN = val_factor * (559 // self.batch_sz)
+            self.balanced = balanced
+            self.use_class_weight = use_class_weight
+        elif objective == "rating":
+            self.trainN = len(self.train_set) // self.batch_sz
+            self.valN = val_factor * (len(self.valid_set) // self.batch_sz)
+            self.balanced = False
+            self.use_class_weight = False
 
-        else:
-            self.trainN = 1689 // self.batch_sz
-        self.valN = val_factor * (559 // self.batch_sz)
-
-        self.balanced = balanced
-
-        self.use_class_weight = use_class_weight
         self.class_weight_method = class_weight
         self.do_augment = do_augment
         self.augment = augment
@@ -58,9 +62,23 @@ class DataGenerator(object):
         while 1:
             print('Run Gen: {}'.format(np.where(is_training, 'Training', 'Validation')))
             size = self.data_size if self.do_augment else self.model_size
-            images, labels, masks, confidence = \
-                prepare_data_siamese(set, size=size, balanced=(self.balanced and is_training),
-                                     objective=self.objective, verbose=verbose)
+            if self.objective == "malignancy":
+                images, labels, masks, confidence = \
+                    prepare_data_siamese(set, size=size, balanced=(self.balanced and is_training),
+                                         objective=self.objective, verbose=verbose)
+            elif self.objective == "rating":
+                images, labels, masks, confidence = \
+                    prepare_data_siamese_simple(set, size=size, balanced=(self.balanced and is_training),
+                                         objective=self.objective, verbose=verbose)
+                R = 1
+                labels *= 0.25
+                images = np.repeat(images[0], R, axis=0), np.repeat(images[1], R, axis=0)
+                labels = np.repeat(labels, R, axis=0)
+                masks = np.repeat(masks[0], R, axis=0), np.repeat(masks[1], R, axis=0)
+                confidence = np.repeat(confidence, R, axis=0)
+            else:
+                assert(False)
+
             if self.do_augment and is_training and (epoch >= self.augment['epoch']):
                     if epoch == self.augment['epoch']:
                         print("Begin augmenting")
@@ -98,10 +116,10 @@ class DataGenerator(object):
                 if verbose == 1:
                     print("discard last unfull batch -> sets:{}".format(len(images[0])))
 
-            if is_training:
-                assert(len(images[0]) == self.trainN)
-            else:
-                assert( (self.val_factor*len(images[0])) == self.valN)
+            #if is_training:
+            #    assert(len(images[0]) == self.trainN)
+            #else:
+            #    assert( (self.val_factor*len(images[0])) == self.valN)
 
             for im0, im1, lbl, msk0, msk1, cnf in zip(images[0], images[1], labels, masks[0], masks[1], confidence):
                 if self.use_class_weight:
@@ -126,7 +144,9 @@ class DataGenerator(object):
         return self.next(self.valid_set, is_training=False)
 
     def train_N(self):
+        #return 5
         return self.trainN
 
     def val_N(self):
+        #return 2
         return self.valN

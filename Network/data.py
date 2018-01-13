@@ -4,6 +4,11 @@ import random
 from skimage.transform import resize
 from scipy.misc import imresize
 import matplotlib.pyplot as plt
+try:
+    from Network.dataUtils import rating_normalize
+except:
+    from dataUtils import rating_normalize
+
 #from keras.utils.np_utils import to_categorical
 #from Network.dataUtils import augment
 
@@ -207,7 +212,7 @@ def reorder(a_list, order):
     return [a_list[order[i]] for i in range(len(order))]
 
 
-def prepare_data(data, objective='malignancy', new_size=None, do_augment=False, categorize=0, return_meta=False, reshuffle=False, verbose = 0):
+def prepare_data(data, objective='malignancy', new_size=None, do_augment=False, categorize=0, return_meta=False, reshuffle=False, verbose = 0, scaling="none"):
     from keras.utils.np_utils import to_categorical
     # Entry:
     # 0 'patch'
@@ -236,7 +241,7 @@ def prepare_data(data, objective='malignancy', new_size=None, do_augment=False, 
         labels = np.array([entry[2] for entry in data]).reshape(N, 1)
         classes = labels
     elif objective == 'rating':
-        labels  = np.array([np.mean(entry[5], axis=0) for entry in data]).reshape(N, 9)
+        labels  = np.array([rating_normalize(np.mean(entry[5], axis=0), scaling) for entry in data]).reshape(N, 9)
         classes = np.array([entry[2] for entry in data]).reshape(N, 1)
     else:
         print("ERR: Illegual objective given ({})".format(objective))
@@ -267,7 +272,7 @@ def prepare_data(data, objective='malignancy', new_size=None, do_augment=False, 
             meta = reorder(meta, new_order)
         return images, labels, classes, masks, meta
     else:
-        return images, labels, classes, masks
+        return images, labels, classes, masks, None
 
 
 def select_balanced(self, some_set, labels, N, permutation):
@@ -279,8 +284,9 @@ def select_balanced(self, some_set, labels, N, permutation):
 
 
 def prepare_data_direct(data, objective='malignancy', size=None, classes=2, balanced=False, return_meta=False, verbose= 0):
-    images, labels, classes, masks = \
-        prepare_data(data, objective=objective, categorize=(2 if (objective=='malignancy') else 0), verbose=verbose, reshuffle=True)
+    scale = 'none' if (objective=='malignancy') else "Scale"
+    images, labels, classes, masks, meta = \
+        prepare_data(data, objective=objective, categorize=(2 if (objective=='malignancy') else 0), verbose=verbose, reshuffle=True, return_meta=return_meta, scaling=scale)
     Nb = np.count_nonzero(1 - classes)
     Nm = np.count_nonzero(classes)
     N = np.minimum(Nb, Nm)
@@ -297,7 +303,7 @@ def prepare_data_direct(data, objective='malignancy', size=None, classes=2, bala
             Nb = np.count_nonzero(1 - np.argmax(classes, axis=1))
             Nm = np.count_nonzero(np.argmax(classes, axis=1))
             print("Balanced - Benign: {}, Malignant: {}".format(Nb, Nm))
-    return images, labels, classes, masks
+    return images, labels, classes, masks, meta
 
 
 def select_different_pair(class_A, class_B, n):
@@ -307,6 +313,11 @@ def select_different_pair(class_A, class_B, n):
                  ] + [(class_A[:n][-1], class_B[0])]
     assert(2*n == len(different))
     return different, len(different)
+
+
+def select_pairs(class_A):
+    pairs = [(a1, a2) for a1, a2 in zip(class_A[:-1], class_A[1:])] + [(class_A[-1], class_A[0])]
+    return pairs
 
 
 def select_same_pairs(class_A, class_B):
@@ -321,7 +332,7 @@ def select_same_pairs(class_A, class_B):
 def prepare_data_siamese(data, size, objective="malignancy", balanced=False, return_meta=False, verbose= 0):
     if verbose: print('prepare_data_siamese:')
     if return_meta:
-        images, labels, masks, meta = \
+        images, labels, classes, masks, meta = \
             prepare_data(data, categorize=0, objective=objective, return_meta=True, reshuffle=True, verbose=verbose)
         if verbose: print('Loaded Meta-Data')
     else:
@@ -420,6 +431,118 @@ def prepare_data_siamese(data, size, objective="malignancy", balanced=False, ret
                     (mask_sub1[new_order], mask_sub2[new_order]),
                     confidence[new_order]
                 )
+
+
+def prepare_data_siamese_simple(data, size, objective="malignancy", balanced=False, return_meta=False, verbose= 0):
+    if verbose: print('prepare_data_siamese_simple:')
+    if return_meta:
+        images, labels, classes, masks, meta = \
+            prepare_data(data, categorize=0, objective=objective, scaling="Scale", return_meta=True, reshuffle=True, verbose=verbose)
+        if verbose: print('Loaded Meta-Data')
+    else:
+        images, labels, classes, masks = \
+            prepare_data(data, categorize=0, objective=objective, scaling="Scale", return_meta=False, reshuffle=True, verbose=verbose)
+    if verbose: print("benign:{}, malignant: {}".format(np.count_nonzero(classes == 0),
+                                                        np.count_nonzero(classes == 1)))
+
+    N = images.shape[0]
+    #benign_filter = np.where(classes == 0)[0]
+    #malign_filter = np.where(classes == 1)[0]
+    #M = min(benign_filter.shape[0], malign_filter.shape[0])
+
+    #if balanced:
+    #    malign_filter = malign_filter[:M]
+    #    benign_filter = benign_filter[:M]
+
+    #   Handle Patches
+    # =========================
+
+    #imgs_benign, imgs_malign = images[benign_filter], images[malign_filter]
+    #different, d_size = select_different_pair(imgs_benign, imgs_malign, n=M)
+    #same, sb_size, sm_size = select_same_pairs(imgs_benign, imgs_malign)
+
+    #image_pairs = same + different
+    image_pairs = select_pairs(images)
+
+    image_sub1 = np.array([pair[0] for pair in image_pairs])
+    image_sub2 = np.array([pair[1] for pair in image_pairs])
+
+    if objective == "malignancy":
+        assert(False)
+        #similarity_labels = np.concatenate([np.repeat(0, len(same)),
+        #                                np.repeat(1, len(different))])
+    elif objective == "rating":
+        #lbls_benign, lbls_malign = labels[benign_filter], labels[malign_filter]
+        #diff_lbls, d_size = select_different_pair(lbls_benign, lbls_malign, n=M)
+        #same_lbls, sb_size, sm_size = select_same_pairs(lbls_benign, lbls_malign)
+
+        #label_pairs = same_lbls + diff_lbls
+        label_pairs = select_pairs(labels)
+        similarity_labels = np.array([np.sqrt((a-b).dot(a-b)) for a, b in label_pairs])
+    else:
+        print("ERR: {} is not a valid objective".format(objective))
+        assert(False)
+
+    #   Handle Masks
+    # =========================
+
+    #mask_benign, mask_malign = masks[benign_filter], masks[malign_filter]
+    #different_mask, d = select_different_pair(mask_benign, mask_malign, n=M)
+    #same_mask, sb, sm = select_same_pairs(mask_benign, mask_malign)
+    #assert(d == d_size)
+    #assert ( (sb==sb_size) and (sm==sm_size) )
+
+    #mask_pairs = same_mask + different_mask
+    mask_pairs = select_pairs(masks)
+    mask_sub1 = np.array([pair[0] for pair in mask_pairs])
+    mask_sub2 = np.array([pair[1] for pair in mask_pairs])
+
+    #   Handle Meta
+    # =========================
+    if return_meta:
+        #meta_benign, meta_malign = reorder(meta, benign_filter), reorder(meta, malign_filter)
+        #different_meta, d = select_different_pair(meta_benign, meta_malign, n=M)
+        #same_meta, sb, sm = select_same_pairs(meta_benign, meta_malign)
+        #assert (d == d_size)
+        #assert ((sb == sb_size) and (sm == sm_size))
+
+        #meta_pairs = same_meta + different_meta
+        meta_pairs = select_pairs(meta)
+        meta_sub1 = np.array([pair[0] for pair in meta_pairs])
+        meta_sub2 = np.array([pair[1] for pair in meta_pairs])
+
+    #   Final touch
+    # =========================
+
+    size = similarity_labels.shape[0]
+    assert size == image_sub1.shape[0]
+    assert size == image_sub2.shape[0]
+
+    # assign confidence classes (weights are resolved online per batch)
+    #confidence = np.concatenate([  np.repeat('SB', sb_size),
+    #                               np.repeat('SM', sm_size),
+    #                               np.repeat('D',  d_size)
+    #                            ])
+    confidence = np.repeat('SB', N)
+
+    #if verbose: print("{} pairs of same / {} pairs of different. {} total number of pairs".format(len(same), len(different), size))
+
+    new_order = np.random.permutation(size)
+
+    if return_meta:
+        return (    (image_sub1[new_order], image_sub2[new_order]),
+                    similarity_labels[new_order],
+                    (mask_sub1[new_order], mask_sub2[new_order]),
+                    confidence[new_order],
+                    (reorder(meta_sub1, new_order), reorder(meta_sub2, new_order))
+                )
+    else:
+        return (    (image_sub1[new_order], image_sub2[new_order]),
+                    similarity_labels[new_order],
+                    (mask_sub1[new_order], mask_sub2[new_order]),
+                    confidence[new_order]
+                )
+
 
 if __name__ == "__main__":
     random.seed(1337)

@@ -76,71 +76,70 @@ def rescale_im_to_hu(image, intercept, slope):
 # ----- Main -----
 # ----------------
 
-PATCH_SIZE  = 144
-RES         = 0.7 #'Legacy'
-DUMP        = True
-filename = 'NodulePatches{}-{}.p'.format(PATCH_SIZE, RES)
 
+def extract(patch_size  = 144, res ='Legacy', dump = True):
 
-dataset = []
-nodSize = []
-pat_with_nod    = 0
-pat_without_nod = 0
-patient_nodules = {}
+    filename = 'NodulePatches{}-{}.p'.format(patch_size, res)
 
-if DUMP is False:
-    print("Running without dump")
+    dataset = []
+    nodSize = []
+    pat_with_nod    = 0
+    pat_without_nod = 0
+    patient_nodules = {}
 
-for scan in pl.query(pl.Scan).all()[:]:
-# cycle 1018 scans
-    nods = scan.cluster_annotations(metric='jaccard', tol=0.95, tol_limit=0.7)
-    if len(nods) > 0:
-        pat_with_nod += 1
-        print("Study ({}), Series({}) of patient {}: {} nodules."
-              .format(scan.study_instance_uid, scan.series_instance_uid, scan.patient_id, len(nods)))
-        patient_nodules['scan.patient_id'] = len(nods)
-        dicom = scan.load_all_dicom_images(verbose=False)
+    if dump is False:
+        print("Running without dump")
 
-        for nod in nods:
-            print("Nodule of patient {} with {} annotations.".format(scan.patient_id, len(nod)))
-            largestSliceA = [getLargestSliceInBB(ann)[0] for ann in nod] # larget slice within annotated bb
-            annID = np.argmax(largestSliceA) # which of the annotation has the largest slice
+    for scan in pl.query(pl.Scan).all()[:]:
+    # cycle 1018 scans
+        nods = scan.cluster_annotations(metric='jaccard', tol=0.95, tol_limit=0.7)
+        if len(nods) > 0:
+            pat_with_nod += 1
+            print("Study ({}), Series({}) of patient {}: {} nodules."
+                  .format(scan.study_instance_uid, scan.series_instance_uid, scan.patient_id, len(nods)))
+            patient_nodules['scan.patient_id'] = len(nods)
+            dicom = scan.load_all_dicom_images(verbose=False)
 
-            largestSliceZ = [getLargestSliceInBB(ann)[1] for ann in nod]  # index within the mask
-            z   = interpolateZfromBBidx(nod[annID], largestSliceZ[annID]) # just for the entry data
-            # possible mismatch betwean retrived z and largestSliceZ[annID] due to missing dicom files
-            #
-            if RES is 'Legacy':
-                di_slice = getSlice(dicom, z, rescale=True)
-                mask  = get_full_size_mask(nod[annID], di_slice.shape)
-                patch = cropSlice(di_slice, nod[annID].centroid(), PATCH_SIZE)
-                mask = cropSlice(mask, nod[annID].centroid(), PATCH_SIZE)
-            else:
-                vol0, seg0 = nod[annID].uniform_cubic_resample(side_length=(PATCH_SIZE-1), resolution=RES, verbose=0)
-                largestSliceZ = np.argmax(np.sum(seg0.astype('float32'), axis=(0, 1)))
-                patch = rescale_im_to_hu(vol0[:, :, largestSliceZ], dicom[0].RescaleIntercept, dicom[0].RescaleSlope)
-                mask  = seg0[:, :, largestSliceZ]
+            for nod in nods:
+                print("Nodule of patient {} with {} annotations.".format(scan.patient_id, len(nod)))
+                largestSliceA = [getLargestSliceInBB(ann)[0] for ann in nod] # larget slice within annotated bb
+                annID = np.argmax(largestSliceA) # which of the annotation has the largest slice
 
-            entry = {
-                'patch':    patch.astype(np.int16),
-                'info':     (scan.patient_id, scan.study_instance_uid, scan.series_instance_uid, nod[annID]._nodule_id),
-                'nod_ids':  [n._nodule_id for n in nod],
-                'rating':   np.array([ann.feature_vals() for ann in nod]),
-                'mask':     mask.astype(np.int16),
-                'z':        z,
-                'size':     getNoduleSize(nod)
-            }
-            dataset.append(entry)
+                largestSliceZ = [getLargestSliceInBB(ann)[1] for ann in nod]  # index within the mask
+                z   = interpolateZfromBBidx(nod[annID], largestSliceZ[annID]) # just for the entry data
+                # possible mismatch betwean retrived z and largestSliceZ[annID] due to missing dicom files
+                #
+                if res is 'Legacy':
+                    di_slice = getSlice(dicom, z, rescale=True)
+                    mask  = get_full_size_mask(nod[annID], di_slice.shape)
+                    patch = cropSlice(di_slice, nod[annID].centroid(), patch_size)
+                    mask = cropSlice(mask, nod[annID].centroid(), patch_size)
+                else:
+                    vol0, seg0 = nod[annID].uniform_cubic_resample(side_length=(patch_size - 1), resolution=res, verbose=0)
+                    largestSliceZ = np.argmax(np.sum(seg0.astype('float32'), axis=(0, 1)))
+                    patch = rescale_im_to_hu(vol0[:, :, largestSliceZ], dicom[0].RescaleIntercept, dicom[0].RescaleSlope)
+                    mask  = seg0[:, :, largestSliceZ]
 
-            #gc.collect()
+                entry = {
+                    'patch':    patch.astype(np.int16),
+                    'info':     (scan.patient_id, scan.study_instance_uid, scan.series_instance_uid, nod[annID]._nodule_id),
+                    'nod_ids':  [n._nodule_id for n in nod],
+                    'rating':   np.array([ann.feature_vals() for ann in nod]),
+                    'mask':     mask.astype(np.int16),
+                    'z':        z,
+                    'size':     getNoduleSize(nod)
+                }
+                dataset.append(entry)
+
+                #gc.collect()
+        else:
+            pat_without_nod += 1
+
+    print("Prepared {} entries".format(len(dataset)))
+    print("{} patients with nodules, {} patients without nodules".format(pat_with_nod, pat_without_nod))
+
+    if dump:
+        pickle.dump(dataset, open(filename, 'wb'))
+        print("Dumpted to {}".format(filename))
     else:
-        pat_without_nod += 1
-
-print("Prepared {} entries".format(len(dataset)))
-print("{} patients with nodules, {} patients without nodules".format(pat_with_nod, pat_without_nod))
-
-if DUMP:
-    pickle.dump(dataset, open(filename, 'wb'))
-    print("Dumpted to {}".format(filename))
-else:
-    print("No Dump")
+        print("No Dump")

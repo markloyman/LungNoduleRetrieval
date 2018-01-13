@@ -81,7 +81,7 @@ if __name__ == "__main__":
 
 
     #append_malignancy_class_to_nodule_db('NodulePatches128-Legacy.p', save_dump=True)         DONE
-    append_malignancy_class_to_nodule_db('NodulePatches144-0.7.p', save_dump=True)
+    append_malignancy_class_to_nodule_db('NodulePatches144-0.5-I.p', save_dump=True)
     #append_malignancy_class_to_nodule_db('NodulePatches128-0.7.p', save_dump=True)
     #append_malignancy_class_to_nodule_db('NodulePatches144-0.5.p', save_dump=True)         YET
 

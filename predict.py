@@ -1,14 +1,16 @@
 from init import *
-from Analysis import PredictRatings
+from Network import PredictRating
 
+run = '010'
+epochs = [10, 20, 30, 35, 40, 45, 50, 55]
 
-run = '002'
-epochs = [15, 20, 25, 30, 35, 40, 45, 50]
+pooling = 'rmac'
+rating_scale = 'Scale'
 
 # 0     Test
 # 1     Validation
 # 2     Training
-DataSubSet = 1
+DataSubSet = 2
 
 if DataSubSet == 0:
     post = "Test"
@@ -24,10 +26,13 @@ print('=' * 15)
 start = timer()
 try:
 
+    PredRating = PredictRating(pooling=pooling)
     for e in epochs:
         WeightsFile = FileManager.Weights('dirR').name(run, epoch=e)
-        out_file = PredictRatings.pred_filename(run, epoch=e, post=post)
-        PredictRatings.predict_rating(WeightsFile, out_file, DataSubSet)
+        PredFile = FileManager.Pred(type='rating', pre='dirR')
+        out_file = PredFile(run=run, epoch=e, post=post)
+
+        PredRating.predict_rating(WeightsFile, out_file, DataSubSet, rating_scale=rating_scale)
 
     print('Ready...')
 

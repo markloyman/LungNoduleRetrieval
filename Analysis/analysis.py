@@ -7,9 +7,6 @@ from sklearn.metrics import confusion_matrix
 from sklearn.metrics import pairwise
 from sklearn.neighbors import DistanceMetric
 
-from Network import dataUtils
-
-
 def calc_distance_matrix(X, method):
     if method in ['chebyshev', 'euclidean', 'l1', 'l2']:
         DM = DistanceMetric.get_metric(method).pairwise(X)
@@ -45,6 +42,7 @@ def calc_cross_distance_matrix(X, Y, method):
 
 
 def MalignancyConfusionMatrix(pred, true):
+    from Network import dataUtils
     cm = confusion_matrix(dataUtils.uncategorize(true),
                           dataUtils.uncategorize(pred))
     #          Pred
@@ -75,6 +73,7 @@ def MalignancyConfusionMatrix(pred, true):
 
 
 def MalignancyBySize(pred, true, size):
+    from Network import dataUtils
     assert pred.shape[0] == true.shape[0]
 
     true = dataUtils.uncategorize(true)

@@ -1,3 +1,5 @@
+import sys
+sys.path.insert(0, 'E:\LungNoduleRetrieval')
 import os
 os.environ['PYTHONHASHSEED'] = '0'
 import numpy as np

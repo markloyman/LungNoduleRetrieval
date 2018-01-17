@@ -115,32 +115,36 @@ def run(choose_model = "DIR"):
         #run = 'dirR001'  # msle
         #run = 'dirR002'  # mse, linear activation
         #run = 'dirR003'  # mse, linear activation
-        #run = 'dirR004'  # logcosh
+        #run = 'dirR004X'  # logcosh
         #run = 'dirR005'  # binary_crossentropy
         #run = 'dirR006'  # mse, batch_sz=64
         #run = 'dirR007'  # mse, data-aug
-        run = 'dirR008'  # mse, scaled-rating
+        #run = 'dirR008'  # mse, scaled-rating
+        #run = 'dirR009'  # logcosh, max, scaled
+        #run = 'dirR010'  # logcosh, rmac, scaled
+        run = 'dirR011'  # logcosh, rmac, no scaling
 
+        rating_scale = 'none'
         use_gen = True
 
-        model = directArch(miniXception_loader, input_shape, output_size=out_size, objective='rating',
-                           normalize=normalize, pooling='max')
+        model = directArch(miniXception_loader, input_shape, output_size=out_size, objective='rating', categorize=False,
+                           normalize=normalize, pooling='rmac')
         model.model.summary()
-        model.compile(learning_rate=1e-3, decay=1e-5, loss='mean_squared_error') # mean_squared_logarithmic_error, binary_crossentropy, logcosh
+        model.compile(learning_rate=1e-3, decay=1e-5, loss='logcosh') # mean_squared_logarithmic_error, binary_crossentropy, logcosh
 
         if use_gen:
             data_augment_params = {'max_angle': 0, 'flip_ratio': 0.1, 'crop_stdev': 0.05, 'epoch': 0}
             generator = DataGeneratorDir(
                     data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=32,
-                    objective='rating',
+                    objective='rating', categorize=False, rating_scale=rating_scale,
                     val_factor=1, balanced=False,
                     do_augment=False, augment=data_augment_params,
                     use_class_weight=False, class_weight='balanced')
             model.load_generator(generator)
         else:
             dataset = load_nodule_dataset(size=data_size, res=res, sample=sample)
-            images_train, labels_train, masks_train = prepare_data_direct(dataset[2], size=model_size, objective='rating')
-            images_valid, labels_valid, masks_valid = prepare_data_direct(dataset[1], size=model_size, objective='rating')
+            images_train, labels_train, masks_train = prepare_data_direct(dataset[2], size=model_size, objective='rating', rating_scale=rating_scale)
+            images_valid, labels_valid, masks_valid = prepare_data_direct(dataset[1], size=model_size, objective='rating', rating_scale=rating_scale)
             images_train = np.array([crop_center(im, msk, size=model_size)[0]
                                for im, msk in zip(images_train, masks_train)])
             images_valid = np.array([crop_center(im, msk, size=model_size)[0]

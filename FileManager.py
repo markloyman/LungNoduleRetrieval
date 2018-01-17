@@ -52,7 +52,11 @@ class Embed(object):
 
     def read(self, run=None, epoch=None, dset=None):
         match = self.weightsTemplate.format(run, epoch, dset)
-        return open(glob(match)[0], 'br')
+        filelist = glob(match)
+        if len(filelist) == 0:
+            print("Failed to find: {}".format(match))
+            return None
+        return open(filelist[0], 'br')
 
     def load(self, run=None, epoch=None, dset=None):
         images, embed, meta, labels, masks = pickle.load(self.read(run=run, epoch=epoch, dset=dset))
@@ -68,5 +72,31 @@ class Embed(object):
 
     def name(self, run=None, epoch=None,  dset=None):
         return self.weightsTemplate.format(run, epoch, dset)
+
+    __call__ = name
+
+
+class Pred(object):
+    def __init__(self, type, pre):
+        self.manager = Embed('')
+        if type == 'rating':
+            self.manager.weightsTemplate = './output/embed/predR_{}{{}}_E{{}}_{{}}.p'.format(pre)
+        elif type == 'malig':
+            self.manager.weightsTemplate = './output/embed/pred_{}{{}}_E{{}}_{{}}.p'.format(pre)
+        else:
+            print("{} - illegal pred type".format(type))
+            assert(False)
+
+    def read(self, run=None, epoch=None, dset=None):
+        return self.manager.read(run, epoch, dset)
+
+    def load(self, run=None, epoch=None, dset=None):
+        return self.manager.load(run, epoch, dset)
+
+    def write(self, run=None, epoch=None, dset=None):
+        return self.manager.write(run, epoch, dset)
+
+    def name(self, run=None, epoch=None, dset=None):
+        return self.manager.name(run, epoch, dset)
 
     __call__ = name

@@ -1,15 +1,9 @@
 # -*- coding: utf-8 -*-
-'''Xception V1 model for Keras.
-On ImageNet, this model gets to a top-1 validation accuracy of 0.790.
-and a top-5 validation accuracy of 0.945.
-Do note that the input image format for this model is different than for
-the VGG16 and ResNet models (299x299 instead of 224x224),
-and that the input preprocessing function
-is also different (same as Inception V3).
-Also do note that this model is only available for the TensorFlow backend,
-due to its reliance on `SeparableConvolution` layers.
-# Reference:
-- [Xception: Deep Learning with Depthwise Separable Convolutions](https://arxiv.org/abs/1610.02357)
+'''
+Core Embedding Network
+
+Based on:
+[Xception: Deep Learning with Depthwise Separable Convolutions](https://arxiv.org/abs/1610.02357)
 '''
 from __future__ import absolute_import
 from __future__ import print_function
@@ -40,15 +34,14 @@ from keras.models import Model
 
 
 def miniXception_loader(input_tensor=None, input_shape=None, weights=None, output_size=1024, return_model=False,
-                        pooling=None, normalize=False, input_transition=False):
-    """Instantiates the Xception architecture.
+                        pooling=None, normalize=False):
+    """
+    Instantiates either a Tensor or a Model for the Core Embedding Network
     Optionally loads weights pre-trained
-    on ImageNet. This model is available for TensorFlow only,
+    This model is available for TensorFlow only,
     and can only be used with inputs following the TensorFlow
     data format `(width, height, channels)`.
-    You should set `image_data_format="channels_last"` in your Keras config
-    located at ~/.keras/keras.json.
-    Note that the default input image size for this model is 299x299.
+    Min input image size for this model is 128x128
     # Arguments
         include_top: whether to include the fully-connected
             layer at the top of the network.
@@ -73,11 +66,7 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
                 the output of the model will be a 2D tensor.
             - `max` means that global max pooling will
                 be applied.
-        classes: optional number of classes to classify images
-            into, only to be specified if `include_top` is True, and
-            if no `weights` argument is specified.
-    # Returns
-        A Keras model instance.
+
     # Raises
         ValueError: in case of invalid argument for `weights`,
             or invalid input shape.
@@ -86,10 +75,10 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
     """
 
     if K.backend() != 'tensorflow':
-        raise RuntimeError('The Xception model is only available with '
+        raise RuntimeError('The model is only available with '
                            'the TensorFlow backend.')
     if K.image_data_format() != 'channels_last':
-        warnings.warn('The Xception model is only available for the '
+        warnings.warn('The  model is only available for the '
                       'input data format "channels_last" '
                       '(width, height, channels). '
                       'However your settings specify the default '
@@ -242,8 +231,6 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
         x = Lambda(lambda q: K.l2_normalize(q, axis=-1), name='n_embedding')(x)
 
     '''
-    x = Dense(classes, activation='softmax', name='predictions')(x)
-
     # Ensure that the model takes into account
     # any potential predecessors of `input_tensor`.
     if input_tensor is not None:
@@ -263,6 +250,6 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
         K.set_image_data_format(old_data_format)
 
     if return_model:
-        return Model(img_input,x)
+        return Model(img_input, x)
     else:
         return x

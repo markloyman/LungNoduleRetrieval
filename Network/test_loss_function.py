@@ -1,20 +1,29 @@
 import numpy as np
 from keras import objectives
 from keras import backend as K
-
-from Network.siameseArch import contrastive_loss
-
+try:
+    from Network.siameseArch import contrastive_loss
+    from Network.metrics import pearson_correlation
+    from scipy.stats import pearsonr
+except:
+    from siameseArch import contrastive_loss
 _EPSILON = K.epsilon()
 
+
+
+
 def _loss_tensor(y_true, y_pred):
-    return contrastive_loss(y_true, y_pred)
+    #return contrastive_loss(y_true, y_pred)
+    return pearson_correlation(y_true, y_pred)
     #y_pred = K.clip(y_pred, _EPSILON, 1.0-_EPSILON)
     #out = -(y_true * K.log(y_pred) + (1.0 - y_true) * K.log(1.0 - y_pred))
     #return K.mean(out, axis=-1)
 
 def _loss_np(y_true, y_pred):
-    margin = 1
-    return (1 - y_true) * np.square(y_pred) + y_true * np.square(np.maximum(margin - y_pred, 0))
+    # contrastive_loss
+    #margin = 1
+    #return (1 - y_true) * np.square(y_pred) + y_true * np.square(np.maximum(margin - y_pred, 0))
+    return pearsonr(y_true, y_pred)
     #y_pred = np.clip(y_pred, _EPSILON, 1.0-_EPSILON)
     #out = -(y_true * np.log(y_pred) + (1.0 - y_true) * np.log(1.0 - y_pred))
     #return np.mean(out, axis=-1)
@@ -29,8 +38,8 @@ def check_loss(_shape):
     elif _shape == '5d':
         shape = (9, 8, 5, 6, 7)
 
-    y_a = np.random.random(shape)
-    y_b = np.random.random(shape)
+    y_a = np.random.random(shape).flatten()
+    y_b = np.random.random(shape).flatten()
 
     out1 = K.eval(_loss_tensor(K.variable(y_a), K.variable(y_b)))
     out2 = _loss_np(y_a, y_b)

@@ -283,10 +283,10 @@ def select_balanced(self, some_set, labels, N, permutation):
     return reshuff
 
 
-def prepare_data_direct(data, objective='malignancy', size=None, classes=2, balanced=False, return_meta=False, verbose= 0):
-    scale = 'none' if (objective=='malignancy') else "Scale"
+def prepare_data_direct(data, objective='malignancy', rating_scale = 'none', size=None, classes=2, balanced=False, return_meta=False, verbose= 0):
+    #scale = 'none' if (objective=='malignancy') else "none"
     images, labels, classes, masks, meta = \
-        prepare_data(data, objective=objective, categorize=(2 if (objective=='malignancy') else 0), verbose=verbose, reshuffle=True, return_meta=return_meta, scaling=scale)
+        prepare_data(data, objective=objective, categorize=(2 if (objective=='malignancy') else 0), verbose=verbose, reshuffle=True, return_meta=return_meta, scaling=rating_scale)
     Nb = np.count_nonzero(1 - classes)
     Nm = np.count_nonzero(classes)
     N = np.minimum(Nb, Nm)

@@ -10,11 +10,15 @@ except:
 class DataGeneratorDir(object):
     """docstring for DataGenerator"""
 
-    def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_sz=32, objective='malignancy',
+    def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_sz=32,
+                        objective='malignancy', rating_scale='none', categorize=False,
                         do_augment=False, augment=None, use_class_weight=False, class_weight='dummy', debug=False,
                         val_factor = 1, balanced=False):
 
+        assert(categorize==False)
+
         self.objective = objective
+        self.rating_scale = rating_scale
 
         dataset = load_nodule_dataset(size=data_size, res=res, sample=sample, apply_mask_to_patch=debug)
         self.train_set = dataset[2]
@@ -91,7 +95,7 @@ class DataGeneratorDir(object):
             size = self.data_size if self.do_augment else self.model_size
             #images, labels, masks, confidence = \
             images, labels, classes, masks = \
-                prepare_data_direct(set, objective=self.objective, classes=2, size=self.model_size, verbose=verbose)[:4]
+                prepare_data_direct(set, objective=self.objective, rating_scale=self.rating_scale, classes=2, size=self.model_size, verbose=verbose)[:4]
             #prepare_data(set, classes=2, verbose=verbose, reshuffle=True)
             Nb = np.count_nonzero(1-classes)
             Nm = np.count_nonzero(classes)

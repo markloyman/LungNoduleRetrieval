@@ -12,17 +12,21 @@ K.set_session(tf.Session(graph=tf.get_default_graph()))
 try:
     from Network.DataGenSiam import DataGenerator
     from Network.DataGenDirect import DataGeneratorDir
+    from Network.DataGenTrip import DataGeneratorTrip
     from Network.model import miniXception_loader
     from Network.siameseArch import siamArch
     from Network.directArch import directArch
+    from Network.tripletArch import tripArch
     from Network.data import load_nodule_dataset, prepare_data_direct
     from Network.dataUtils import crop_center
 except:
     from DataGenSiam import DataGenerator
     from DataGenDirect import DataGeneratorDir
+    from DataGenTrip import DataGeneratorTrip
     from model import miniXception_loader
     from siameseArch import siamArch
     from directArch import directArch
+    from tripletArch import tripArch
     from data import load_nodule_dataset, prepare_data_direct
     from dataUtils import crop_center
 
@@ -67,7 +71,7 @@ def run(choose_model = "DIR"):
     normalize = True
     out_size = 128
 
-    epochs = args.epochs if (args.epochs != 0) else 100
+    epochs = args.epochs if (args.epochs != 0) else 60
 
 
     print("Running training for --** {} **-- model".format(choose_model))
@@ -100,15 +104,15 @@ def run(choose_model = "DIR"):
             model.load_generator(generator)
         else:
             dataset = load_nodule_dataset(size=data_size, res=res, sample=sample)
-            images_train, labels_train, masks_train = prepare_data_direct(dataset[2], classes=2, size=model_size)
-            images_valid, labels_valid, masks_valid = prepare_data_direct(dataset[1], classes=2, size=model_size)
+            images_train, labels_train, class_train, masks_train, _ = prepare_data_direct(dataset[2], classes=2, size=model_size)
+            images_valid, labels_valid, class_valid, masks_valid, _ = prepare_data_direct(dataset[1], classes=2, size=model_size)
             images_train = np.array([crop_center(im, msk, size=model_size)[0]
                                for im, msk in zip(images_train, masks_train)])
             images_valid = np.array([crop_center(im, msk, size=model_size)[0]
                                for im, msk in zip(images_valid, masks_valid)])
             model.load_data(images_train, labels_train, images_valid, labels_valid, batch_sz=32)
 
-        model.train(label=run, n_epoch=epochs, gen=use_gen)
+        model.train(label=run, n_epoch=epochs, gen=use_gen, do_graph=False)
 
     if choose_model is "DIR_RATING":
         #run = 'dirR000'  # mse
@@ -127,7 +131,7 @@ def run(choose_model = "DIR"):
         rating_scale = 'none'
         use_gen = True
 
-        model = directArch(miniXception_loader, input_shape, output_size=out_size, objective='rating', categorize=False,
+        model = directArch(miniXception_loader, input_shape, output_size=out_size, objective='rating',
                            normalize=normalize, pooling='rmac')
         model.model.summary()
         model.compile(learning_rate=1e-3, decay=1e-5, loss='logcosh') # mean_squared_logarithmic_error, binary_crossentropy, logcosh
@@ -165,7 +169,7 @@ def run(choose_model = "DIR"):
         #run = 'siam103'  # base model, res=0.5I, cosine
         #run = 'siam104'  # base model, res=0.5I, l1, norm-l1
         run = 'siam999'  # junk
-
+        gen = True
         # model
         data_augment_params = {'max_angle': 0, 'flip_ratio': 0.1, 'crop_stdev': 0.05, 'epoch': 0}
         generator = DataGenerator(data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=64,
@@ -177,9 +181,14 @@ def run(choose_model = "DIR"):
                          distance='l2', normalize=normalize, pooling='max')
         model.model.summary()
         model.compile(learning_rate=1e-3, decay=0)
-        model.load_generator(generator)
+        if gen:
+            model.load_generator(generator)
+        else:
+            imgs_trn, lbl_trn = generator.next_train().__next__()
+            imgs_val, lbl_val = generator.next_val().__next__()
+            model.load_data(imgs_trn, lbl_trn, imgs_val, lbl_val)
 
-        model.train(label=run, n_epoch=epochs, gen=True)
+        model.train(label=run, n_epoch=epochs, gen=gen)
 
     if choose_model is "SIAM_RATING":
 
@@ -209,10 +218,46 @@ def run(choose_model = "DIR"):
 
         model.train(label=run, n_epoch=epochs, gen=True)
 
+    if choose_model is "TRIPLET":
+
+        #run = 'trip000'  # test
+        #run = 'trip004'  # try mse loss
+        #run = 'trip005'  # x2 contrastive loss (finally fixed data gen)
+        #run = 'trip006XX'  # triplet-margin-loss
+        #run = 'trip007'  # softplus-loss
+        #run = 'trip008'  # softplus-margin-loss
+        #run = 'trip009'  # mrg-loss, max-pool
+        #run = 'trip010'  # mrg-loss, rmac-pool
+
+        # fixed metrics
+        #run = 'trip011X'  # mrg-loss, decay(0.05), max-pool
+        run = 'trip012X'  # mrg-loss, decay(0.05), rmac-pool
+
+        gen = True
+
+        # model
+        model = tripArch(miniXception_loader, input_shape, output_size=out_size,
+                         distance='l2', normalize=True, pooling='rmac')
+        model.model.summary()
+        model.compile(learning_rate=1e-3, decay=0.05)
+        data_augment_params = {'max_angle': 0, 'flip_ratio': 0.1, 'crop_stdev': 0.05, 'epoch': 0}
+        generator = DataGeneratorTrip(data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=64,
+                                      val_factor=5,
+                                      do_augment=False, augment=data_augment_params,
+                                      use_class_weight=False)
+        if gen:
+            model.load_generator(generator)
+        else:
+            imgs_trn, lbl_trn = generator.next_train().__next__()
+            imgs_val, lbl_val = generator.next_val().__next__()
+            model.load_data(imgs_trn, lbl_trn,imgs_val, lbl_val)
+
+        model.train(label=run, n_epoch=epochs, gen=gen)
+
     K.clear_session()
     gc.collect()
 
 
 if __name__ == "__main__":
-    # DIR / SIAM / DIR_RATING / SIAM_RATING
-    run('DIR_RATING')
+    # DIR / SIAM / DIR_RATING / SIAM_RATING / TRIPLET
+    run('TRIPLET')

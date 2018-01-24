@@ -1,4 +1,7 @@
-from Network import run
+from Network import train
 
-#run("SIAM_RATING")
-run("DIR_RATING")
+#train.run("DIR")
+#train.run("SIAM")
+#train.run("SIAM_RATING")
+#train.run("DIR_RATING")
+train.run("TRIPLET")

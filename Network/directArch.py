@@ -10,7 +10,6 @@ from keras.optimizers import Adam
 from keras.metrics import categorical_accuracy
 
 try:
-    from Analysis.analysis import history_summarize
     from Network.dataUtils import get_class_weight
     from Network.metrics import sensitivity, f1, precision, specificity, root_mean_squared_error
     output_dir = './output'
@@ -86,7 +85,7 @@ class directArch:
             board            = TensorBoard(log_dir=output_dir+'/logs', histogram_freq=0, write_graph=do_graph)
         else:
             board = TensorBoard(log_dir=output_dir + '/logs', histogram_freq=1, write_graph=do_graph,
-                                write_images=True, batch_size=32, write_grads=True)
+                                write_images=False, write_grads=True)
                                 #embeddings_freq=5, embeddings_layer_names='n_embedding', embeddings_metadata='meta.tsv')
         start = timer()
         total_time = None

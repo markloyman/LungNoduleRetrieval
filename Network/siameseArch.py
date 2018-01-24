@@ -153,11 +153,11 @@ class siamArch:
         #on_plateau      = ReduceLROnPlateau(monitor='val_loss', factor=0.5, epsilon=1e-2, patience=5, min_lr=1e-6, verbose=1)
         #early_stop      = EarlyStopping(monitor='loss', min_delta=1e-3, patience=5)
         #lr_decay        = LearningRateScheduler(self.scheduler)
-        if True or gen:
+        if gen:
             board = TensorBoard(log_dir=output_dir+'/logs', histogram_freq=0, write_graph=False)
         else:
             board = TensorBoard(log_dir=output_dir+'/logs', histogram_freq=1, write_graph=True,
-                                write_images=True, batch_size=64, write_grads=True)
+                                write_images=False, write_grads=True)
 
         pb = printbatch()
 

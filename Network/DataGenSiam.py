@@ -3,6 +3,7 @@ import numpy as np
 try:
     from Network.data import load_nodule_dataset, prepare_data_siamese, prepare_data_siamese_simple
     from Network.dataUtils import augment, crop_center, get_sample_weight, get_class_weight
+    from Network.metrics import siamese_rating_factor
 except:
     from data import load_nodule_dataset, prepare_data_siamese, prepare_data_siamese_simple
     from dataUtils import augment, crop_center, get_sample_weight, get_class_weight
@@ -70,12 +71,11 @@ class DataGenerator(object):
                 images, labels, masks, confidence = \
                     prepare_data_siamese_simple(set, size=size, balanced=(self.balanced and is_training),
                                          objective=self.objective, verbose=verbose)
-                R = 1
-                labels *= 0.25
-                images = np.repeat(images[0], R, axis=0), np.repeat(images[1], R, axis=0)
-                labels = np.repeat(labels, R, axis=0)
-                masks = np.repeat(masks[0], R, axis=0), np.repeat(masks[1], R, axis=0)
-                confidence = np.repeat(confidence, R, axis=0)
+                labels *= siamese_rating_factor
+                #images = np.repeat(images[0], R, axis=0), np.repeat(images[1], R, axis=0)
+                #labels = np.repeat(labels, R, axis=0)
+                #masks = np.repeat(masks[0], R, axis=0), np.repeat(masks[1], R, axis=0)
+                #confidence = np.repeat(confidence, R, axis=0)
             else:
                 assert(False)
 

@@ -14,7 +14,7 @@ except:
 	
 data_augment_params = {'max_angle': 0, 'flip_ratio': 0.0, 'crop_stdev': 0.1, 'epoch': 0}
 
-if False:
+if True:
     gen = DataGenerator(    data_size=144, model_size=128, res='Legacy', sample='Normal', batch_sz=64,
                             do_augment=False, augment=data_augment_params,
                             use_class_weight=True, class_weight='dummy',

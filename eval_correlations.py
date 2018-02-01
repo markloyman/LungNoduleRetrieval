@@ -1,12 +1,11 @@
-import matplotlib.pyplot as plt
-import numpy as np
-
-from Analysis.RatingCorrelator import RatingCorrelator
+from init import *
+from Analysis import RatingCorrelator
 
 # ========================
 # Setup
 # ========================
-import FileManager
+
+#import FileManager
 #Embed = FileManager.Embed('siam')
 
 dset = 'Train'
@@ -22,8 +21,8 @@ dset = 'Train'
 #wRunNet = ['siam']
 #wDist   = ['cosine']
 
-wRuns   = ['006XX']  #['100', '101', '103', '103']
-wRunNet = ['siamR']  #['siam', 'siam', 'siam', 'dir']
+wRuns   = ['014']  #['100', '101', '103', '103']
+wRunNet = ['trip']  #['siam', 'siam', 'siam', 'dir']
 wDist   = ['l2']  #['l2', 'l1', 'cosine', 'l2']
 
 X, Y = 'embed', 'rating' #'malig' 'rating'
@@ -70,12 +69,12 @@ for m, metric in enumerate(metrics):
             plt_[2*m+1].axes.xaxis.label.set_text('epochs')
             plt_[2*m+1].legend(wRuns)
 
-Embed = FileManager.Embed('siamR')
-Reg = RatingCorrelator(Embed('006XX', 40, dset))
-Reg.evaluate_embed_distance_matrix(method='l2')
-Reg.evaluate_rating_space(norm=rating_norm)
-Reg.evaluate_rating_distance_matrix(method='l2')
-Reg.scatter('embed', 'rating', xMethod="euclidean", yMethod='euclidean', sub=False)
+#Embed = FileManager.Embed('siamR')
+#Reg = RatingCorrelator(Embed('006XX', 40, dset))
+#Reg.evaluate_embed_distance_matrix(method='l2')
+#Reg.evaluate_rating_space(norm=rating_norm)
+#Reg.evaluate_rating_distance_matrix(method='l2')
+#Reg.scatter('embed', 'rating', xMethod="euclidean", yMethod='euclidean', sub=False)
 
 print('Plots Ready...')
 plt.show()

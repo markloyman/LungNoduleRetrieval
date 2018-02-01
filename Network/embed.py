@@ -7,7 +7,7 @@ from Network.data import load_nodule_dataset, prepare_data
 from Network.model import miniXception_loader
 from Network.siameseArch import siamArch
 from Network.directArch import directArch
-
+from Network.tripletArch import tripArch
 
 class Embeder:
 
@@ -59,6 +59,9 @@ class Embeder:
         elif self.network == 'siamR':
             model = siamArch(miniXception_loader, self.net_input_shape, distance='l2', output_size=self.net_out_size, normalize=self.net_normalize,
                              pooling=self.net_pool, objective="rating")
+        elif self.network == 'trip':
+            model = tripArch(miniXception_loader, self.net_input_shape, distance='l2', output_size=self.net_out_size, normalize=self.net_normalize,
+                             pooling=self.net_pool)
         else:
             assert (False)
 

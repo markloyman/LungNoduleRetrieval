@@ -230,16 +230,18 @@ def run(choose_model = "DIR"):
         #run = 'trip010'  # mrg-loss, rmac-pool
 
         # fixed metrics
-        #run = 'trip011X'  # mrg-loss, decay(0.05), max-pool
-        run = 'trip012X'  # mrg-loss, decay(0.05), rmac-pool
+        #run = 'trip011XXX'  # mrg-loss, decay(0.01), max-pool
+        #run = 'trip012X'  # mrg-loss, decay(0.05), rmac-pool
+        #run = 'trip013'  # cosine
+        run = 'trip014' # ortogonal initialization
 
         gen = True
 
         # model
         model = tripArch(miniXception_loader, input_shape, output_size=out_size,
-                         distance='l2', normalize=True, pooling='rmac')
+                         distance='l2', normalize=True, pooling='max')
         model.model.summary()
-        model.compile(learning_rate=1e-3, decay=0.05)
+        model.compile(learning_rate=1e-3, decay=0.01)
         data_augment_params = {'max_angle': 0, 'flip_ratio': 0.1, 'crop_stdev': 0.05, 'epoch': 0}
         generator = DataGeneratorTrip(data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=64,
                                       val_factor=5,

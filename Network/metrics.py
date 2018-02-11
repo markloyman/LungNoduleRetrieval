@@ -167,10 +167,19 @@ def dice_coef(y_true, y_pred):
 
 # use Macro avging for multi-class metrics
 
+
 def root_mean_squared_error(y_true, y_pred):
     se   = K.sum(K.square(y_pred - y_true), axis=-1)
     rmse = K.sqrt(K.mean(se, axis=0))
     return rmse
+
+
+def multitask_accuracy(y_true, y_pred):
+    y_pred  = K.round(y_pred)
+    eq      = K.equal(y_pred, y_true)
+    eq      = K.all(eq, axis=-1)
+    acc     = K.sum(K.cast(eq, K.floatx()))
+    return acc
 
 
 def pearson_correlation(y_true, y_pred):

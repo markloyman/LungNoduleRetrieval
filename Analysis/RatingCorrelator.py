@@ -102,8 +102,9 @@ class RatingCorrelator:
         self.rating_metric = method
         return self.rating_distance_matrix
 
-    def evaluate_embed_distance_matrix(self, method='euclidean'):
-        self.embed_distance_matrix = calc_distance_matrix(self.embedding, method)
+    def evaluate_embed_distance_matrix(self, method='euclidean', round=False):
+        embd = self.embedding if (round==False) else np.round(self.embedding)
+        self.embed_distance_matrix = calc_distance_matrix(embd, method)
         self.embed_metric = method
 
     def linear_regression(self):
@@ -291,6 +292,44 @@ class RatingCorrelator:
         print('\tKendall =\t {:.2f}, with p={:.2f}'.  format(kend,  kend_p))
 
         return pear, spear, kend
+
+    def correlate_retrieval(self, X, Y, round=False):
+        x_dm, x_dist = self.load_distance_matrix(X, flat=False)
+        y_dm, y_dist = self.load_distance_matrix(Y, flat=False)
+
+        print('{}[{}]-{}[{}]:'. format(X, x_dist, Y, y_dist))
+
+        pear = []
+        spear = []
+        kend = []
+        if round:
+            x_dm, y_dm = np.round(x_dm), np.round(y_dm)
+        for x,y in zip(x_dm, y_dm):
+            pear  += [pearsonr(x, y)[0]]
+            spear += [spearmanr(x, y)[0]]
+            kend  += [kendalltau(x, y)[0]]
+
+        P = np.mean(pear)
+        S = np.mean(spear)
+        K = np.mean(kend)
+        print('\tPearson =\t {:.2f} ({:.2f})'.  format(P, np.std(pear)))
+        print('\tSpearman =\t {:.2f} ({:.2f})'. format(S, np.std(spear)))
+        print('\tKendall =\t {:.2f} ({:.2f})'.  format(K, np.std(kend)))
+
+        return P, S, K
+
+    def kendall_histogram(self, X, Y):
+        x_dm, x_dist = self.load_distance_matrix(X, flat=False)
+        y_dm, y_dist = self.load_distance_matrix(Y, flat=False)
+        print('{}[{}]-{}[{}]:'. format(X, x_dist, Y, y_dist))
+
+        kend = [kendalltau(x, y)[0] for x,y in zip(x_dm, y_dm)]
+
+        hist = np.histogram(kend)
+        K_Y = hist[0] / np.sum(hist[0])
+        K_X = 0.5*(hist[1][:-1]+hist[1][1:])
+
+        return K_X, K_Y
 
 if __name__ == "__main__":
     #

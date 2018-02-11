@@ -20,12 +20,12 @@ def precision(query, nn):
     assert(False)
 
 
-def eval_classification(runs, net_types, run_metrics, epochs, dset):
+def eval_classification(runs, net_types, run_metrics, run_epochs, dset):
     plt.figure('KNN Classification - ' + dset)
-    for run, net_type, idx, metric in zip(runs, net_types, range(len(runs)), run_metrics):
+    for run, net_type, idx, metric, epochs in zip(runs, net_types, range(len(runs)), run_metrics, run_epochs):
         NN = [3, 5, 7, 11, 17]
         Embed = FileManager.Embed(net_type)
-        WW = [Embed(run, E, dset) for E in wEpchs]
+        WW = [Embed(run, E, dset) for E in epochs]
 
         Pred_L1O = []
         for W in WW:
@@ -41,7 +41,7 @@ def eval_classification(runs, net_types, run_metrics, epochs, dset):
 
         Pred_L1O = (np.array(Pred_L1O))
         plt.subplot(1, len(wRuns), idx + 1)
-        plt.plot(wEpchs, Pred_L1O, '-*')
+        plt.plot(epochs, Pred_L1O, '-*')
         plt.grid(which='major', axis='y')
         plt.title('{}-{}'.format(net_type, run))
         plt.ylabel('ACC')
@@ -50,9 +50,9 @@ def eval_classification(runs, net_types, run_metrics, epochs, dset):
     print('Done Classification.')
 
 
-def eval_retrieval(runs, net_types, run_metrics, epochs, dset):
+def eval_retrieval(runs, net_types, run_metrics, run_epochs, dset):
     NN = [3, 5, 7, 11, 17]
-    for run, net_type, idx, metric in zip(runs, net_types, range(len(runs)), run_metrics):
+    for run, net_type, idx, metric, epochs in zip(runs, net_types, range(len(runs)), run_metrics, run_epochs):
         Embed = FileManager.Embed(net_type)
         Prec, Prec_b, Prec_m = [], [], []
         WW = [Embed(run, E, dset) for E in epochs]
@@ -82,7 +82,7 @@ def eval_retrieval(runs, net_types, run_metrics, epochs, dset):
         plt.figure('RET_' + run + '_' + dset)
 
         plt.subplot(211)
-        plt.plot(wEpchs, Prec, '-*')
+        plt.plot(epochs, Prec, '-*')
         plt.legend(NN)
         plt.title('Retrieval')
         plt.grid(which='major', axis='y')
@@ -92,7 +92,7 @@ def eval_retrieval(runs, net_types, run_metrics, epochs, dset):
 
         f1 = 2 * Prec_b * Prec_m / (Prec_b + Prec_m)
         plt.subplot(212)
-        plt.plot(wEpchs, f1, '-*')
+        plt.plot(epochs, f1, '-*')
         plt.legend(NN)
         plt.title('F1')
         plt.grid(which='major', axis='y')
@@ -124,9 +124,9 @@ def eval_retrieval(runs, net_types, run_metrics, epochs, dset):
 if __name__ == "__main__":
 
     dset = 'Valid'
-    wRuns = ['011XXX']  #['064X', '078X', '026'] #['064X', '071' (is actually 071X), '078X', '081', '082']
-    wRunsNet = ['trip']  #, 'dir']
-    wRunMetrics = ['l2']
+    wRuns = ['100', '011XXX', '016XXXX']  #['064X', '078X', '026'] #['064X', '071' (is actually 071X), '078X', '081', '082']
+    wRunsNet = ['siam', 'trip','trip']  #, 'dir']
+    wRunMetrics = ['l2', 'l2', 'l2']
 
     #wRuns = ['103']
     #wRunsNet = ['dir']  # , 'dir']
@@ -134,12 +134,15 @@ if __name__ == "__main__":
 
     #rating_normalizaion = 'Scale' # 'None', 'Normal', 'Scale'
 
-    wEpchs = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
+    wEpchs = [ [10, 20, 30, 35, 40, 45],
+               [10, 20, 30, 35, 40, 45, 50, 55],
+               [20, 40, 100, 150, 180]
+               ]
 
     #leg = ['E{}'.format(E) for E in wEpchs]
 
-    eval_classification(runs=wRuns, net_types=wRunsNet, run_metrics=wRunMetrics, epochs=wEpchs, dset=dset)
-    eval_retrieval(runs=wRuns, net_types=wRunsNet, run_metrics=wRunMetrics, epochs=wEpchs, dset=dset)
+    eval_classification(runs=wRuns, net_types=wRunsNet, run_metrics=wRunMetrics, run_epochs=wEpchs, dset=dset)
+    eval_retrieval(runs=wRuns, net_types=wRunsNet, run_metrics=wRunMetrics, run_epochs=wEpchs, dset=dset)
 
     plt.show()
 

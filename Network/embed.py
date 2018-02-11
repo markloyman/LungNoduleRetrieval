@@ -95,3 +95,17 @@ class Embeder:
                 print("Data: images({}), labels({})".format(self.images[0].shape, self.labels.shape))
                 print("Image Range = [{:.2f},{:.2f}]".format(np.min(self.images[0]), np.max(self.images[0])))
                 print("Embed Range = [{:.2f},{:.2f}]".format(np.min(pred), np.max(pred)))
+
+    def generate_timeline_embedding(self, runs, epochs, post, data_subset_id):
+
+        self.prepare_data(data_subset_id)
+
+        pred = []
+        for run in runs:
+            for epoch in epochs:
+                embed_model = self.prepare_network(run=run, epoch=epoch)
+                pred += [np.expand_dims(embed_model.predict(self.images), axis=2)]
+
+        pred = np.concatenate(pred, axis=2)
+
+        return pred

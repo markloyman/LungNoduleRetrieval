@@ -71,7 +71,7 @@ def run(choose_model = "DIR"):
     normalize = True
     out_size = 128
 
-    epochs = args.epochs if (args.epochs != 0) else 60
+    epochs = args.epochs if (args.epochs != 0) else 200
 
 
     print("Running training for --** {} **-- model".format(choose_model))
@@ -126,21 +126,25 @@ def run(choose_model = "DIR"):
         #run = 'dirR008'  # mse, scaled-rating
         #run = 'dirR009'  # logcosh, max, scaled
         #run = 'dirR010'  # logcosh, rmac, scaled
-        run = 'dirR011'  # logcosh, rmac, no scaling
+        #run = 'dirR011X'  # logcosh, rmac, no scaling
+        #run = 'dirR012'  # logcosh, rmac, no scaling, decay
+        #run = 'dirR013'  # model-binary, rmac, logcosh
+        run = 'dirR014ZZ'  # model-not-binary, rmac, logcosh
 
         rating_scale = 'none'
         use_gen = True
+        obj = 'rating'
 
-        model = directArch(miniXception_loader, input_shape, output_size=out_size, objective='rating',
-                           normalize=normalize, pooling='rmac')
+        model = directArch(miniXception_loader, input_shape, output_size=out_size, objective=obj,
+                           normalize=normalize, pooling='rmac', binary=False)
         model.model.summary()
-        model.compile(learning_rate=1e-3, decay=1e-5, loss='logcosh') # mean_squared_logarithmic_error, binary_crossentropy, logcosh
+        model.compile(learning_rate=1e-3, decay=1e-3, loss='logcosh') # mean_squared_logarithmic_error, binary_crossentropy, logcosh
 
         if use_gen:
             data_augment_params = {'max_angle': 0, 'flip_ratio': 0.1, 'crop_stdev': 0.05, 'epoch': 0}
             generator = DataGeneratorDir(
                     data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=32,
-                    objective='rating', categorize=False, rating_scale=rating_scale,
+                    objective=obj, categorize=False, rating_scale=rating_scale,
                     val_factor=1, balanced=False,
                     do_augment=False, augment=data_augment_params,
                     use_class_weight=False, class_weight='balanced')
@@ -220,31 +224,26 @@ def run(choose_model = "DIR"):
 
     if choose_model is "TRIPLET":
 
-        #run = 'trip000'  # test
-        #run = 'trip004'  # try mse loss
-        #run = 'trip005'  # x2 contrastive loss (finally fixed data gen)
-        #run = 'trip006XX'  # triplet-margin-loss
-        #run = 'trip007'  # softplus-loss
-        #run = 'trip008'  # softplus-margin-loss
-        #run = 'trip009'  # mrg-loss, max-pool
-        #run = 'trip010'  # mrg-loss, rmac-pool
-
-        # fixed metrics
         #run = 'trip011XXX'  # mrg-loss, decay(0.01), max-pool
         #run = 'trip012X'  # mrg-loss, decay(0.05), rmac-pool
         #run = 'trip013'  # cosine
-        run = 'trip014' # ortogonal initialization
+        #run = 'trip014' # ortogonal initialization
+        #run = 'trip015X'  # objective rating
+        #run = 'trip016XXXX'  # softplus-loss
+        #run = 'trip017'  # softplus-loss, no decay
+        run = 'trip018'  # binary
+        #run = 'trip019'  # categorize
 
         gen = True
 
         # model
         model = tripArch(miniXception_loader, input_shape, output_size=out_size,
-                         distance='l2', normalize=True, pooling='max')
+                         distance='l2', normalize=True, pooling='max', categorize=False, binary=True)
         model.model.summary()
-        model.compile(learning_rate=1e-3, decay=0.01)
+        model.compile(learning_rate=1e-3, decay=0.0)
         data_augment_params = {'max_angle': 0, 'flip_ratio': 0.1, 'crop_stdev': 0.05, 'epoch': 0}
-        generator = DataGeneratorTrip(data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=64,
-                                      val_factor=5,
+        generator = DataGeneratorTrip(data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=80,
+                                      val_factor=1, objective="rating",
                                       do_augment=False, augment=data_augment_params,
                                       use_class_weight=False)
         if gen:

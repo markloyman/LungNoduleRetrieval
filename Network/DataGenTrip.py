@@ -12,13 +12,14 @@ class DataGeneratorTrip(object):
 
     def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_sz=32,
                         do_augment=False, augment=None, use_class_weight=False, class_weight='dummy', debug=False,
-                        val_factor = 1):
+                        val_factor = 1, objective="malignancy"):
 
         dataset = load_nodule_dataset(size=data_size, res=res, sample=sample, apply_mask_to_patch=debug)
 
         self.train_set = dataset[2]
         self.valid_set = dataset[1]
 
+        self.objective = objective
         self.batch_sz = batch_sz
         self.data_size  = data_size
         self.model_size = model_size
@@ -53,7 +54,7 @@ class DataGeneratorTrip(object):
             size = self.data_size if self.do_augment else self.model_size
 
             images, labels, masks, confidence = \
-                prepare_data_triplet(set, verbose=verbose)
+                prepare_data_triplet(set, verbose=verbose, objective=self.objective)
 
             if self.do_augment and is_training and (epoch >= self.augment['epoch']):
                     if epoch == self.augment['epoch']:
@@ -102,7 +103,7 @@ class DataGeneratorTrip(object):
             #else:
             #    assert( (self.val_factor*len(images[0])) == self.valN)
             #l = np.array(32*[[0, 1]])
-            l = np.array(self.batch_sz * [0])
+            l = np.array(self.batch_sz * [[0, 1]])
             #print(l.shape)
             for im0, im1, im2, cnf in zip(images[0], images[1], images[2], confidence):
                 if self.use_class_weight:

@@ -5,7 +5,7 @@ import numpy as np
 from keras import backend as K
 from keras.callbacks import ModelCheckpoint, TensorBoard, LearningRateScheduler, Callback, ReduceLROnPlateau, EarlyStopping
 from keras.layers import Input
-from keras.layers import Lambda
+from keras.layers import Lambda, Activation
 from keras.models import Model
 from keras.optimizers import Adam
 
@@ -64,9 +64,8 @@ def triplet_loss(_, y_pred):
     subtraction = K.constant([1, -1], shape=(2, 1))
     diff =  K.dot(K.square(y_pred), subtraction)
 
-    loss = K.maximum(K.constant(0), margin + diff)
-    #loss = K.softplus(margin+diff)
-    #loss = diff
+    #loss = K.maximum(K.constant(0), margin + diff)
+    loss = K.softplus(diff)
 
     return loss
 
@@ -77,8 +76,10 @@ class printbatch(Callback):
 
 class tripArch:
 
-    def __init__(self, model_loader, input_shape, pooling='rmac', output_size=1024, distance='l2', normalize=False):
+    def __init__(self, model_loader, input_shape, pooling='rmac', output_size=1024, distance='l2', normalize=False, binary=False, categorize=False):
     #   input_shape of form: (size, size,1)
+
+        self.categorize = categorize
 
         img_input_ref  = Input(shape=input_shape)
         img_input_pos  = Input(shape=input_shape)
@@ -86,7 +87,7 @@ class tripArch:
         self.input_shape = input_shape
 
         self.base =  model_loader(input_tensor=None, input_shape=input_shape, return_model=True,
-                                  pooling=pooling, output_size=output_size, normalize=normalize)
+                                  pooling=pooling, output_size=output_size, normalize=normalize, binary=binary)
         #self.base.summary()
         base_ref = self.base(img_input_ref)
         base_pos = self.base(img_input_pos)
@@ -107,7 +108,8 @@ class tripArch:
                                     output_shape=trip_dist_output_shape, name='neg_dist')([base_ref, base_neg])
 
         output_layer = Lambda(lambda vects: K.concatenate(vects, axis=1), name='output')([distance_layer_pos, distance_layer_neg])
-        #output_layer = [distance_layer_pos, distance_layer_neg]
+        if categorize:
+            output_layer = Activation('softmax')(output_layer)
 
         self.model =    Model(  inputs=[img_input_ref, img_input_pos, img_input_neg],
                                 outputs = output_layer,
@@ -120,7 +122,10 @@ class tripArch:
         rank_accuracy.__name__ = 'accuracy'
         kendall_correlation.__name__  = 'corr'
 
-        loss =  triplet_loss #[contrastive_loss_p, contrastive_loss_n] #'mean_squared_error' #triplet_loss
+        if self.categorize:
+            loss = 'categorical_crossentropy'
+        else:
+            loss =  triplet_loss #[contrastive_loss_p, contrastive_loss_n] #'mean_squared_error' #triplet_loss
         metrics = [rank_accuracy, kendall_correlation]
 
         self.model.compile( optimizer   = Adam(lr=learning_rate, decay=decay), #, decay=0.01*learning_rate),

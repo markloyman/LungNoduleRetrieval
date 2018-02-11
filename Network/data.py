@@ -266,13 +266,13 @@ def prepare_data(data, objective='malignancy', new_size=None, do_augment=False, 
     if categorize > 0:
         labels = to_categorical(labels, categorize)
 
+    meta = None
     if return_meta:
         meta = [entry[3] for entry in data]
         if reshuffle:
             meta = reorder(meta, new_order)
-        return images, labels, classes, masks, meta
-    else:
-        return images, labels, classes, masks, None
+
+    return images, labels, classes, masks, meta
 
 
 def select_balanced(self, some_set, labels, N, permutation):
@@ -442,15 +442,14 @@ def prepare_data_siamese(data, size, objective="malignancy", balanced=False, ret
 
 
 def prepare_data_siamese_simple(data, size, objective="malignancy", balanced=False, return_meta=False, verbose= 0):
-    if verbose: print('prepare_data_siamese_simple:')
-    if return_meta:
-        images, labels, classes, masks, meta = \
-            prepare_data(data, categorize=0, objective=objective, scaling="Scale", return_meta=True, reshuffle=True, verbose=verbose)
-        if verbose: print('Loaded Meta-Data')
-    else:
-        images, labels, classes, masks = \
-            prepare_data(data, categorize=0, objective=objective, scaling="Scale", return_meta=False, reshuffle=True, verbose=verbose)
-    if verbose: print("benign:{}, malignant: {}".format(np.count_nonzero(classes == 0),
+    if verbose:
+        print('prepare_data_siamese_simple:')
+    images, labels, classes, masks, meta = \
+        prepare_data(data, categorize=0, objective=objective, scaling="Scale", return_meta=return_meta, reshuffle=True, verbose=verbose)
+    if verbose:
+        if return_meta:
+            print('Loaded Meta-Data')
+        print("benign:{}, malignant: {}".format(np.count_nonzero(classes == 0),
                                                         np.count_nonzero(classes == 1)))
 
     N = images.shape[0]
@@ -559,7 +558,7 @@ def make_balanced_trip(elements, c1_head, c1_tail, c2_head, c2_tail):
     trips += [(elements[r], elements[p], elements[n]) for r, p, n in zip(c2_tail, c2_head, c1_tail)]
     return trips
 
-def prepare_data_triplet(data, balanced=True, return_meta=False, verbose= 0):
+def prepare_data_triplet(data, objective="malignancy", balanced=False, return_meta=False, verbose= 0):
     if verbose:
         print('prepare_data_triplet:')
     images, ratings, classes, masks, meta \
@@ -570,7 +569,7 @@ def prepare_data_triplet(data, balanced=True, return_meta=False, verbose= 0):
 
     N = images.shape[0]
 
-    if balanced:
+    if objective=="malignancy":
         benign_filter = np.where(classes == 0)[0]
         malign_filter = np.where(classes == 1)[0]
         M = min(benign_filter.shape[0], malign_filter.shape[0])
@@ -581,16 +580,15 @@ def prepare_data_triplet(data, balanced=True, return_meta=False, verbose= 0):
         benign_filter_a = benign_filter[:M12]
         benign_filter_b = benign_filter[M12:]
 
-
     #   Handle Patches
     # =========================
 
-    if balanced:
+    if objective=="malignancy":
         image_trips = make_balanced_trip(images, benign_filter_a, benign_filter_b, malign_filter_a, malign_filter_b)
     else:
-        image_trips = select_triplets(images)
+        image_trips  = select_triplets(images)
         rating_trips = select_triplets(ratings)
-        image_trips = arrange_triplet(image_trips, rating_trips)
+        image_trips  = arrange_triplet(image_trips, rating_trips)
     image_sub1 = np.array([pair[0] for pair in image_trips])
     image_sub2 = np.array([pair[1] for pair in image_trips])
     image_sub3 = np.array([pair[2] for pair in image_trips])
@@ -600,7 +598,7 @@ def prepare_data_triplet(data, balanced=True, return_meta=False, verbose= 0):
     #   Handle Masks
     # =========================
 
-    if balanced:
+    if objective=="malignancy":
         mask_trips = make_balanced_trip(masks, benign_filter_a, benign_filter_b, malign_filter_a, malign_filter_b)
     else:
         mask_trips = select_triplets(masks)
@@ -612,7 +610,7 @@ def prepare_data_triplet(data, balanced=True, return_meta=False, verbose= 0):
     #   Handle Meta
     # =========================
     if return_meta:
-        if balanced:
+        if objective=="malignancy":
             meta_trips = make_balanced_trip(meta, benign_filter_a, benign_filter_b, malign_filter_a, malign_filter_b)
         else:
             meta_trips = select_triplets(meta)

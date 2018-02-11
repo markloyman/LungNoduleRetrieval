@@ -3,25 +3,23 @@ from timeit import default_timer as timer
 
 import numpy as np
 from keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, EarlyStopping, TensorBoard
-from keras.layers import Dense
-from keras.layers import Input
 from keras.models import Model
 from keras.optimizers import Adam
 from keras.metrics import categorical_accuracy
 
 try:
     from Network.dataUtils import get_class_weight
-    from Network.metrics import sensitivity, f1, precision, specificity, root_mean_squared_error
+    from Network.metrics import sensitivity, f1, precision, specificity, root_mean_squared_error, multitask_accuracy
     output_dir = './output'
 except:
     from dataUtils import get_class_weight
-    from metrics import sensitivity, f1, precision, specificity, root_mean_squared_error
+    from metrics import sensitivity, f1, precision, specificity, root_mean_squared_error, multitask_accuracy
     output_dir = '/output'
 
 
 class directArch:
 
-    def __init__(self, model_loader, input_shape, objective='malignancy', pooling='rmac', output_size=1024, normalize=False):
+    def __init__(self, model_loader, input_shape, objective='malignancy', pooling='rmac', output_size=1024, normalize=False, binary=False):
     #   input_shape of form: (size, size,1)
 
         self.objective = objective
@@ -32,7 +30,7 @@ class directArch:
         self.normalize = normalize
         self.model_loader = model_loader
         self.base = model_loader(input_tensor=self.img_input, input_shape=input_shape,
-                                 pooling=pooling, output_size=output_size, normalize=normalize)
+                                 pooling=pooling, output_size=output_size, normalize=normalize, binary=binary)
         if objective=='malignancy':
             pred_layer = Dense(2, activation='softmax', name='predictions')(self.base)
         elif objective=='rating':
@@ -51,11 +49,12 @@ class directArch:
         categorical_accuracy.__name__ = 'accuracy'
         sensitivity.__name__ = 'recall'
         root_mean_squared_error.__name__ = 'rmse'
+        multitask_accuracy.__name__ = 'accuracy'
         metrics = []
         if self.objective == 'malignancy':
             metrics = [categorical_accuracy, f1, sensitivity, precision, specificity]
         elif self.objective == 'rating':
-            metrics = [root_mean_squared_error]
+            metrics = [root_mean_squared_error, multitask_accuracy]
         self.model.compile( optimizer   = Adam(lr=learning_rate, decay=decay),
                             loss        = loss, #'categorical_crossentropy', mean_squared_error
                             metrics     = metrics )

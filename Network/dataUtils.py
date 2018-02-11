@@ -15,11 +15,13 @@ def rating_normalize(rating, method):
     rating_max = np.array(
         [5., 4., 6., 5., 5., 5., 5., 5., 5.])
 
-    if method == 'Norm' or method == 'Normal':
+    if method == 'Norm' or method == 'Normal' or method == 'normal':
         #rating = rating.astype('float')
         rating_norm = (rating - rating_mean) / rating_std
-    elif method == 'Scale':
+    elif method == 'Scale' or method == 'scale':
         rating_norm = 2.0*(rating - rating_min)/(rating_max - rating_min)-1.0
+    elif method == 'Round' or method == 'round':
+        rating_norm = np.round(rating)
     else:
         rating_norm = rating
 

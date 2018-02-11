@@ -34,7 +34,7 @@ from keras.models import Model
 
 
 def miniXception_loader(input_tensor=None, input_shape=None, weights=None, output_size=1024, return_model=False,
-                        pooling=None, normalize=False):
+                        pooling=None, normalize=False, binary=False):
     """
     Instantiates either a Tensor or a Model for the Core Embedding Network
     Optionally loads weights pre-trained
@@ -227,19 +227,12 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
     else:
         x = Flatten(name='embeding')(x)
 
+    if binary:
+        x = Activation('sigmoid')(x)
+
     if normalize:
         x = Lambda(lambda q: K.l2_normalize(q, axis=-1), name='n_embedding')(x)
 
-    '''
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
-    # Create model.
-    model = Model(inputs, x, name='miniXception')
-    '''
 
     # load weights
     if weights is not None:

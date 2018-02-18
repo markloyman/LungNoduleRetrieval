@@ -251,6 +251,10 @@ class tripArch:
         self.model.load_weights(w)
         return None
 
+    def load_core_weights(self, w):
+        self.base.load_weights(w, by_name=True)
+        return None
+
     def extract_core(self, weights=None):
         if weights is not None:
             self.model.load_weights(weights)

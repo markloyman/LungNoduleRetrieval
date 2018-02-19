@@ -1,13 +1,15 @@
 import pickle
+
 import numpy as np
 
-from Network.dataUtils import crop_center
 import FileManager
+from Network.Direct.directArch import directArch
+from Network.Siamese.siameseArch import siamArch
+from Network.Triplet.tripletArch import tripArch
 from Network.data import load_nodule_dataset, prepare_data
+from Network.dataUtils import crop_center
 from Network.model import miniXception_loader
-from Network.siameseArch import siamArch
-from Network.directArch import directArch
-from Network.tripletArch import tripArch
+
 
 class Embeder:
 
@@ -27,7 +29,7 @@ class Embeder:
         self.net_pool = pooling
 
     def prepare_data(self, data_subset_id):
-        images, labels, classes, masks, meta = \
+        images, labels, classes, masks, meta, conf = \
             prepare_data(load_nodule_dataset(size=self.data_size, res=self.data_res, sample=self.data_sample)[data_subset_id],
                          categorize=False,
                          reshuffle=False,

@@ -3,17 +3,17 @@ from timeit import default_timer as timer
 
 import numpy as np
 from keras import backend as K
-from keras.callbacks import ModelCheckpoint, TensorBoard, LearningRateScheduler, Callback, ReduceLROnPlateau, EarlyStopping
+from keras.callbacks import ModelCheckpoint, TensorBoard, Callback
 from keras.layers import Input
 from keras.layers import Lambda, Activation
 from keras.models import Model
 from keras.optimizers import Adam
 
 try:
-    from Network.metrics import triplet_margin, rank_accuracy, kendall_correlation
+    from Network.Triplet.metrics import triplet_margin, rank_accuracy, kendall_correlation
     output_dir = './output'
 except:
-    from metrics import triplet_margin, rank_accuracy, kendall_correlation
+    from Triplet.metrics import triplet_margin, rank_accuracy, kendall_correlation
     output_dir = '/output'
 
 

@@ -2,20 +2,21 @@ import pickle
 from timeit import default_timer as timer
 
 import numpy as np
-#np.random.seed(1337) # for reproducibility
+# np.random.seed(1337) # for reproducibility
 from keras import backend as K
-from keras.callbacks import ModelCheckpoint, TensorBoard, LearningRateScheduler, Callback, ReduceLROnPlateau, EarlyStopping
+from keras.callbacks import ModelCheckpoint, TensorBoard, Callback
 from keras.layers import Input
 from keras.layers import Lambda
 from keras.models import Model
 from keras.optimizers import Adam
 
 try:
-    from Network.metrics import siamese_margin, binary_accuracy, binary_precision_inv, binary_recall_inv, binary_f1_inv, binary_assert, pearson_correlation
+    from Network.Siamese.metrics import siamese_margin, binary_accuracy, binary_precision_inv, binary_recall_inv, binary_f1_inv, binary_assert, pearson_correlation
     output_dir = './output'
 except:
-    from metrics import siamese_margin, binary_accuracy, binary_precision_inv, binary_recall_inv, binary_f1_inv, binary_assert, pearson_correlation
+    from Siamese.metrics import siamese_margin, binary_accuracy, binary_precision_inv, binary_recall_inv, binary_f1_inv, binary_assert, pearson_correlation
     output_dir = '/output'
+
 
 def huber(a, d):
     return K.square(d)*(K.sqrt(1+K.square(a/d)) - 1.0)

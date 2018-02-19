@@ -52,9 +52,9 @@ class DataGeneratorTrip(object):
         while 1:
             print('Run Gen: {}'.format(np.where(is_training, 'Training', 'Validation')))
             size = self.data_size if self.do_augment else self.model_size
-
+            ret_conf = self.class_weight_method if self.use_class_weight else None
             images, labels, masks, confidence = \
-                prepare_data_triplet(set, verbose=verbose, objective=self.objective)
+                prepare_data_triplet(set, verbose=verbose, objective=self.objective, return_confidence=ret_conf)
 
             if self.do_augment and is_training and (epoch >= self.augment['epoch']):
                     if epoch == self.augment['epoch']:
@@ -72,8 +72,8 @@ class DataGeneratorTrip(object):
             if verbose:
                 print("images after augment/crop: {}".format(images[0].shape))
 
-            if self.use_class_weight:
-                class_weight = get_class_weight(confidence, method=self.class_weight_method)
+            #if self.use_class_weight and (self.class_weight_method !="rating"):
+            #    class_weight = get_class_weight(confidence, method=self.class_weight_method)
 
             # split into batches
             split_idx = [b for b in range(self.batch_sz, images[0].shape[0], self.batch_sz)]
@@ -107,20 +107,14 @@ class DataGeneratorTrip(object):
             #print(l.shape)
             for im0, im1, im2, cnf in zip(images[0], images[1], images[2], confidence):
                 if self.use_class_weight:
-                    assert(False)
-                    w = get_sample_weight(cnf,  wD=class_weight['D'],
-                                                wSB=class_weight['SB'],
-                                                wSM=class_weight['SM']
-                                          )
+                    w = cnf
                     if verbose == 1:
-                        print([(li, np.round(10*wi, 2).astype('uint')) for li, wi in zip(0, w)])
+                        print([np.round(10 * wi, 2).astype('uint') for wi in w])
                     verbose = 0
-                    #yield ([im0, im1, im2], [l, l], w)
                     yield ([im0, im1, im2], l, w)
                 else:
-                    #yield ([im0, im1, im2], [l, l])
                     yield ([im0, im1, im2], l)
-            epoch = epoch +1
+            epoch = epoch + 1
             verbose = 0
 
 

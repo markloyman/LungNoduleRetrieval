@@ -10,13 +10,13 @@ import tensorflow as tf
 tf.set_random_seed(1234)
 K.set_session(tf.Session(graph=tf.get_default_graph()))
 try:
-    from Network.DataGenSiam import DataGenerator
-    from Network.DataGenDirect import DataGeneratorDir
-    from Network.DataGenTrip import DataGeneratorTrip
+    from Network.Siamese.DataGenSiam import DataGenerator
+    from Network.Direct.DataGenDirect import DataGeneratorDir
+    from Network.Triplet.DataGenTrip import DataGeneratorTrip
     from Network.model import miniXception_loader
-    from Network.siameseArch import siamArch
-    from Network.directArch import directArch
-    from Network.tripletArch import tripArch
+    from Network.Siamese.siameseArch import siamArch
+    from Network.Direct.directArch import directArch
+    from Network.Triplet.tripletArch import tripArch
     from Network.data import load_nodule_dataset, prepare_data_direct
     from Network.dataUtils import crop_center
 except:
@@ -231,21 +231,32 @@ def run(choose_model = "DIR"):
         #run = 'trip015X'  # objective rating
         #run = 'trip016XXXX'  # softplus-loss
         #run = 'trip017'  # softplus-loss, no decay
-        run = 'trip018'  # binary
+        #run = 'trip018'  # binary
         #run = 'trip019'  # categorize
+        #run = 'trip020X'  # rating-conf-tryout
+        #run = 'trip021' # pretrained
+        #run = 'trip022XXX'  # pretrained rmac
+        #run = 'trip023X'  # pretrained categorize
+        #run = 'trip024'  # pretrained confidence
+        #run = 'trip025'  # pretrained cat,conf
+        run = 'trip026Z'  # class_weight='rating_distance', cat
 
         gen = True
+        preload_weight = './Weights/w_dirR011X_50.h5'
+
 
         # model
         model = tripArch(miniXception_loader, input_shape, output_size=out_size,
-                         distance='l2', normalize=True, pooling='max', categorize=False, binary=True)
+                         distance='l2', normalize=True, pooling='rmac', categorize=True, binary=False)
+        if preload_weight is not None:
+            model.load_core_weights(preload_weight)
         model.model.summary()
-        model.compile(learning_rate=1e-3, decay=0.0)
+        model.compile(learning_rate=1e-3, decay=0.05)
         data_augment_params = {'max_angle': 0, 'flip_ratio': 0.1, 'crop_stdev': 0.05, 'epoch': 0}
-        generator = DataGeneratorTrip(data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=80,
-                                      val_factor=1, objective="rating",
+        generator = DataGeneratorTrip(data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=32,
+                                      val_factor=3, objective="rating",
                                       do_augment=False, augment=data_augment_params,
-                                      use_class_weight=False)
+                                      use_class_weight=True, class_weight='rating_distance')
         if gen:
             model.load_generator(generator)
         else:

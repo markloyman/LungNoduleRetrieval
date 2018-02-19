@@ -2,14 +2,14 @@ import pickle
 from timeit import default_timer as timer
 
 import numpy as np
-from keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, EarlyStopping, TensorBoard
+from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
+from keras.metrics import categorical_accuracy
 from keras.models import Model
 from keras.optimizers import Adam
-from keras.metrics import categorical_accuracy
 
 try:
     from Network.dataUtils import get_class_weight
-    from Network.metrics import sensitivity, f1, precision, specificity, root_mean_squared_error, multitask_accuracy
+    from Network.Direct.metrics import sensitivity, f1, precision, specificity, root_mean_squared_error, multitask_accuracy
     output_dir = './output'
 except:
     from dataUtils import get_class_weight

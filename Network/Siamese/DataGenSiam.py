@@ -3,10 +3,11 @@ import numpy as np
 try:
     from Network.data import load_nodule_dataset, prepare_data_siamese, prepare_data_siamese_simple
     from Network.dataUtils import augment, crop_center, get_sample_weight, get_class_weight
-    from Network.metrics import siamese_rating_factor
+    from Network.Siamese.metrics import siamese_rating_factor
 except:
     from data import load_nodule_dataset, prepare_data_siamese, prepare_data_siamese_simple
     from dataUtils import augment, crop_center, get_sample_weight, get_class_weight
+    from Siamese.metrics import siamese_rating_factor
 
 class DataGenerator(object):
     """docstring for DataGenerator"""

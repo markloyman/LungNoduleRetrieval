@@ -212,7 +212,7 @@ def reorder(a_list, order):
     return [a_list[order[i]] for i in range(len(order))]
 
 
-def prepare_data(data, objective='malignancy', new_size=None, do_augment=False, categorize=0, return_meta=False, reshuffle=False, verbose = 0, scaling="none"):
+def prepare_data(data, objective='malignancy', new_size=None, do_augment=False, categorize=0, return_meta=False, rating_confidence=False, reshuffle=False, verbose = 0, scaling="none"):
     from keras.utils.np_utils import to_categorical
     # Entry:
     # 0 'patch'
@@ -266,13 +266,19 @@ def prepare_data(data, objective='malignancy', new_size=None, do_augment=False, 
     if categorize > 0:
         labels = to_categorical(labels, categorize)
 
+    conf = None
+    if rating_confidence is not None:
+        conf = np.array([2. + entry[5].shape[0] - np.max(np.max(entry[5], axis=0) - np.min(entry[5], axis=0)) for entry in data]) / 6.
+        if reshuffle:
+            conf = conf[new_order]
+
     meta = None
     if return_meta:
         meta = [entry[3] for entry in data]
         if reshuffle:
             meta = reorder(meta, new_order)
 
-    return images, labels, classes, masks, meta
+    return images, labels, classes, masks, meta, conf
 
 
 def select_balanced(self, some_set, labels, N, permutation):
@@ -285,7 +291,7 @@ def select_balanced(self, some_set, labels, N, permutation):
 
 def prepare_data_direct(data, objective='malignancy', rating_scale = 'none', size=None, classes=2, balanced=False, return_meta=False, verbose= 0):
     #scale = 'none' if (objective=='malignancy') else "none"
-    images, labels, classes, masks, meta = \
+    images, labels, classes, masks, meta, conf = \
         prepare_data(data, objective=objective, categorize=(2 if (objective=='malignancy') else 0), verbose=verbose, reshuffle=True, return_meta=return_meta, scaling=rating_scale)
     Nb = np.count_nonzero(1 - classes)
     Nm = np.count_nonzero(classes)
@@ -333,6 +339,16 @@ def arrange_triplet(elements, labels):
     return trips
 
 
+def get_triplet_confidence(labels):
+    conf = [(l[0]+l[1]+l[2])/3. for l in labels]
+    return conf
+
+def calc_rating_distance_confidence(rating_trips):
+    l2 = lambda a, b: np.sqrt((a - b).dot(a - b))
+    factor = lambda dp, dn: np.exp(-dp/dn)
+    confidence = [factor(l2(r[0], r[1]), l2(r[0], r[2])) for r in rating_trips]
+    return confidence
+
 def select_same_pairs(class_A, class_B):
     same = [(a1, a2) for a1, a2 in zip(class_A[:-1], class_A[1:])] + [(class_A[-1], class_A[0])]
     sa_size = len(same)
@@ -344,7 +360,7 @@ def select_same_pairs(class_A, class_B):
 
 def prepare_data_siamese(data, size, objective="malignancy", balanced=False, return_meta=False, verbose= 0):
     if verbose: print('prepare_data_siamese:')
-    images, labels, classes, masks, meta = \
+    images, labels, classes, masks, meta, conf = \
         prepare_data(data, categorize=0, objective=objective, return_meta=return_meta, reshuffle=True, verbose=verbose)
     if verbose: print("benign:{}, malignant: {}".format(np.count_nonzero(classes == 0),
                                                         np.count_nonzero(classes == 1)))
@@ -444,7 +460,7 @@ def prepare_data_siamese(data, size, objective="malignancy", balanced=False, ret
 def prepare_data_siamese_simple(data, size, objective="malignancy", balanced=False, return_meta=False, verbose= 0):
     if verbose:
         print('prepare_data_siamese_simple:')
-    images, labels, classes, masks, meta = \
+    images, labels, classes, masks, meta, conf = \
         prepare_data(data, categorize=0, objective=objective, scaling="Scale", return_meta=return_meta, reshuffle=True, verbose=verbose)
     if verbose:
         if return_meta:
@@ -558,11 +574,11 @@ def make_balanced_trip(elements, c1_head, c1_tail, c2_head, c2_tail):
     trips += [(elements[r], elements[p], elements[n]) for r, p, n in zip(c2_tail, c2_head, c1_tail)]
     return trips
 
-def prepare_data_triplet(data, objective="malignancy", balanced=False, return_meta=False, verbose= 0):
+def prepare_data_triplet(data, objective="malignancy", balanced=False, return_confidence=False, return_meta=False, verbose= 0):
     if verbose:
         print('prepare_data_triplet:')
-    images, ratings, classes, masks, meta \
-        = prepare_data(data, categorize=0, objective="rating", scaling="Scale", return_meta=return_meta, reshuffle=True, verbose=verbose)
+    images, ratings, classes, masks, meta, conf \
+        = prepare_data(data, categorize=0, objective="rating", scaling="Scale", rating_confidence=return_confidence,return_meta=return_meta, reshuffle=True, verbose=verbose)
     if verbose:
         print("benign:{}, malignant: {}".format(np.count_nonzero(classes == 0), np.count_nonzero(classes == 1)))
         if meta is not None: print('Loaded Meta-Data')
@@ -625,13 +641,16 @@ def prepare_data_triplet(data, objective="malignancy", balanced=False, return_me
     size = image_sub1.shape[0]
     assert size == mask_sub1.shape[0]
 
-    # assign confidence classes (weights are resolved online per batch)
-    #confidence = np.concatenate([  np.repeat('SB', sb_size),
-    #                               np.repeat('SM', sm_size),
-    #                               np.repeat('D',  d_size)
-    #                            ])
     confidence = np.repeat('SB', N)
-
+    if objective=='rating':
+        if return_confidence == "rating":
+            conf_trips = select_triplets(conf)
+            conf_trips = arrange_triplet(conf_trips, rating_trips)
+            confidence = get_triplet_confidence(conf_trips)
+            confidence = np.array(confidence)
+        elif return_confidence == "rating_distance":
+            confidence = calc_rating_distance_confidence(rating_trips)
+            confidence = np.array(confidence)
 
     new_order = np.random.permutation(size)
 

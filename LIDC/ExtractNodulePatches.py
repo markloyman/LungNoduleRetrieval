@@ -1,6 +1,7 @@
 import pylidc as pl
 import numpy as np
 import matplotlib.pyplot as plt
+from functools import reduce
 import pickle
 plt.interactive(False)
 
@@ -17,7 +18,7 @@ def getNoduleSize(nodule):
 
 def getLargestSliceInBB(nodule):
     sliceArea = np.sum(nodule.get_boolean_mask().astype('float32'), axis=(0, 1))
-    return (np.max(sliceArea), np.argmax(sliceArea))
+    return np.max(sliceArea), np.argmax(sliceArea)
 
 
 def interpolateZfromBBidx(nodule, zIdx):
@@ -92,6 +93,10 @@ def extract(patch_size  = 144, res ='Legacy', dump = True):
 
     for scan in pl.query(pl.Scan).all()[:]:
     # cycle 1018 scans
+    #
+    # Example for debuging:
+    #   scan = pl.query(pl.Scan).filter(pl.Scan.patient_id == 'LIDC-IDRI-0004').first()
+    #
         nods = scan.cluster_annotations(metric='jaccard', tol=0.95, tol_limit=0.7)
         if len(nods) > 0:
             pat_with_nod += 1
@@ -143,3 +148,101 @@ def extract(patch_size  = 144, res ='Legacy', dump = True):
         print("Dumpted to {}".format(filename))
     else:
         print("No Dump")
+
+
+def check_nodule_intersections(patch_size  = 144, res ='Legacy'):
+
+    pat_with_nod    = 0
+    pat_without_nod = 0
+    nodule_count    = 0
+    max_size        = 0
+    min_size        = 999999
+    min_dist        = 999999
+    outliers = []
+    size_list = []
+    global_size_list = []
+
+    for scan in pl.query(pl.Scan).all()[:]:
+
+        nods = scan.cluster_annotations(metric='jaccard', tol=0.8)
+        if len(nods) == 0:
+            pat_without_nod += 1
+            continue
+        pat_with_nod += 1
+        print("Study ({}), Series({}) of patient {}: {} nodules."
+              .format(scan.study_instance_uid, scan.series_instance_uid, scan.patient_id, len(nods)))
+        nodule_count += len(nods)
+
+        centers = []
+        boxes   = []
+        for nod in nods:
+            print("Nodule of patient {} with {} annotations.".format(scan.patient_id, len(nod)))
+            min_ = reduce((lambda x, y: np.minimum(x , y)), [ann.bbox()[:, 0] for ann in nod])
+            max_ = reduce((lambda x, y: np.maximum(x, y)),  [ann.bbox()[:, 1] for ann in nod])
+            size = scan.pixel_spacing*(max_ - min_ + 1)
+            size_list.append(size)
+            if np.max(size) >= 64:
+                print("\tSize = {:.1f} x {:.1f} x {:.1f}".format(size[0], size[1], size[2]))
+            if size[2] == 1:
+                print("\t\tBB = {}".format([ann.bbox()[:, 0] for ann in nod]))
+            max_size = np.maximum(max_size, size)
+            min_size = np.minimum(min_size, size)
+
+            centers.append(scan.pixel_spacing*min_ + size//2)
+            boxes.append( np.vstack([scan.pixel_spacing*min_, scan.pixel_spacing*max_]) )
+
+        for i, nod_i in enumerate(nods):
+            j_outs = []
+            for j, nod_j in enumerate(nods):
+                if i==j:
+                    continue
+                if centers[i][2] < boxes[j][0][2]: # ignore if cross-section of i doesn't contain j
+                    continue
+                if centers[i][2] > boxes[j][1][2]: # ignore if cross-section of i doesn't contain j
+                    continue
+                dist = np.abs(centers[i] - boxes[j])
+                dist = np.min(dist, axis=0)
+                dist = np.max(dist)
+                min_dist = np.minimum(min_dist, dist)
+                if dist <= 32:
+                    if dist > 10:
+                        stop = 1
+                    print("\tDist = {}".format(dist))
+                    min_ = np.minimum(boxes[i][0], boxes[j][0])
+                    max_ = np.maximum(boxes[i][1], boxes[j][1])
+                    size = scan.pixel_spacing*(max_ - min_ + 1)
+                    print("\t\tMerged ({}, {}) Size = {:.1f} x {:.1f} x {:.1f}".format(i, j, size[0], size[1], size[2]))
+                    j_outs.append(j)
+                    outliers.append((dist, np.max(size)))
+            if len(j_outs) > 1:
+                boxes = np.array(boxes)
+                min_ = reduce((lambda x, y: np.minimum(x, y)), [bb[0, :] for bb in boxes[j_outs+[i]]])
+                max_ = reduce((lambda x, y: np.maximum(x, y)), [bb[1, :] for bb in boxes[j_outs+[i]]])
+                size = scan.pixel_spacing*(max_ - min_ + 1)
+                print("\t\t Global Merged ({}, {}) Size = {:.1f} x {:.1f} x {:.1f}".format(i, j_outs, size[0], size[1], size[2]))
+                global_size_list.append(np.max(size))
+
+    print("="*30)
+    print("Prepared {} entries".format(nodule_count))
+    print("{} patients with nodules, {} patients without nodules".format(pat_with_nod, pat_without_nod))
+    print("\tMax Size = {:.1f} x {:.1f} x {:.1f}".format(max_size[0], max_size[1], max_size[2]))
+    print("\tMin Size = {:.1f} x {:.1f} x {:.1f}".format(min_size[0], min_size[1], min_size[2]))
+    print("\tMin Dist = {}".format(min_dist))
+
+    x_dist = [o[0] for o in outliers]
+    y_size = [o[1] for o in outliers]
+    plt.figure()
+    plt.subplot(311)
+    plt.xlabel('size')
+    plt.ylabel('hist')
+    plt.hist(np.max(size_list, axis=1), 50)
+    plt.subplot(312)
+    plt.xlabel('dist')
+    plt.ylabel('merged size')
+    plt.scatter(np.array(x_dist).astype('uint'), np.array(y_size).astype('uint'))
+    plt.subplot(313)
+    plt.xlabel('size')
+    plt.ylabel('hist')
+    plt.hist(global_size_list, 50)
+
+    plt.show()

@@ -5,7 +5,6 @@ import os
 from skimage.transform import resize
 
 from tensorflow.contrib.tensorboard.plugins import projector
-from tensorflow.examples.tutorials.mnist import input_data
 
 import FileManager
 
@@ -44,7 +43,7 @@ def create_metadata(labels, path):
             f.write("%d\t%d\n" % (index, label))
 
 
-def create_embedding(embed, name='Embedding', path = 'E:/logs/'):
+def create_embedding(embed, name='Embedding', path = 'E:/logs/', label = ''):
     embedding_var = tf.Variable(embed, name=name)
     summary_writer = tf.summary.FileWriter(path)
 
@@ -53,9 +52,9 @@ def create_embedding(embed, name='Embedding', path = 'E:/logs/'):
     embedding.tensor_name = embedding_var.name
 
     # Specify where you find the metadata
-    embedding.metadata_path = path + 'metadata.tsv'
+    embedding.metadata_path = path + 'metadata{}.tsv'.format('_' + label)
     # Specify where you find the sprite (we will create this later)
-    embedding.sprite.image_path = path + 'sprite.png'
+    embedding.sprite.image_path = path + 'sprite{}.png'.format('_'+label)
     embedding.sprite.single_image_dim.extend([28, 28])
 
     # Say that you want to visualise the embeddings
@@ -64,39 +63,51 @@ def create_embedding(embed, name='Embedding', path = 'E:/logs/'):
     sess = tf.InteractiveSession()
     sess.run(tf.global_variables_initializer())
     saver = tf.train.Saver()
-    saver.save(sess, os.path.join('E:/logs/', 'model.ckpt'), 1)
+    saver.save(sess, os.path.join('E:/logs/', 'model{}.ckpt'.format('_'+label)), 1)
 
 
 
 if __name__ == "__main__":
 
-    name = '078X'
+    # dir103, siam100
+    run = '100'
+    net_type = 'siam'
 
     #load data
-    Embed = FileManager.Embed('siamQ')
-    images_v, embed_v, meta_v, labels_v, masks_v = Embed.load('078X', 24, 'Valid')
-    images_t, embed_t, meta_t, labels_t, masks_t = Embed.load('078X', 24, 'Train')
+    #Embed = FileManager.Embed('siamQ')
+    #images_v, embed_v, meta_v, labels_v, masks_v = Embed.load('078X', 24, 'Valid')
+    #images_t, embed_t, meta_t, labels_t, masks_t = Embed.load('078X', 24, 'Train')
 
-    images = np.concatenate([images_v, images_t])
-    embed  = np.concatenate([embed_v, embed_t])
-    labels = np.concatenate([labels_v, 2+labels_t])
-    masks  = np.concatenate([masks_v, masks_t])
-    meta = meta_v + meta_t
+    Embed = FileManager.Embed(net_type)
+    #images_v, embed_v, meta_v, labels_v, masks_v = Embed.load(name, 16, 'Valid')
+    #images_t, embed_t, meta_t, labels_t, masks_t = Embed.load(name, 16, 'Train')
+    images_t, embed_t, meta_t, labels_t, masks_t = Embed.load(run, 40, 'Test')
+
+    #images = np.concatenate([images_v, images_t])
+    #embed  = np.concatenate([embed_v, embed_t])
+    #labels = np.concatenate([labels_v, 2+labels_t])
+    #masks  = np.concatenate([masks_v, masks_t])
+    #meta = meta_v + meta_t
+    images = images_t
+    embed = embed_t
+    labels = labels_t
+    masks = masks_t
+    meta = meta_t
 
     print("Loaded Embedding Data")
 
     # Create Embedding
-    create_embedding(embed)
+    create_embedding(embed, net_type+run)
     print("Created Embeddings..")
 
     # Create Sprite
     sprite_image = create_sprite_image(images, masks)
-    plt.imsave('E:/logs/sprite.png', sprite_image, cmap='gray')
+    plt.imsave('E:/logs/sprite_{}{}.png'.format(net_type, run), sprite_image, cmap='gray')
     plt.imshow(sprite_image, cmap='gray')
     print("Created Sprite..")
 
     #create meta
-    create_metadata(labels, 'E:/logs/metadata.tsv')
+    create_metadata(labels, 'E:/logs/metadata_{}{}.tsv'.format(net_type, run))
     print("Created Metadata..")
 
     print("Done!")

@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import random
+import pickle
 import LIDC
 from Network.data import generate_nodule_dataset
 random.seed(1337)   # for reproducibility
@@ -20,8 +21,18 @@ assert(len(size_list) == len(norm_list))
 #   Run
 # ==========
 
+clusters_filename = "LIDC/cluster_map.p"
+try:
+    cluster_map = pickle.load(open(clusters_filename, 'br'))
+except:
+    cluster_map = LIDC.cluster_all_annotations()
+    pickle.dump(cluster_map, open(clusters_filename, 'bw'))
+
 for size, res, norm in zip(size_list, res_list, norm_list):
 
+    LIDC.extract_from_cluster_map(cluster_map, patch_size=size, res=res, dump=do_dump)
+
+    '''
     LIDC.extract(patch_size=144, res="0.5I", dump=do_dump)
 
     filename = 'NodulePatches{}-{}.p'.format(size, res)
@@ -35,5 +46,5 @@ for size, res, norm in zip(size_list, res_list, norm_list):
                             window=(-1000, 400),
                             normalize=norm,
                             dump=do_dump)
-
+    '''
 plt.show()

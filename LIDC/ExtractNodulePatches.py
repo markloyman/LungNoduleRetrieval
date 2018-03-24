@@ -1,8 +1,11 @@
 import pylidc as pl
 import numpy as np
 import matplotlib.pyplot as plt
+import networkx as nx
 from functools import reduce
 import pickle
+from scipy.spatial.distance import pdist, squareform
+from sklearn.manifold import MDS
 plt.interactive(False)
 
 import gc
@@ -32,7 +35,7 @@ def interpolateZfromBBidx(nodule, zIdx):
 
 
 def getSlice(dicom, z, rescale=False):
-    img_zs = [float(img.ImagePositionPatient[-1]) for img in dicom]
+    img_zs = np.array([float(img.ImagePositionPatient[-1]) for img in dicom])
     idx = np.argmin(np.abs(img_zs - z)) # index of closest slice to z
 
     if rescale:
@@ -74,9 +77,116 @@ def rescale_im_to_hu(image, intercept, slope):
 
     return image
 
+
+def get_z_range(annotations):
+    aggregated_bb = np.vstack([ann.bbox()[2] for ann in annotations])
+    return np.min(aggregated_bb[:, 0]), np.max(aggregated_bb[:, 1])
+
+
 # ----- Main -----
 # ----------------
 
+def extract_from_cluster_map(cluster_map, patch_size  = 144, res ='Legacy', dump = True):
+
+    filename = 'NodulePatchesNew{}-{}.p'.format(patch_size, res)
+    dataset = []
+    if dump is False:
+        print("Running without dump")
+
+    for scan in pl.query(pl.Scan).all()[:]:
+    # cycle 1018 scans
+    #
+    # Example for debuging:
+    #   scan = pl.query(pl.Scan).filter(pl.Scan.patient_id == 'LIDC-IDRI-0004').first()
+    #
+        try:
+            nods, cluster_indices = cluster_map[scan.patient_id]
+        except:
+            continue
+        print("Study ({}), Series({}) of patient {}:".format(scan.study_instance_uid, scan.series_instance_uid, scan.patient_id))
+        dicom = scan.load_all_dicom_images(verbose=False)
+
+        for indices in cluster_indices:
+            assert len(nods) > 0
+            nodules_in_cluster = np.concatenate([nods[i] for i in indices])
+            print("\tCluster with {} nodules.".format(len(nodules_in_cluster)))
+
+            z_range = get_z_range(nodules_in_cluster)
+            img_zs = [float(img.ImagePositionPatient[-1]) for img in dicom]
+            assert(len(np.unique(img_zs)) == len(img_zs))
+            for z in filter(lambda x: x <= z_range[1] and x >= z_range[0], img_zs):
+                image = getSlice(dicom, z, rescale=True)
+                full_mask = np.zeros([512, 512])
+                for nod in nodules_in_cluster:
+                    mask, bb = nod.get_boolean_mask(True)
+                    if z < bb[2][0] or z > bb[2][1]:
+                        continue
+                    curr_slices = list(filter(lambda x: x <= bb[2][1] and x >= bb[2][0], img_zs))
+                    z_length = len(curr_slices)
+                    if not (z_length == mask.shape[2]):
+                        # This block handles the case where
+                        # the contour annotations "skip a slice".
+                        old_mask = mask.copy()
+                        # Create the new mask with appropriate z-length.
+                        mask = np.zeros((old_mask.shape[0],
+                                         old_mask.shape[1],
+                                         z_length), dtype=np.bool)
+                        # Map z's to an integer.
+                        z_to_index = dict(zip(
+                            curr_slices,
+                            range(z_length)
+                        ))
+                        contour_zs = np.unique([c.image_z_position for c in nod.contours])
+                        # Map each slice to its correct location.
+                        for k in range(old_mask.shape[2]):
+                            mask[:, :, z_to_index[contour_zs[k]]] = old_mask[:, :, k]
+                        # Get rid of the old one.
+                        del old_mask
+                    mask_idx = np.argwhere(z == np.array(curr_slices))
+                    assert (1 == len(mask_idx))
+                    full_mask[int(bb[0][0]):int(bb[0][1]+1), int(bb[1][0]):int(bb[1][1]+1)] = mask[:, :, int(mask_idx)]
+                if 0 == np.count_nonzero(full_mask):
+                    continue
+
+                '''
+                print("Nodule of patient {} with {} annotations.".format(scan.patient_id, len(nod)))
+                largestSliceA = [getLargestSliceInBB(ann)[0] for ann in nod] # larget slice within annotated bb
+                annID = np.argmax(largestSliceA) # which of the annotation has the largest slice
+
+                largestSliceZ = [getLargestSliceInBB(ann)[1] for ann in nod]  # index within the mask
+                z   = interpolateZfromBBidx(nod[annID], largestSliceZ[annID]) # just for the entry data
+                # possible mismatch betwean retrived z and largestSliceZ[annID] due to missing dicom files
+                #
+                if res is 'Legacy':
+                    di_slice = getSlice(dicom, z, rescale=True)
+                    mask  = get_full_size_mask(nod[annID], di_slice.shape)
+                    patch = cropSlice(di_slice, nod[annID].centroid(), patch_size)
+                    mask = cropSlice(mask, nod[annID].centroid(), patch_size)
+                else:
+                    vol0, seg0 = nod[annID].uniform_cubic_resample(side_length=(patch_size - 1), resolution=res, verbose=0)
+                    largestSliceZ = np.argmax(np.sum(seg0.astype('float32'), axis=(0, 1)))
+                    patch = rescale_im_to_hu(vol0[:, :, largestSliceZ], dicom[0].RescaleIntercept, dicom[0].RescaleSlope)
+                    mask  = seg0[:, :, largestSliceZ]
+
+                entry = {
+                    'patch':    patch.astype(np.int16),
+                    'info':     (scan.patient_id, scan.study_instance_uid, scan.series_instance_uid, nod[annID]._nodule_id),
+                    'nod_ids':  [n._nodule_id for n in nod],
+                    'rating':   np.array([ann.feature_vals() for ann in nod]),
+                    'mask':     mask.astype(np.int16),
+                    'z':        z,
+                    'size':     getNoduleSize(nod)
+                }
+                dataset.append(entry)
+                '''
+
+    print("Prepared {} entries".format(len(dataset)))
+
+    if dump:
+        pickle.dump(dataset, open(filename, 'wb'))
+        print("Dumpted to {}".format(filename))
+    else:
+        print("No Dump")
 
 def extract(patch_size  = 144, res ='Legacy', dump = True):
 
@@ -150,8 +260,89 @@ def extract(patch_size  = 144, res ='Legacy', dump = True):
         print("No Dump")
 
 
-def check_nodule_intersections(patch_size  = 144, res ='Legacy'):
+def cluster_by_cliques(adjacency, nodes):
+    G = nx.from_numpy_matrix(adjacency)
+    cliques = list(nx.find_cliques(G))
+    return cliques
 
+'''
+    seeds = [nodes[0]]
+    all_seeds = [nodes[0]]
+    clusters = []
+    while len(seeds) > 0:
+        id = seeds.pop()
+        clique = [id]
+        for adj_id in nodes:
+            if id == adj_id:
+                continue
+            match = True
+            for c in clique:
+                if 0 == adjacency[c, adj_id]:
+                    match = False
+                    break
+            if match:
+                clique.append(adj_id)
+                all_seeds.append(adj_id)
+            else:
+                if adj_id in all_seeds:
+                    continue
+                else:
+                    seeds.append(adj_id)
+                    all_seeds.append(adj_id)
+        clusters.append(clique)
+    return clusters
+'''
+
+
+def plot2d_mds(clusters, data=None, distance_matrix=None):
+    if data is None and distance_matrix is None:
+        return
+    elif distance_matrix is None:
+        distance_matrix = squareform(pdist(data, 'euclidean'))
+    mds = MDS(n_components=2, max_iter=500, metric=True, dissimilarity="precomputed")
+    proj = mds.fit_transform(distance_matrix)
+    plt.scatter(proj[:, 0], proj[:, 1], s=1, c='black')
+    size = 100
+    colors = ['red', 'blue', 'green', 'yellow', 'black', 'orange']
+    for idx, cluster in enumerate(clusters):
+        plt.scatter(proj[cluster, 0], proj[cluster, 1], marker="o", s=size, facecolors='none', edgecolors=colors[idx % 6])
+        size += 200
+
+
+def mds(scan, clusters, distance_matrix):
+    all_anns = scan.annotations
+    f0 = np.min([n.id for n in all_anns])
+    data = np.array([all_anns[i-f0].feature_vals() for i in np.array([n.id for n in all_anns])])
+
+    plt.figure()
+    plt.title("MDS Projection: {}".format(scan.patient_id))
+    plt.subplot(121)
+    plt.title("Rating")
+    plot2d_mds(clusters, data=data)
+    plt.subplot(122)
+    plt.title("Distance (Intersection)")
+    plot2d_mds(clusters, distance_matrix=distance_matrix)
+
+
+def remove_duplicates_and_subsets(clusters, n):
+    # map indices to binary list
+    mapped_ = [[1 if (i - 1) in indices else 0 for i in range(n, 0, -1)] for indices in clusters]
+    # map binary to integer (unique hash)
+    to_hash = [2 ** (i - 1) for i in range(n, 0, -1)]
+    hash = [np.array(m).dot(to_hash) for m in mapped_]
+    # remove duplicates
+    hash = list(set(hash))
+    # remove subsets
+    hash_np = np.array(hash)
+    clean_hash = hash_np[np.array([np.count_nonzero(h == [h & a for a in hash]) for h in hash]) == 1]
+    # map back to indices
+    clean_clusters = [list(np.concatenate(len(bin(h)) - 3 - np.argwhere([1 if digit == '1' else 0 for digit in bin(h)[2:]])))
+                      for h in clean_hash]
+    return clean_clusters
+
+
+def check_nodule_intersections(patch_size  = 144, res ='Legacy'):
+    recluster_using_cliques = False
     pat_with_nod    = 0
     pat_without_nod = 0
     nodule_count    = 0
@@ -162,63 +353,87 @@ def check_nodule_intersections(patch_size  = 144, res ='Legacy'):
     size_list = []
     global_size_list = []
 
+    pause = 0
     for scan in pl.query(pl.Scan).all()[:]:
-
-        nods = scan.cluster_annotations(metric='jaccard', tol=0.8)
+        if len(scan.annotations) == 0:
+            continue
+        # cluster by intersection
+        tol = 0.95
+        nods, D = scan.cluster_annotations(metric='jaccard', tol=tol, return_distance_matrix=True)
         if len(nods) == 0:
             pat_without_nod += 1
             continue
         pat_with_nod += 1
-        print("Study ({}), Series({}) of patient {}: {} nodules."
-              .format(scan.study_instance_uid, scan.series_instance_uid, scan.patient_id, len(nods)))
-        nodule_count += len(nods)
+
+        if recluster_using_cliques:
+            adjacency = D <= tol
+            if adjacency.shape[0] > 1:
+                clusters = cluster_by_cliques(adjacency, None)
+                print("Study ({}), Series({}) of patient {}: {} connected components. {} cliques"
+                      .format(scan.study_instance_uid, scan.series_instance_uid, scan.patient_id, len(nods), len(clusters)))
+                nodule_count += len(nods)
+                if len(nods) != len(clusters): #[[n.id for n in anns] for anns in nods]
+                    pause = pause + 1
+                    mds(scan=scan, clusters=clusters, distance_matrix=D)
+                # re-cluster nodules by cliques
+                nods = [[scan.annotations[i] for i in ids] for ids in clusters]
+            else:
+                clusters = [[0]]
+        else:
+            id_0 = np.min([ann.id for ann in scan.annotations])
+            clusters = [[ann.id - id_0 for ann in cluster] for cluster in nods]
 
         centers = []
         boxes   = []
-        for nod in nods:
+        for cluster in clusters:
+            nod = [scan.annotations[ann_id] for ann_id in cluster]
             print("Nodule of patient {} with {} annotations.".format(scan.patient_id, len(nod)))
             min_ = reduce((lambda x, y: np.minimum(x , y)), [ann.bbox()[:, 0] for ann in nod])
             max_ = reduce((lambda x, y: np.maximum(x, y)),  [ann.bbox()[:, 1] for ann in nod])
             size = scan.pixel_spacing*(max_ - min_ + 1)
             size_list.append(size)
             if np.max(size) >= 64:
-                print("\tSize = {:.1f} x {:.1f} x {:.1f}".format(size[0], size[1], size[2]))
+                print("\tNodule Size = {:.1f} x {:.1f} x {:.1f}".format(size[0], size[1], size[2]))
             if size[2] == 1:
-                print("\t\tBB = {}".format([ann.bbox()[:, 0] for ann in nod]))
+                print("\t\tNodule BB = {}".format([ann.bbox()[:, 0] for ann in nod]))
             max_size = np.maximum(max_size, size)
             min_size = np.minimum(min_size, size)
 
             centers.append(scan.pixel_spacing*min_ + size//2)
             boxes.append( np.vstack([scan.pixel_spacing*min_, scan.pixel_spacing*max_]) )
 
+        cluster_candidates = []
         for i, nod_i in enumerate(nods):
             j_outs = []
             for j, nod_j in enumerate(nods):
                 if i==j:
                     continue
-                if centers[i][2] < boxes[j][0][2]: # ignore if cross-section of i doesn't contain j
-                    continue
-                if centers[i][2] > boxes[j][1][2]: # ignore if cross-section of i doesn't contain j
-                    continue
+                #if centers[i][2] < boxes[j][0][2]: # ignore if cross-section of i doesn't contain j
+                #    continue
+                #if centers[i][2] > boxes[j][1][2]: # ignore if cross-section of i doesn't contain j
+                #    continue
                 dist = np.abs(centers[i] - boxes[j])
                 dist = np.min(dist, axis=0)
                 dist = np.max(dist)
                 min_dist = np.minimum(min_dist, dist)
-                if dist <= 32:
-                    if dist > 10:
-                        stop = 1
-                    print("\tDist = {}".format(dist))
-                    min_ = np.minimum(boxes[i][0], boxes[j][0])
-                    max_ = np.maximum(boxes[i][1], boxes[j][1])
-                    size = scan.pixel_spacing*(max_ - min_ + 1)
-                    print("\t\tMerged ({}, {}) Size = {:.1f} x {:.1f} x {:.1f}".format(i, j, size[0], size[1], size[2]))
-                    j_outs.append(j)
-                    outliers.append((dist, np.max(size)))
+                if dist > 32:
+                    continue
+                if dist > 10:
+                    stop = 1
+                print("\tDist = {}".format(dist))
+                min_ = np.minimum(boxes[i][0], boxes[j][0])
+                max_ = np.maximum(boxes[i][1], boxes[j][1])
+                size = (max_ - min_ + 1)
+                print("\t\tMerged ({}, {}) Size = {:.1f} x {:.1f} x {:.1f}".format(i, j, size[0], size[1], size[2]))
+                j_outs.append(j)
+                outliers.append((dist, np.max(size)))
             if len(j_outs) > 1:
                 boxes = np.array(boxes)
                 min_ = reduce((lambda x, y: np.minimum(x, y)), [bb[0, :] for bb in boxes[j_outs+[i]]])
                 max_ = reduce((lambda x, y: np.maximum(x, y)), [bb[1, :] for bb in boxes[j_outs+[i]]])
-                size = scan.pixel_spacing*(max_ - min_ + 1)
+                size = (max_ - min_ + 1)
+                if np.any(size > 60):
+                    stop = 1
                 print("\t\t Global Merged ({}, {}) Size = {:.1f} x {:.1f} x {:.1f}".format(i, j_outs, size[0], size[1], size[2]))
                 global_size_list.append(np.max(size))
 
@@ -228,21 +443,79 @@ def check_nodule_intersections(patch_size  = 144, res ='Legacy'):
     print("\tMax Size = {:.1f} x {:.1f} x {:.1f}".format(max_size[0], max_size[1], max_size[2]))
     print("\tMin Size = {:.1f} x {:.1f} x {:.1f}".format(min_size[0], min_size[1], min_size[2]))
     print("\tMin Dist = {}".format(min_dist))
+    print("== Number of cluster breaks = {} ==".format(pause))
 
     x_dist = [o[0] for o in outliers]
     y_size = [o[1] for o in outliers]
+
     plt.figure()
+
     plt.subplot(311)
+    plt.title('Nodule (cluster) Size')
     plt.xlabel('size')
     plt.ylabel('hist')
     plt.hist(np.max(size_list, axis=1), 50)
+
     plt.subplot(312)
+    plt.title('Pairwise-Merges')
     plt.xlabel('dist')
     plt.ylabel('merged size')
     plt.scatter(np.array(x_dist).astype('uint'), np.array(y_size).astype('uint'))
+
     plt.subplot(313)
+    plt.title('Total Size')
     plt.xlabel('size')
     plt.ylabel('hist')
     plt.hist(global_size_list, 50)
 
     plt.show()
+
+
+def cluster_all_annotations(size_mm  = 64):
+    annotation_cluster_map = {}
+    for scan in pl.query(pl.Scan).all()[:]:
+        if len(scan.annotations) == 0:
+            continue
+        print("Patient {}:".format(scan.patient_id))
+        # cluster by intersection
+        nods = scan.cluster_annotations(metric='jaccard', tol=0.95, return_distance_matrix=False)
+        id_0 = np.min([ann.id for ann in scan.annotations])
+        clusters = [[ann.id - id_0 for ann in cluster] for cluster in nods]
+
+        # calculate bb for each cluster
+        centers = []
+        boxes   = []
+        for cluster in clusters:
+            nod = [scan.annotations[ann_id] for ann_id in cluster]
+            print("\tNodule with {} annotations.".format(len(nod)))
+            min_ = reduce((lambda x, y: np.minimum(x , y)), [ann.bbox()[:, 0] for ann in nod])
+            max_ = reduce((lambda x, y: np.maximum(x, y)),  [ann.bbox()[:, 1] for ann in nod])
+            size = scan.pixel_spacing*(max_ - min_ + 1)
+            centers.append(scan.pixel_spacing*min_ + size//2)
+            boxes.append( np.vstack([scan.pixel_spacing*min_, scan.pixel_spacing*max_]) )
+
+        # check if there are nearby clusters
+        # to create cluster groups
+        cluster_candidates = []
+        for i, nod_i in enumerate(nods):
+            j_outs = []
+            for j, nod_j in enumerate(nods):
+                if i==j:
+                    continue
+                if boxes[i][1][2] < boxes[j][0][2]: # ignore if cross-section of i doesn't contain j
+                    continue
+                if boxes[i][0][2] > boxes[j][1][2]: # ignore if cross-section of i doesn't contain j
+                    continue
+                dist = np.abs(centers[i] - boxes[j])
+                dist = np.min(dist, axis=0)
+                dist = np.max(dist)
+                if dist > size_mm//2:
+                    continue
+                j_outs.append(j)
+            cluster_candidates.append([i]+j_outs)
+        cluster_candidates = remove_duplicates_and_subsets(cluster_candidates, len(nods))
+        annotation_cluster_map[scan.patient_id] = (nods, cluster_candidates)
+        for cluster in cluster_candidates:
+            print("\tCluster: {}".format(cluster))
+
+    return annotation_cluster_map

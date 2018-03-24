@@ -1,3 +1,3 @@
-from LIDC.ExtractNodulePatches import extract, check_nodule_intersections
+from LIDC.ExtractNodulePatches import extract, check_nodule_intersections, cluster_all_annotations, extract_from_cluster_map
 from LIDC.GroupNodulesByMalignancy import append_malignancy_class_to_nodule_db
 

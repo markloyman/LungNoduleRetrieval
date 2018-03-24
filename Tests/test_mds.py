@@ -6,9 +6,25 @@ from sklearn.manifold import MDS
 seed = np.random.RandomState(seed=3)
 
 
+def test_group_spread(distance_matrix):
+    #distance_matrix = squareform(pdist(data, 'euclidean'))
+    d = np.linalg.det(distance_matrix)
+    mds = MDS(n_components=2, max_iter=500, metric=True, dissimilarity="precomputed")
+    proj = mds.fit_transform(distance_matrix)
+    plt.figure()
+    plt.title("det[DM] = {}".format(d))
+    plt.scatter(proj[:, 0], proj[:, 1])
+
 def symmetrize(a):
     return 0.5*(a + a.T - np.diag(a.diagonal()))
 
+
+def inv(x):
+    try:
+        inverse = np.linalg.inv(x)
+    except np.linalg.LinAlgError:
+        inverse = None
+    return inverse
 
 dims        = 4
 data_len    = 200
@@ -91,7 +107,7 @@ plt.legend(['Noisy ('+str(noise_factor)+')', 'Original'])
 
 # exp 4:    n_rnd
 
-n_rnd = 20 #dims + 2 + 4
+n_rnd = 200 #dims + 2 + 4
 noise_factor = 0.0
 noise_matrix = noise_factor * sigma * np.random.randn(data_len, data_len)
 noise_matrix = symmetrize(noise_matrix)
@@ -99,14 +115,14 @@ distance_matrix = distance_matrix_base + noise_matrix
 k_noisy = np.zeros(n_rnd)
 k_orig = np.zeros(n_rnd)
 
-for d in range(1, n_rnd):
-    p = n_rnd/data_len
-    weight = np.floor(np.random.rand(data_len, data_len) / p)
+for d in range(1, n_rnd, 5):
+    p = d/data_len
+    weight = (np.random.rand(data_len, data_len) < p).astype(float)
     mds = MDS(n_components=dims, max_iter=2000, eps=1e-9, random_state=seed, metric=True,
                        dissimilarity="precomputed", n_jobs=1)
     mds_data = mds.fit_transform(distance_matrix, weight=weight)
     mds_distance_matrix = squareform(pdist(mds_data, 'euclidean'))
-    k_noisy[d] = kendalltau(distance_matrix, mds_distance_matrix)[0]
+    #k_noisy[d] = kendalltau(distance_matrix, mds_distance_matrix)[0]
     k_orig[d] = kendalltau(distance_matrix_base, mds_distance_matrix)[0]
 
 plt.figure()

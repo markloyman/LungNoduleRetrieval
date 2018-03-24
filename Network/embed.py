@@ -13,7 +13,7 @@ from Network.model import miniXception_loader
 
 class Embeder:
 
-    def __init__(self, network = 'dir', pooling='max'):
+    def __init__(self, network = 'dir', pooling='max', categorize=False):
         self.network = network
         self.Weights = FileManager.Weights(network)
         self.Embed = FileManager.Embed(network)
@@ -27,6 +27,7 @@ class Embeder:
         self.net_out_size = 128
         self.net_normalize = True
         self.net_pool = pooling
+        self.categorize = categorize
 
     def prepare_data(self, data_subset_id):
         images, labels, classes, masks, meta, conf = \
@@ -63,7 +64,7 @@ class Embeder:
                              pooling=self.net_pool, objective="rating")
         elif self.network == 'trip':
             model = tripArch(miniXception_loader, self.net_input_shape, distance='l2', output_size=self.net_out_size, normalize=self.net_normalize,
-                             pooling=self.net_pool)
+                             pooling=self.net_pool, categorize=self.categorize)
         else:
             assert (False)
 

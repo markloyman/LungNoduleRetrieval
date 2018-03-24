@@ -4,8 +4,59 @@ from Analysis import metric_space_indexes as index
 from Analysis.RatingCorrelator import calc_distance_matrix
 
 
-dset = 'Train'
+dset = 'Valid'
+rating_normalizaion = 'Scale' # 'None', 'Normal', 'Scale'
+metrics = ['l2']
 
+'''
+# ===========================
+#   Malignancy Objective
+# ===========================
+runs            = ['103', '100', '011XXX']
+run_net_types   = ['dir', 'siam', 'trip']
+run_metrics     = ['l2']*len(runs)
+run_epochs      = [ [5, 10, 15, 20, 25, 30, 35, 40, 45],
+                    [5, 10, 15, 20, 25, 30, 35, 40, 45],
+                    [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
+                ]
+run_names       = run_net_types
+# ===========================
+'''
+
+
+'''
+# ===========================
+#   Triplet Compare to dirR reference
+# ===========================
+runs            = ['011X', '011XXX', '016XXXX', '023X']
+run_net_types   = ['dirR', 'trip', 'trip', 'trip']
+run_metrics     = ['l2']*len(runs)
+run_epochs      = [ [5, 15, 25, 35, 45, 55],
+                    [5, 15, 25, 35, 45, 55],
+                    [20, 40, 100, 150, 180],
+                    [5, 15, 20, 25, 30, 35]
+                ]
+run_names       = ['dirR', 'malig-obj', 'trip', 'trip-finetuned']
+# ===========================
+'''
+
+#'''
+# ===========================
+#   Triplets
+# ===========================
+runs            = ['011XXX', '016XXXX', '027', '023X']
+run_net_types   = ['trip']*len(runs)
+run_metrics     = ['l2']*len(runs)
+run_epochs      = [ [5, 15, 25, 35, 45, 55],
+                    [20, 40, 100, 150, 180],
+                    [5, 15, 25, 35, 40, 45, 50, 55, 60],
+                    [5, 15, 20, 25, 30, 35]
+                ]
+run_names       = ['malig-obj', 'rating-obj', 'rating-obj', 'trip-finetuned']
+# ===========================
+#'''
+
+'''
 #wRuns = ['011X', '016XXXX', '023X']  #['064X', '078X', '026'] #['064X', '071' (is actually 071X), '078X', '081', '082']
 #wRunsNet = ['dirR', 'trip', 'trip']  #, 'dir']
 #run_metrics = ['l2', 'l2', 'l2']
@@ -19,9 +70,6 @@ run_names       = ['malig', 'rating', 'pretrain' ]
 wRunsNet   = ['trip']*len(wRuns)
 run_metrics     = ['l2']*len(wRuns)
 
-
-rating_normalizaion = 'Scale' # 'None', 'Normal', 'Scale'
-
 #wEpchs = [[15, 35, 55, 95],
 #          [20, 40, 100],
 #          [5, 15, 25, 35]]
@@ -32,17 +80,16 @@ wEpchs = [  [5, 15, 25, 35, 45, 55],
         ]
 
 leg = ['E{}'.format(E) for E in wEpchs]
+'''
 
 
-
-metrics = ['l2']
-plt.figure()
+plt.figure("Metric Space - {}".format(dset))
 p = [None] * len(metrics) * 5
 for i in range(5 * len(metrics)):
     p[i] = plt.subplot(len(metrics), 5, i + 1)
 for m, metric in enumerate(metrics):
     print("Begin: {} metric".format(metric))
-    for run, net_type, r, epochs in zip(wRuns, wRunsNet, range(len(wRuns)), wEpchs):
+    for run, net_type, r, epochs in zip(runs, run_net_types, range(len(runs)), run_epochs):
         Embed = FileManager.Embed(net_type)
         WW = [Embed(run, E, dset) for E in epochs]
         # init
@@ -128,7 +175,7 @@ for m, metric in enumerate(metrics):
             p[5 * m + 4].axes.title.set_text('kumari')
         if m == len(metrics) - 1:  # last row
             p[5 * m + 2].axes.xaxis.label.set_text('epochs')
-p[-1].legend([n+r for n,r in zip(wRunsNet, wRuns)])
+p[-1].legend(run_names)
 print('Done doMetricSpaceIndexes')
 
 plt.show()

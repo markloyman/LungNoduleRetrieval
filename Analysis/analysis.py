@@ -6,6 +6,7 @@ from scipy.spatial.distance import pdist, cdist, squareform
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import pairwise
 from sklearn.neighbors import DistanceMetric
+from sklearn.manifold import MDS
 
 def calc_distance_matrix(X, method):
     if method in ['chebyshev', 'euclidean', 'l1', 'l2']:
@@ -217,3 +218,17 @@ def calc_embedding_statistics(embedding, data_dim=0, title=''):
     plt.title('Range: [{:.1f},{:.1f}], Mean: {:.1f}'.format(np.min(range_), np.max(range_), np.mean(range_)))
     plt.ylabel('Range')
     plt.hist(range_, bins=bins_)
+
+
+def plot2d_mds(data, clusters):
+    mds = MDS(n_components=2, max_iter=500, metric=True, dissimilarity="precomputed")
+    proj = mds.fit_transform(squareform(pdist(data, 'euclidean')))
+    plt.figure()
+    plt.title("MDS 2D Projection")
+    plt.scatter(proj[:, 0], proj[:, 1], s=1)
+    size = 3
+    colors = ['red', 'blue', 'green', 'yellow', 'black', 'orange']
+    for idx, cluster in clusters:
+        plt.scatter(proj[cluster, 0], proj[cluster, 1], s=size, c=colors[idx % 6])
+        size += 2
+

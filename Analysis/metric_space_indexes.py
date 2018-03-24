@@ -64,7 +64,7 @@ def lambda_p(nbrs_distances, res=0.1):
     assert (res > 0)
     end_val = 1.01 * (np.max(nbrs_distances)/sigma - 1)
     range_  = np.arange(-1.0, end_val, res)
-    print("kumar resolution: {} - {} samples, sigma={}".format(res, range_.shape[0], sigma))
+    print("kumar resolution: {} - {} samples, sigma={:.2f}".format(res, range_.shape[0], sigma))
     for eps in range_:
         thresh = (eps+1)*sigma
         C = np.count_nonzero(nbrs_distances > thresh, axis=1)
@@ -138,16 +138,20 @@ if __name__ == "__main__":
     rating = np.vstack(rating)
 
     plt.figure()
-    plt.subplot(211)
-    plt.hist(calc_distance_matrix(rating_normalize(rating, 'Scale'), method='l2').flatten(), bins=500)
+    plt.subplot(311)
+    plt.hist(calc_distance_matrix(rating_normalize(rating, 'none'), method='l2').flatten(), bins=500)
     plt.title('L2')
-    plt.ylabel('Scaled')
-    plt.subplot(212)
-    plt.hist(calc_distance_matrix(rating_normalize(rating, 'Norm'), method='l2').flatten(), bins=500)
+    plt.ylabel('none')
+    plt.subplot(312)
+    plt.hist(calc_distance_matrix(rating_normalize(rating, 'Scale'), method='l2').flatten(), bins=500)
     #plt.title('l2-norm')
+    plt.ylabel('Scale')
+    plt.subplot(313)
+    plt.hist(calc_distance_matrix(rating_normalize(rating, 'Norm'), method='l2').flatten(), bins=500)
+    # plt.title('l2-norm')
     plt.ylabel('Normalized')
 
-
+    plt.show()
 
     for metric, m, in zip(metrics, range(len(metrics))):
         plt.figure()

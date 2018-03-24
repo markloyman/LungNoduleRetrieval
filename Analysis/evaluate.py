@@ -3,12 +3,12 @@ from timeit import default_timer as timer
 
 import matplotlib.pyplot as plt
 import numpy as np
-from Network.model import miniXception_loader
 
 from Analysis.analysis import MalignancyConfusionMatrix, MalignancyBySize
 from LIDC.lidcUtils import getAnnotation
+from Network.Direct.directArch import directArch
 from Network.data import load_nodule_dataset, load_nodule_raw_dataset, prepare_data
-from Network.directArch import directArch
+from Network.model import miniXception_loader
 
 size = 128
 input_shape = (128,128,1)

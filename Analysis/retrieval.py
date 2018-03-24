@@ -105,7 +105,7 @@ class Retriever:
         plt.imshow(image, cmap='gray')
 
     def show_ret(self, query, n_top=None, method='mean'):
-        if n_top==None: n_top = self.n
+        if n_top == None: n_top = self.n
         assert n_top <= self.n
 
         nn, dd = self.ret(query, n_top=n_top, return_distance=True)
@@ -208,19 +208,19 @@ if __name__ == "__main__":
     import FileManager
     #Embed = FileManager.Embed('siam')
 
-    dset = 'Train'
+    dset = 'Valid'
 
-    wRuns = ['101', '103']  #['064X', '078X', '026'] #['064X', '071' (is actually 071X), '078X', '081', '082']
-    wRunsNet = ['siam', 'siam']  #, 'dir']
-    run_metrics = ['l1', 'l2']
+    wRuns = ['011']  #['064X', '078X', '026'] #['064X', '071' (is actually 071X), '078X', '081', '082']
+    wRunsNet = ['dirR']  #, 'dir']
+    run_metrics = ['l2']
 
     #wRuns = ['103']
     #wRunsNet = ['dir']  # , 'dir']
     #run_metrics = ['l2']
 
-    rating_normalizaion = 'Normal' # 'None', 'Normal', 'Scale'
+    rating_normalizaion = 'Scale' # 'None', 'Normal', 'Scale'
 
-    wEpchs = [30, 35, 40, 45] #, 20, 25, 30, 35, 40, 45]
+    wEpchs = [10, 20, 30, 35, 40, 45, 50, 55] #, 20, 25, 30, 35, 40, 45]
     #WW = ['embed_siam{}-{}_{}.p'.format(run, E, dset) for E in wEpchs]
     #WW = [ Embed(run, E, dset) for E in wEpchs]
 
@@ -228,8 +228,8 @@ if __name__ == "__main__":
 
     doClass         = False
     doRet           = False
-    doRatingRet     = True
-    doMetricSpaceIndexes = False
+    doRatingRet     = False
+    doMetricSpaceIndexes = True
     doPCA           = False
 
     #Ret = Retriever(WW[-4], atitle='chn', aset=set)
@@ -240,112 +240,11 @@ if __name__ == "__main__":
     #       Classification
     ##  ------------------------
 
-    if doClass:
-        plt.figure('KNN Classification - ' + dset)
-        for run, net_type, idx, metric in zip(wRuns, wRunsNet, range(len(wRuns)), run_metrics):
-            NN = [3, 5, 7, 11, 17]
-            Embed = FileManager.Embed(net_type)
-            WW = [Embed(run, E, dset) for E in wEpchs]
-
-            Pred_L1O = []
-            for W in WW:
-                Ret = Retriever(title='{}-{}'.format(net_type, run), dset=dset)
-                Ret.load_embedding(W)
-
-                pred_l1o = []
-                for N in NN:
-                    Ret.fit(N, metric=metric)
-                    pred_l1o.append(Ret.classify_leave1out()[1])
-
-                Pred_L1O.append(np.array(pred_l1o))
-
-            Pred_L1O = (np.array(Pred_L1O))
-            plt.subplot(1, len(wRuns), idx+1)
-            plt.plot(wEpchs,Pred_L1O, '-*')
-            plt.grid(which='major', axis='y')
-            plt.title('{}-{}'.format(net_type, run))
-            plt.ylabel('ACC')
-            plt.xlabel('epoch')
-            plt.legend(NN)
-
-        print('Done Classification.')
 
     ##  ------------------------
     #       Retrieval
     ##  ------------------------
 
-    if doRet:
-
-        NN = [3, 5, 7, 11, 17]
-
-        for run, net_type, idx, metric in zip(wRuns, wRunsNet, range(len(wRuns)), run_metrics):
-            NN = [3, 5, 7, 11, 17]
-            Embed = FileManager.Embed(net_type)
-            Prec, Prec_b, Prec_m = [], [], []
-            WW = [Embed(run, E, dset) for E in wEpchs]
-
-            for W in WW:
-                Ret = Retriever(title='', dset='')
-                Ret.load_embedding(W)
-
-                prec, prec_b, prec_m = [], [], []
-                for N in NN:
-                    Ret.fit(N,  metric=metric)
-                    p =         Ret.evaluate_precision(plot=False, split=False)
-                    pm, pb =    Ret.evaluate_precision(plot=False, split=True)
-                    prec.append(p)
-                    prec_b.append(pb)
-                    prec_m.append(pm)
-
-                Prec.append(np.array(prec))
-                Prec_b.append(np.array(prec_b))
-                Prec_m.append(np.array(prec_m))
-
-            #Pred_L1O = np.transpose(np.array(Pred_L1O))
-            Prec   = (np.array(Prec))
-            Prec_m = (np.array(Prec_m))
-            Prec_b = (np.array(Prec_b))
-
-            plt.figure('RET_'+run+'_'+dset)
-
-            plt.subplot(211)
-            plt.plot(wEpchs, Prec, '-*')
-            plt.legend(NN)
-            plt.title('Retrieval')
-            plt.grid(which='major', axis='y')
-            plt.ylim([0.7, 0.9])
-            plt.ylabel('Precision')
-            plt.xlabel('epoch')
-
-            f1 = 2*Prec_b*Prec_m / (Prec_b+Prec_m)
-            plt.subplot(212)
-            plt.plot(wEpchs, f1, '-*')
-            plt.legend(NN)
-            plt.title('F1')
-            plt.grid(which='major', axis='y')
-            plt.ylim([0.7, 0.9])
-            plt.ylabel('Retrieval Index')
-            plt.xlabel('epoch')
-
-            #plt.subplot(325)
-            #plt.grid(which='major', axis='y')
-            #plt.plot(wEpchs, Prec_b, '-*')
-            #plt.legend(NN)
-            #plt.title('Benign')
-            #plt.ylim([0.6, 1.0])
-            #plt.ylabel('Precision')
-            #plt.xlabel('epoch')
-
-            #plt.subplot(326)
-            #plt.plot(wEpchs, Prec_m, '-*')
-            #plt.legend(NN)
-            #plt.title('Malignant')
-            #plt.ylim([0.6, 1.0])
-            #plt.grid(which='major', axis='y')
-            #plt.ylabel('Precision')
-            #plt.xlabel('epoch')
-
-        print('Done Retrieval.')
 
     if doRatingRet:
         Embed = FileManager.Embed('siam')
@@ -379,102 +278,8 @@ if __name__ == "__main__":
         Ret.show_ret(262)
         Ret.show_ret(315)
 
-    if doMetricSpaceIndexes:
-        metrics = ['l2']
-        plt.figure()
-        p = [None]*len(metrics)*5
-        for i in range(5*len(metrics)):
-            p[i] = plt.subplot(len(metrics), 5, i + 1)
-        for m, metric in enumerate(metrics):
-            print("Begin: {} metric".format(metric))
-            for run, net_type, r in zip(wRuns, wRunsNet, range(len(wRuns))):
-                Embed = FileManager.Embed(net_type)
-                WW = [Embed(run, E, dset) for E in wEpchs]
-                # init
-                idx_hubness = np.zeros(len(WW))
-                idx_hubness_std = np.zeros(len(WW))
-                idx_symmetry = np.zeros(len(WW))
-                idx_symmetry_std = np.zeros(len(WW))
-                idx_concentration = np.zeros(len(WW))
-                idx_concentration_std = np.zeros(len(WW))
-                idx_contrast = np.zeros(len(WW))
-                idx_contrast_std = np.zeros(len(WW))
-                idx_kummar = np.zeros(len(WW))
-                # calculate
-                for e, W in enumerate(WW):
-                    Ret = Retriever(title='{}'.format(run), dset=dset)
-                    embd = Ret.load_embedding(W)
-                    Ret.fit(metric=metric)
-                    indices, distances = Ret.ret_nbrs()
-                    distance_matrix = calc_distance_matrix(embd, metric)
-                    # hubness
-                    K = [3, 5, 7, 11, 17]
-                    h = np.zeros(len(K))
-                    #plt.figure()
-                    for i in range(len(K)):
-                        h_ = index.hubness(indices, K[i])
-                        h[i] = h_[0]
-                        if K[i] == 3:
-                            j = 1
-                        elif K[i] == 7:
-                            j = 2
-                        elif K[i] == 11:
-                            j = 3
-                        else:
-                            j = 0
-                        if False: #j != 0:
-                            plt.subplot(len(metrics), 3, m * 3 + j)
-                            plt.title('k-occ: {}'.format(net_type))
-                            plt.ylabel('k={}'.format(K[i]))
-                            plt.plot(np.array(range(len(h_[1]))), h_[1])
-                    idx_hubness[e] = np.mean(h)
-                    idx_hubness_std[e] = np.std(h)
-                    #   symmetry
-                    K = [3, 5, 7, 11, 17]
-                    s = np.zeros(len(K))
-                    for i in range(len(K)):
-                        s[i] = index.symmetry(indices, K[i])
-                    idx_symmetry[e] = np.mean(s)
-                    idx_symmetry_std[e] = np.std(s)
-                    # kumar index
-                    tau, l_e = index.kumar(distances, res=0.0001)
-                    idx_kummar[e] = tau
-                    idx_concentration[e] = index.concentration(distance_matrix)[0]
-                    idx_concentration_std[e] = index.concentration(distance_matrix)[1]
-                    idx_contrast[e] = index.relative_contrast_imp(distance_matrix)[0]
-                    idx_contrast_std[e] = index.relative_contrast_imp(distance_matrix)[1]
-                # plot
-                #   hubness
-                q = p[5 * m + 0].plot(wEpchs, idx_hubness)
-                p[5 * m + 0].plot(wEpchs, idx_hubness + idx_hubness_std, color=q[0].get_color(), ls='--')
-                p[5 * m + 0].plot(wEpchs, idx_hubness - idx_hubness_std, color=q[0].get_color(), ls='--')
-                #   symmetry
-                q = p[5 * m + 1].plot(wEpchs, idx_symmetry)
-                p[5 * m + 1].plot(wEpchs, idx_symmetry + idx_symmetry_std, color=q[0].get_color(), ls='--')
-                p[5 * m + 1].plot(wEpchs, idx_symmetry - idx_symmetry_std, color=q[0].get_color(), ls='--')
-                #   contrast
-                q = p[5 * m + 2].plot(wEpchs, idx_contrast)
-                p[5 * m + 2].plot(wEpchs, idx_contrast + idx_contrast_std, color=q[0].get_color(), ls='--')
-                p[5 * m + 2].plot(wEpchs, idx_contrast - idx_contrast_std, color=q[0].get_color(), ls='--')
-                #   concentration
-                q = p[5 * m + 3].plot(wEpchs, idx_concentration)
-                p[5 * m + 3].plot(wEpchs, idx_concentration + idx_concentration_std, color=q[0].get_color(), ls='--')
-                p[5 * m + 3].plot(wEpchs, idx_concentration - idx_concentration_std, color=q[0].get_color(), ls='--')
-                #   kumar
-                p[5 * m + 4].plot(wEpchs, idx_kummar)
-                # labels
-                if r == 0: #first column
-                    p[5 * m + 0].axes.yaxis.label.set_text(metric)
-                if m == 0: #first row
-                    p[5 * m + 0].axes.title.set_text('hubness')
-                    p[5 * m + 1].axes.title.set_text('symmetry')
-                    p[5 * m + 2].axes.title.set_text('contrast')
-                    p[5 * m + 3].axes.title.set_text('concentration')
-                    p[5 * m + 4].axes.title.set_text('kumari')
-                if m == len(metrics)-1:  # last row
-                    p[5 * m + 2].axes.xaxis.label.set_text('epochs')
-        p[-1].legend(wRunsNet)
-        print('Done doMetricSpaceIndexes')
+
+
 
     if doPCA:
         for run, net_type in zip(wRuns, wRunsNet):

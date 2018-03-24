@@ -1,10 +1,11 @@
-import numpy as np
 import pickle
-from Network.dataUtils import crop_center
-from Network.data import load_nodule_dataset, prepare_data_direct
-from Network.model import miniXception_loader
+import numpy as np
+
 # from Network.metrics import siamese_margin
-from Network.directArch import directArch
+from Network.Direct.directArch import directArch
+from Network.data import load_nodule_dataset, prepare_data_direct
+from Network.dataUtils import crop_center
+from Network.model import miniXception_loader
 
 
 class Rating:

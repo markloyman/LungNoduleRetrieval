@@ -10,23 +10,24 @@ import tensorflow as tf
 tf.set_random_seed(1234)
 K.set_session(tf.Session(graph=tf.get_default_graph()))
 try:
-    from Network.Siamese.DataGenSiam import DataGenerator
+    from Network.Direct.directArch import directArch
     from Network.Direct.DataGenDirect import DataGeneratorDir
+    from Network.Siamese.siameseArch import siamArch
+    from Network.Siamese.DataGenSiam import DataGenerator
+    from Network.Triplet.tripletArch import tripArch
     from Network.Triplet.DataGenTrip import DataGeneratorTrip
     from Network.model import miniXception_loader
-    from Network.Siamese.siameseArch import siamArch
-    from Network.Direct.directArch import directArch
-    from Network.Triplet.tripletArch import tripArch
     from Network.data import load_nodule_dataset, prepare_data_direct
     from Network.dataUtils import crop_center
 except:
-    from DataGenSiam import DataGenerator
-    from DataGenDirect import DataGeneratorDir
-    from DataGenTrip import DataGeneratorTrip
+    # Paths for floyd cloud
+    from Direct.directArch import directArch
+    from Direct.DataGenDirect import DataGeneratorDir
+    from Siamese.siameseArch import siamArch
+    from Siamese.DataGenSiam import DataGenerator
+    from Triplet.tripletArch import tripArch
+    from Triplet.DataGenTrip import DataGeneratorTrip
     from model import miniXception_loader
-    from siameseArch import siamArch
-    from directArch import directArch
-    from tripletArch import tripArch
     from data import load_nodule_dataset, prepare_data_direct
     from dataUtils import crop_center
 
@@ -234,29 +235,33 @@ def run(choose_model = "DIR"):
         #run = 'trip018'  # binary
         #run = 'trip019'  # categorize
         #run = 'trip020X'  # rating-conf-tryout
+
         #run = 'trip021' # pretrained
         #run = 'trip022XXX'  # pretrained rmac
         #run = 'trip023X'  # pretrained categorize
         #run = 'trip024'  # pretrained confidence
         #run = 'trip025'  # pretrained cat,conf
-        run = 'trip026Z'  # class_weight='rating_distance', cat
+        #run = 'trip026Z'  # class_weight='rating_distance', cat
+
+        #run = 'trip027'  # obj:malig, rmac, categorize, no-decay
+        run = 'trip028'  # obj:malig, max, categorize, no-decay
 
         gen = True
-        preload_weight = './Weights/w_dirR011X_50.h5'
+        preload_weight = None #'./Weights/w_dirR011X_50.h5'
 
 
         # model
         model = tripArch(miniXception_loader, input_shape, output_size=out_size,
-                         distance='l2', normalize=True, pooling='rmac', categorize=True, binary=False)
+                         distance='l2', normalize=True, pooling='max', categorize=True, binary=False)
         if preload_weight is not None:
             model.load_core_weights(preload_weight)
         model.model.summary()
-        model.compile(learning_rate=1e-3, decay=0.05)
+        model.compile(learning_rate=1e-3, decay=0) #0.05
         data_augment_params = {'max_angle': 0, 'flip_ratio': 0.1, 'crop_stdev': 0.05, 'epoch': 0}
-        generator = DataGeneratorTrip(data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=32,
-                                      val_factor=3, objective="rating",
+        generator = DataGeneratorTrip(data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=80,
+                                      val_factor=3, objective="malignancy",
                                       do_augment=False, augment=data_augment_params,
-                                      use_class_weight=True, class_weight='rating_distance')
+                                      use_class_weight=False, class_weight='rating_distance')
         if gen:
             model.load_generator(generator)
         else:

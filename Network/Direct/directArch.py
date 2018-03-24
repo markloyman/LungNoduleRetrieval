@@ -13,7 +13,7 @@ try:
     output_dir = './output'
 except:
     from dataUtils import get_class_weight
-    from metrics import sensitivity, f1, precision, specificity, root_mean_squared_error, multitask_accuracy
+    from Direct.metrics import sensitivity, f1, precision, specificity, root_mean_squared_error, multitask_accuracy
     output_dir = '/output'
 
 

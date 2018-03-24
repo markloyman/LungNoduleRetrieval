@@ -1,11 +1,11 @@
 from init import *
-from Network import PredictRating
+from Network.predict import Rating as PredictRating
 
-run = '010'
-epochs = [10, 20, 30, 35, 40, 45, 50, 55]
+run = '011X'
+epochs = [5, 15, 25, 35, 45, 55, 65, 75, 85, 95]
 
 pooling = 'rmac'
-rating_scale = 'Scale'
+rating_scale = 'none'
 
 # 0     Test
 # 1     Validation
@@ -30,7 +30,7 @@ try:
     for e in epochs:
         WeightsFile = FileManager.Weights('dirR').name(run, epoch=e)
         PredFile = FileManager.Pred(type='rating', pre='dirR')
-        out_file = PredFile(run=run, epoch=e, post=post)
+        out_file = PredFile(run=run, epoch=e, dset=post)
 
         PredRating.predict_rating(WeightsFile, out_file, DataSubSet, rating_scale=rating_scale)
 

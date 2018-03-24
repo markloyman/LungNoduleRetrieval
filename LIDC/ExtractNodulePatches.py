@@ -46,6 +46,45 @@ def getSlice(dicom, z, rescale=False):
     return di_slice
 
 
+def getMask(z, annotation, img_zs, scan):
+    mask, bb = annotation.get_boolean_mask(True)
+    if z < bb[2][0] or z > bb[2][1]:
+        return None, None
+    curr_slices = list(filter(lambda x: x <= bb[2][1] and x >= bb[2][0], img_zs))
+    z_length = len(curr_slices)
+    if not (z_length == mask.shape[2]):
+        # This block handles the case where
+        # the contour annotations "skip a slice".
+        old_mask = mask.copy()
+        # Create the new mask with appropriate z-length.
+        mask = np.zeros((old_mask.shape[0],
+                         old_mask.shape[1],
+                         z_length), dtype=np.bool)
+        # Map z's to an integer.
+        z_to_index = dict(zip(
+            curr_slices,
+            range(z_length)
+        ))
+        contour_zs = np.unique([c.image_z_position for c in annotation.contours])
+        # Map each slice to its correct location.
+        for k in range(old_mask.shape[2]):
+            cz = contour_zs[k]
+            if cz in z_to_index.keys():
+                index_of_contour = z_to_index[cz]
+            else:
+                # handles miss-labeled ImagePositionPatient
+                fnames = scan.sorted_dicom_file_names.split(',')
+                assert (len(img_zs) == len(fnames))
+                z_to_contor_index = dict(zip(contour_zs, range(len(contour_zs))))
+                index_of_contour = [fnames.index(c.dicom_file_name) for c in annotation.contours]
+            mask[:, :, index_of_contour] = old_mask[:, :, k]
+        # Get rid of the old one.
+        del old_mask
+    mask_idx = np.argwhere(z == np.array(curr_slices))
+    assert (1 == len(mask_idx))
+    return mask[:, :, int(mask_idx)], bb[0:2]
+
+
 def get_full_size_mask(nodule, size):
     bb = nodule.bbox().astype('uint')
     mask = np.zeros(shape=size).astype('uint')
@@ -61,6 +100,75 @@ def cropSlice(slice, center, size):
     y0 = np.round(cy - size/2).astype('uint')
 
     return slice[y0:y0+size, x0:x0+size]
+
+
+def crop(image, mask, fix_size=None, min_size=0, ratio=1.0, stdev=0.15):
+    # Size:
+    #   first sampled as Uniform(mask-size, full-patch-size)
+    #   than clipped by [min_size] to more weight to the nodule size
+    # ratio:
+    #   Each dimension size is sampled so as to conform to [1-ratio, 1+ratio] relation
+    # the shift of the crop window is sampled with normal distribution to have a bias towards a centered crop
+    mask_y = np.where(np.sum(mask, axis=1))[0]
+    mask_x = np.where(np.sum(mask, axis=0))[0]
+    if fix_size is None:
+        # Determine Size boundries on Y axis
+        max_size_y = image.shape[0]
+        min_size_y = np.max(mask_y) - np.min(mask_y)
+        #print('min_size_y, max_size_y={}, {}'.format(min_size_y, max_size_y))
+        # Determine Size boundries on X axis
+        max_size_x = image.shape[1]
+        min_size_x = np.max(mask_x) - np.min(mask_x)
+        #print('min_size_x, max_size_x={}, {}'.format(min_size_x, max_size_x))
+        # correct for ratio
+        min_size_y = np.maximum(min_size_y, (1-ratio)*min_size_x)
+        max_size_y = np.minimum(max_size_y, (1+ratio)*max_size_x)
+        #print('min_size_y, max_size_y={}, {}'.format(min_size_y, max_size_y))
+
+        # Determine New Size on Y axis
+        new_size_y = np.random.rand() * (max_size_y - min_size_y) + min_size_y
+        new_size_y = np.maximum(new_size_y, min_size).astype('uint16')
+        #print('new_size_y={}'.format(new_size_y))
+        # correct for ratio (based on chosen size of Y
+        min_size_x = np.maximum(min_size_x, (1 - ratio) * new_size_y)
+        max_size_x = np.minimum(max_size_x, (1 + ratio) * new_size_y)
+        #print('min_size_x, max_size_x={}, {}'.format(min_size_x, max_size_x))
+        # Determine New Size on X axis
+        new_size_x = np.random.rand() * (max_size_x - min_size_x) + min_size_x
+        new_size_x = np.maximum(new_size_x, min_size).astype('uint16')
+        #print('new_size_x={}'.format(new_size_x))
+    else:
+        new_size_x = fix_size
+        new_size_y = fix_size
+
+    # Determine crop translation on Y axis
+    min_crop_start_y = np.maximum(0, np.max(mask_y) - new_size_y)
+    max_crop_start_y = np.minimum(np.min(mask_y), image.shape[0] - new_size_y)
+    rand_factor = np.maximum(0.0, np.minimum(1.0, stdev*np.random.normal()+0.5))
+    crop_start_y     = min_crop_start_y + rand_factor * (max_crop_start_y - min_crop_start_y)
+    crop_start_y = crop_start_y.astype('uint16')
+    #print('min_crop_start_y, max_crop_start_y={}, {}'.format(min_crop_start_y, max_crop_start_y))
+    #print('factor={}'.format(rand_factor))
+    #print('crop_start_y={}'.format(crop_start_y))
+
+    # Determine crop translation on X axis
+    min_crop_start_x = np.maximum(0, np.max(mask_x) - new_size_x)
+    max_crop_start_x = np.minimum(np.min(mask_x), image.shape[1] - new_size_x)
+    rand_factor = np.maximum(0.0, np.minimum(1.0, stdev * np.random.normal() + 0.5))
+    crop_start_x     = min_crop_start_x + rand_factor * (max_crop_start_x - min_crop_start_x)
+    crop_start_x = crop_start_x.astype('uint16')
+    #print('min_crop_start_x, max_crop_start_x={}, {}'.format(min_crop_start_x, max_crop_start_x))
+    #print('factor={}'.format(rand_factor))
+    #print('crop_start_x={}'.format(crop_start_x))
+
+    assert (crop_start_x >= 0)
+    assert (crop_start_y >= 0)
+    assert ( (crop_start_y + new_size_y) <= image.shape[0])
+    assert ( (crop_start_x + new_size_x) <= image.shape[1])
+    new_image = image[crop_start_y:crop_start_y + new_size_y, crop_start_x:crop_start_x + new_size_x]
+    new_mask  =  mask[crop_start_y:crop_start_y + new_size_y, crop_start_x:crop_start_x + new_size_x]
+
+    return new_image, new_mask
 
 
 def rescale_di_to_hu(diEntry):
@@ -86,7 +194,7 @@ def get_z_range(annotations):
 # ----- Main -----
 # ----------------
 
-def extract_from_cluster_map(cluster_map, patch_size  = 144, res ='Legacy', dump = True):
+def extract_from_cluster_map(cluster_map, patch_size=144, res='Legacy', dump=True):
 
     filename = 'NodulePatchesNew{}-{}.p'.format(patch_size, res)
     dataset = []
@@ -100,7 +208,7 @@ def extract_from_cluster_map(cluster_map, patch_size  = 144, res ='Legacy', dump
     #   scan = pl.query(pl.Scan).filter(pl.Scan.patient_id == 'LIDC-IDRI-0004').first()
     #
         try:
-            nods, cluster_indices = cluster_map[scan.patient_id]
+            nods, cluster_indices = cluster_map[scan.id]
         except:
             continue
         print("Study ({}), Series({}) of patient {}:".format(scan.study_instance_uid, scan.series_instance_uid, scan.patient_id))
@@ -118,35 +226,14 @@ def extract_from_cluster_map(cluster_map, patch_size  = 144, res ='Legacy', dump
                 image = getSlice(dicom, z, rescale=True)
                 full_mask = np.zeros([512, 512])
                 for nod in nodules_in_cluster:
-                    mask, bb = nod.get_boolean_mask(True)
-                    if z < bb[2][0] or z > bb[2][1]:
+                    mask, bb = getMask(z, nod, img_zs, scan)
+                    if mask is None:
                         continue
-                    curr_slices = list(filter(lambda x: x <= bb[2][1] and x >= bb[2][0], img_zs))
-                    z_length = len(curr_slices)
-                    if not (z_length == mask.shape[2]):
-                        # This block handles the case where
-                        # the contour annotations "skip a slice".
-                        old_mask = mask.copy()
-                        # Create the new mask with appropriate z-length.
-                        mask = np.zeros((old_mask.shape[0],
-                                         old_mask.shape[1],
-                                         z_length), dtype=np.bool)
-                        # Map z's to an integer.
-                        z_to_index = dict(zip(
-                            curr_slices,
-                            range(z_length)
-                        ))
-                        contour_zs = np.unique([c.image_z_position for c in nod.contours])
-                        # Map each slice to its correct location.
-                        for k in range(old_mask.shape[2]):
-                            mask[:, :, z_to_index[contour_zs[k]]] = old_mask[:, :, k]
-                        # Get rid of the old one.
-                        del old_mask
-                    mask_idx = np.argwhere(z == np.array(curr_slices))
-                    assert (1 == len(mask_idx))
-                    full_mask[int(bb[0][0]):int(bb[0][1]+1), int(bb[1][0]):int(bb[1][1]+1)] = mask[:, :, int(mask_idx)]
+                    full_mask[int(bb[0][0]):int(bb[0][1]+1), int(bb[1][0]):int(bb[1][1]+1)] = mask
                 if 0 == np.count_nonzero(full_mask):
                     continue
+
+                patch, mask = crop(image, full_mask, fix_size=patch_size, stdev=0)
 
                 '''
                 print("Nodule of patient {} with {} annotations.".format(scan.patient_id, len(nod)))
@@ -160,25 +247,23 @@ def extract_from_cluster_map(cluster_map, patch_size  = 144, res ='Legacy', dump
                 if res is 'Legacy':
                     di_slice = getSlice(dicom, z, rescale=True)
                     mask  = get_full_size_mask(nod[annID], di_slice.shape)
-                    patch = cropSlice(di_slice, nod[annID].centroid(), patch_size)
-                    mask = cropSlice(mask, nod[annID].centroid(), patch_size)
                 else:
                     vol0, seg0 = nod[annID].uniform_cubic_resample(side_length=(patch_size - 1), resolution=res, verbose=0)
                     largestSliceZ = np.argmax(np.sum(seg0.astype('float32'), axis=(0, 1)))
                     patch = rescale_im_to_hu(vol0[:, :, largestSliceZ], dicom[0].RescaleIntercept, dicom[0].RescaleSlope)
                     mask  = seg0[:, :, largestSliceZ]
-
+                '''
                 entry = {
                     'patch':    patch.astype(np.int16),
-                    'info':     (scan.patient_id, scan.study_instance_uid, scan.series_instance_uid, nod[annID]._nodule_id),
-                    'nod_ids':  [n._nodule_id for n in nod],
-                    'rating':   np.array([ann.feature_vals() for ann in nod]),
+                    'info':     (scan.patient_id, scan.study_instance_uid, scan.series_instance_uid, [ann._nodule_id for ann in nodules_in_cluster]),
+                    'nod_ids':  [ann._nodule_id for ann in nodules_in_cluster],
+                    'rating':   np.array([ann.feature_vals() for ann in nodules_in_cluster]),
                     'mask':     mask.astype(np.int16),
                     'z':        z,
-                    'size':     getNoduleSize(nod)
+                    'size':     getNoduleSize(nodules_in_cluster[0])
                 }
                 dataset.append(entry)
-                '''
+
 
     print("Prepared {} entries".format(len(dataset)))
 
@@ -188,7 +273,8 @@ def extract_from_cluster_map(cluster_map, patch_size  = 144, res ='Legacy', dump
     else:
         print("No Dump")
 
-def extract(patch_size  = 144, res ='Legacy', dump = True):
+
+def extract(patch_size=144, res='Legacy', dump=True):
 
     filename = 'NodulePatches{}-{}.p'.format(patch_size, res)
 
@@ -514,7 +600,7 @@ def cluster_all_annotations(size_mm  = 64):
                 j_outs.append(j)
             cluster_candidates.append([i]+j_outs)
         cluster_candidates = remove_duplicates_and_subsets(cluster_candidates, len(nods))
-        annotation_cluster_map[scan.patient_id] = (nods, cluster_candidates)
+        annotation_cluster_map[scan.id] = (nods, cluster_candidates)
         for cluster in cluster_candidates:
             print("\tCluster: {}".format(cluster))
 

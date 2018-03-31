@@ -44,7 +44,7 @@ def append_label(data, label, confidence_level = None):
     return new_data
 
 
-def append_malignancy_class_to_nodule_db(filename, save_dump = False):
+def append_and_group_malignancy_class_to_nodule_db(filename, save_dump = False):
 
     dataset = pickle.load(open(filename,'br'))
 
@@ -56,12 +56,13 @@ def append_malignancy_class_to_nodule_db(filename, save_dump = False):
 
     print("{} malignant, {} benign and {} unknown".format(lenM, lenB, lenU))
 
-    M = np.extract(np.reshape(np.array([np.array(Malig)==1])[:], len(dataset)), dataset)
-    B = np.extract(np.reshape(np.array([np.array(Malig)==0])[:], len(dataset)), dataset)
-    U = np.extract(np.reshape(np.array([np.array(Malig)==2])[:], len(dataset)), dataset)
+    M = np.extract(np.squeeze(np.array(Malig) == 1), dataset)
+    B = np.extract(np.squeeze(np.array(Malig) == 0), dataset)
+    U = np.extract(np.squeeze(np.array(Malig) == 2), dataset)
 
     append_label(M, 1)
     append_label(B, 0)
+    append_label(U, -1)
 
     stat_analyze(M, 8, 'Maligancy Statistics')
     stat_analyze(B, 8, 'Benign Statistics')
@@ -77,11 +78,33 @@ def append_malignancy_class_to_nodule_db(filename, save_dump = False):
     print('Outliers B: {}'.format(outliers_B))
 
 
+def append_malignancy_class(dataset):
+    for entry in dataset:
+        entry['label'] = vote(np.array([r[8] for r in entry['rating']]))
+
+    lenM = np.count_nonzero([entry['label']==1 for entry in dataset])
+    lenB = np.count_nonzero([entry['label']==0 for entry in dataset])
+    lenU = np.count_nonzero([entry['label']==2 for entry in dataset])
+    print("{} malignant, {} benign and {} unknown".format(lenM, lenB, lenU))
+
+    return dataset
+
+
+def entry_is_valid(entry, min_size, min_weight):
+    size_condition = np.max(entry['ann_size']) > min_size
+    weight_condition = np.max(entry['weights']) > min_weight
+    return  size_condition and weight_condition
+
+
+def filter_entries(dataset, min_size, min_weight):
+    return list(filter(lambda x: entry_is_valid(x, min_size, min_weight), dataset))
+
+
 if __name__ == "__main__":
 
 
     #append_malignancy_class_to_nodule_db('NodulePatches128-Legacy.p', save_dump=True)         DONE
-    append_malignancy_class_to_nodule_db('NodulePatches144-0.5-I.p', save_dump=True)
+    #append_malignancy_class_to_nodule_db('NodulePatches144-0.5-I.p', save_dump=True)
     #append_malignancy_class_to_nodule_db('NodulePatches128-0.7.p', save_dump=True)
     #append_malignancy_class_to_nodule_db('NodulePatches144-0.5.p', save_dump=True)         YET
 

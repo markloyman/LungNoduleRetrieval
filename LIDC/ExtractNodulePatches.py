@@ -6,6 +6,7 @@ from functools import reduce
 import pickle
 from scipy.spatial.distance import pdist, squareform
 from sklearn.manifold import MDS
+from skimage import transform
 plt.interactive(False)
 
 import gc
@@ -17,6 +18,11 @@ def getNoduleSize(nodule):
     for ann in nodule:
         bb = max(bb, max(ann.bbox_dimensions()))
     return bb
+
+
+def calc_mask_size(mask, mm_per_px):
+    size_in_px = np.max([np.max(indices) - np.min(indices) + 1 for indices in np.nonzero(mask)])
+    return  size_in_px * mm_per_px
 
 
 def getLargestSliceInBB(nodule):
@@ -49,7 +55,7 @@ def getSlice(dicom, z, rescale=False):
 def getMask(z, annotation, img_zs, scan):
     mask, bb = annotation.get_boolean_mask(True)
     if z < bb[2][0] or z > bb[2][1]:
-        return None, None
+        return None, None, None
     curr_slices = list(filter(lambda x: x <= bb[2][1] and x >= bb[2][0], img_zs))
     z_length = len(curr_slices)
     if not (z_length == mask.shape[2]):
@@ -82,7 +88,9 @@ def getMask(z, annotation, img_zs, scan):
         del old_mask
     mask_idx = np.argwhere(z == np.array(curr_slices))
     assert (1 == len(mask_idx))
-    return mask[:, :, int(mask_idx)], bb[0:2]
+    slice_areas = [np.count_nonzero(mask[:, :, int(idx)]) for idx in range(z_length)]
+    weights = slice_areas / np.max(slice_areas)
+    return mask[:, :, int(mask_idx)], bb[0:2], weights[int(mask_idx)]
 
 
 def get_full_size_mask(nodule, size):
@@ -224,52 +232,57 @@ def extract_from_cluster_map(cluster_map, patch_size=144, res='Legacy', dump=Tru
             assert(len(np.unique(img_zs)) == len(img_zs))
             for z in filter(lambda x: x <= z_range[1] and x >= z_range[0], img_zs):
                 image = getSlice(dicom, z, rescale=True)
-                full_mask = np.zeros([512, 512])
+                full_mask = np.zeros(image.shape).astype('bool')
+                weights = []
+                ratings = []
+                nodule_ids = []
+                annotation_size = []
                 for nod in nodules_in_cluster:
-                    mask, bb = getMask(z, nod, img_zs, scan)
-                    if mask is None:
+                    mask, bb, w = getMask(z, nod, img_zs, scan)
+                    if mask is None or 0 == w: # skip annotation
                         continue
-                    full_mask[int(bb[0][0]):int(bb[0][1]+1), int(bb[1][0]):int(bb[1][1]+1)] = mask
-                if 0 == np.count_nonzero(full_mask):
+                    full_mask[int(bb[0][0]):int(bb[0][1]+1), int(bb[1][0]):int(bb[1][1]+1)] |= mask
+                    nodule_ids += [nod._nodule_id]
+                    ratings += [nod.feature_vals()]
+                    assert(len(np.flatnonzero(mask)) > 0)
+                    annotation_size += [calc_mask_size(mask, mm_per_px=scan.pixel_spacing)]
+                    weights += [w]
+                if 0 == np.count_nonzero(full_mask): # skips slice
                     continue
-
+                mask_size = calc_mask_size(full_mask, mm_per_px=scan.pixel_spacing)
+                if type(res) is float:
+                    new_shape = tuple((np.array(image.shape) * (scan.pixel_spacing / res)).astype('int'))
+                    image =     transform.resize(image,     output_shape=new_shape, order=2, preserve_range=True, mode='constant')
+                    full_mask = transform.resize(full_mask, output_shape=new_shape, order=0, preserve_range=True, mode='constant')
+                    if 0 == np.count_nonzero(full_mask):
+                        # sometimes the mask is pixel-wide, so after resize nothing is left
+                        # would've anyhow been filtered in later stages
+                        continue
                 patch, mask = crop(image, full_mask, fix_size=patch_size, stdev=0)
+                patch = rescale_im_to_hu(patch, dicom[0].RescaleIntercept, dicom[0].RescaleSlope)
+                if np.abs(mask_size - calc_mask_size(mask, mm_per_px=res)) > res:
+                    print("{}, {}:\n\tfull mask size = {}\n\tmask size = {}".format(scan.patient_id, z, mask_size, calc_mask_size(mask, mm_per_px=res)))
+                assert(patch.shape == (patch_size, patch_size))
+                assert(mask.shape == (patch_size, patch_size))
 
-                '''
-                print("Nodule of patient {} with {} annotations.".format(scan.patient_id, len(nod)))
-                largestSliceA = [getLargestSliceInBB(ann)[0] for ann in nod] # larget slice within annotated bb
-                annID = np.argmax(largestSliceA) # which of the annotation has the largest slice
-
-                largestSliceZ = [getLargestSliceInBB(ann)[1] for ann in nod]  # index within the mask
-                z   = interpolateZfromBBidx(nod[annID], largestSliceZ[annID]) # just for the entry data
-                # possible mismatch betwean retrived z and largestSliceZ[annID] due to missing dicom files
-                #
-                if res is 'Legacy':
-                    di_slice = getSlice(dicom, z, rescale=True)
-                    mask  = get_full_size_mask(nod[annID], di_slice.shape)
-                else:
-                    vol0, seg0 = nod[annID].uniform_cubic_resample(side_length=(patch_size - 1), resolution=res, verbose=0)
-                    largestSliceZ = np.argmax(np.sum(seg0.astype('float32'), axis=(0, 1)))
-                    patch = rescale_im_to_hu(vol0[:, :, largestSliceZ], dicom[0].RescaleIntercept, dicom[0].RescaleSlope)
-                    mask  = seg0[:, :, largestSliceZ]
-                '''
                 entry = {
                     'patch':    patch.astype(np.int16),
-                    'info':     (scan.patient_id, scan.study_instance_uid, scan.series_instance_uid, [ann._nodule_id for ann in nodules_in_cluster]),
-                    'nod_ids':  [ann._nodule_id for ann in nodules_in_cluster],
-                    'rating':   np.array([ann.feature_vals() for ann in nodules_in_cluster]),
-                    'mask':     mask.astype(np.int16),
+                    'info':     (scan.patient_id, scan.study_instance_uid, scan.series_instance_uid, nodule_ids),
+                    'nod_ids':  nodule_ids,
+                    'rating':   np.array(ratings),
+                    'ann_size': np.array(annotation_size),
+                    'weights':  np.array(weights),
+                    'mask':     mask.astype(np.int8),
                     'z':        z,
-                    'size':     getNoduleSize(nodules_in_cluster[0])
+                    'size':     mask_size
                 }
                 dataset.append(entry)
-
 
     print("Prepared {} entries".format(len(dataset)))
 
     if dump:
         pickle.dump(dataset, open(filename, 'wb'))
-        print("Dumpted to {}".format(filename))
+        print("Dumped to {}".format(filename))
     else:
         print("No Dump")
 

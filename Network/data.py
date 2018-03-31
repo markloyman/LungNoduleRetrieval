@@ -46,15 +46,16 @@ def split_dataset(data, testN, validN, trainN):
 def getImageStatistics(data, window=None, verbose=False):
     images = np.array([entry['patch'] for entry in data]).flatten()
 
-    if verbose:
-        plt.figure()
-        plt.hist(images, bins=500)
-
     if window is not None:
-        images_ = np.clip(images, window[0], window[1])
+        #images_ = np.clip(images, window[0], window[1])
+        images_ = images[(images > window[0]) & (images < window[1])]
     else:
         images_ = images
         #images = images[(images>=window[0])*(images<=window[1])]
+
+    if verbose:
+        plt.figure()
+        plt.hist(images_, bins=500)
 
     mean   = np.mean(images_)
     std    = np.std(images_)
@@ -63,7 +64,6 @@ def getImageStatistics(data, window=None, verbose=False):
 
 
 def normalize(image, mean, std, window=None):
-    assert std > 0
     image_n = image
     if window is not None:
         image_n = np.clip(image_n, window[0], window[1])
@@ -74,11 +74,11 @@ def normalize(image, mean, std, window=None):
 
 
 def normalize_all(dataset, mean=0, std=1, window=None):
-    new_dataset = []
+    #new_dataset = []
     for entry in dataset:
         entry['patch'] = normalize(entry['patch'], mean, std, window)
-        new_dataset.append(entry)
-    return new_dataset
+        #new_dataset.append(entry)
+    return dataset
 
 
 def uniform(image, mean=0, window=None, centered=True):
@@ -97,6 +97,64 @@ def uniform_all(dataset, mean=0, window=None, centered=True):
         entry['patch'] = uniform(entry['patch'], mean, window, centered=centered)
         new_dataset.append(entry)
     return new_dataset
+
+
+def split_to_crossvalidation_groups(dataset, n_groups):
+    subsets = [[] for i in range(n_groups)]
+    benign_count = [0] * n_groups
+    malig_count   = [0]*n_groups
+    unknown_count = [0]*n_groups
+
+    data_by_patients = {}
+    for entry in dataset:
+        patient_id = entry['info'][0]
+        if patient_id in data_by_patients.keys():
+            data_by_patients[patient_id] += [entry]
+        else:
+            data_by_patients[patient_id] = [entry]
+
+    for patient_id, entry_list in data_by_patients.items():
+        label_count = np.bincount(np.concatenate([entry['label'] for entry in entry_list]), minlength=3)
+        max_size_per_group = [np.max([b + label_count[0], m + label_count[1], u + label_count[2]]) for b, m, u in
+                                zip(benign_count, malig_count, unknown_count)]
+        group_id = np.argmin(max_size_per_group)
+        '''
+        majority_class = np.argmax(label_count)
+        if majority_class == 0: # benign
+            group_id = np.argmin(benign_count)
+        elif majority_class == 1: # malignancy
+            group_id = np.argmin(malig_count)
+        elif majority_class == 2: # unknown
+            group_id = np.argmin(unknown_count)
+        else:
+            assert(False)
+        '''
+        subsets[group_id] += entry_list
+        benign_count[group_id] += label_count[0]
+        malig_count[group_id] += label_count[1]
+        unknown_count[group_id] += label_count[2]
+
+    for i, group in enumerate(subsets):
+        count = len(group)
+        print("Group #{}: {} entries (b:{}, m:{}, u:{})".format(i, count, benign_count[i], malig_count[i], unknown_count[i]))
+
+    return subsets
+
+
+def scale_image_values(dataset, window=(-1000, 400), normalize='Normal'):
+    mean, std = getImageStatistics(dataset, window=window, verbose=True)
+    print('Training Statistics: Mean {:.2f} and STD {:.2f}'.format(mean, std))
+
+    if normalize is 'Uniform':
+        dataset = uniform_all(dataset, mean, window=window, centered=True)
+    elif normalize is 'UniformNC':
+        dataset = uniform_all(dataset, mean, window=window, centered=False)
+    elif normalize is 'Normal':
+        dataset = normalize_all(dataset, mean, std, window=window)
+
+    getImageStatistics(dataset, verbose=True)
+
+    return dataset
 
 
 def generate_nodule_dataset(filename, test_ratio, validation_ratio, window=(-1000, 400), normalize='Normal', dump=True, output_filename='Dataset.p'):

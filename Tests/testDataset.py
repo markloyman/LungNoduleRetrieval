@@ -2,7 +2,7 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import pylidc as pl
-from LIDC.lidcUtils import CheckPatch
+from LIDC.lidcUtils import check_patch
 
 
 def test_dicom_rescale_consistency():
@@ -26,13 +26,15 @@ def test_dicom_rescale_consistency():
 
 if __name__ == "__main__":
 
-    check_patch = False
-    check_dicom_consistency = True
+    filename = 'Dataset/DatasetCV144-0.5-Normal.p'
+    #filename = 'LIDC/NodulePatchesClique.p'
+    do_check_patch = True
+    do_check_dicom_consistency = False
 
-    if check_patch:
+    if do_check_patch:
         plt.interactive(True)
-        dataset = pickle.load(open('LIDC/NodulePatchesClique.p', 'br'))
-        CheckPatch(dataset[111])
+        dataset = pickle.load(open(filename, 'br'))
+        check_patch(dataset[111])
 
-    if check_dicom_consistency:
+    if do_check_dicom_consistency:
         test_dicom_rescale_consistency()

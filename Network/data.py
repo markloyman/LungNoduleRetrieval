@@ -4,10 +4,11 @@ import random
 from skimage.transform import resize
 from scipy.misc import imresize
 import matplotlib.pyplot as plt
+from functools import reduce
 try:
-    from Network.dataUtils import rating_normalize
+    from Network.dataUtils import rating_normalize, crop_center
 except:
-    from dataUtils import rating_normalize
+    from dataUtils import rating_normalize, crop_center
 
 #from keras.utils.np_utils import to_categorical
 #from Network.dataUtils import augment
@@ -55,6 +56,9 @@ def getImageStatistics(data, window=None, verbose=False):
 
     if verbose:
         plt.figure()
+        plt.subplot(211)
+        plt.hist(images, bins=500)
+        plt.subplot(212)
         plt.hist(images_, bins=500)
 
     mean   = np.mean(images_)
@@ -141,8 +145,12 @@ def split_to_crossvalidation_groups(dataset, n_groups):
     return subsets
 
 
-def scale_image_values(dataset, window=(-1000, 400), normalize='Normal'):
-    mean, std = getImageStatistics(dataset, window=window, verbose=True)
+def scale_image_values(dataset, window=(-1000, 400), statistics=None, normalize='Normal'):
+    if statistics is None:
+        mean, std = getImageStatistics(dataset, window=window, verbose=True)
+    else:
+        getImageStatistics(dataset, verbose=True)
+        mean, std = statistics
     print('Training Statistics: Mean {:.2f} and STD {:.2f}'.format(mean, std))
 
     if normalize is 'Uniform':
@@ -153,6 +161,33 @@ def scale_image_values(dataset, window=(-1000, 400), normalize='Normal'):
         dataset = normalize_all(dataset, mean, std, window=window)
 
     getImageStatistics(dataset, verbose=True)
+
+    return dataset
+
+
+def crop_dataset(dataset, size):
+    for entry in dataset:
+        patch, mask = crop_center(entry['patch'], entry['mask'], size=size)
+        entry['patch'] = patch
+        entry['mask']  = mask
+    return dataset
+
+def filter_to_primary(dataset):
+    def get_filtered_iterator():
+        return filter(lambda entry: np.max(entry['weights']) == 1, dataset)
+    cluster_ids = np.array([reduce(lambda x,y: x + y, entry['info'][-1]) for entry in get_filtered_iterator()])
+    cluster_ids_unique_map = np.unique(cluster_ids, return_inverse=True)[1]
+    weights = np.array([np.sum(entry['weights']) for entry in get_filtered_iterator()])
+
+    selection = []
+    for c_id in np.unique(cluster_ids_unique_map):
+        cluster_weights = weights[c_id == cluster_ids_unique_map]
+        cluster_indices = np.argwhere(c_id == cluster_ids_unique_map)
+        selection += [cluster_indices[np.argmax(cluster_weights)]]
+    selection = np.concatenate(selection)
+
+    subset = list(get_filtered_iterator())
+    dataset = [subset[i] for i in selection]
 
     return dataset
 

@@ -42,10 +42,14 @@ def getAnnotation(info, return_all=False, nodule_ids=None):
             anns = scan.annotations
         else:
             nodule_id_list = [ann._nodule_id for ann in scan.annotations]
-            if info[3] in nodule_id_list:
-                id = nodule_id_list.index(info[3])
+            if type(info[3]) is str:
+                nodule_id = info[3]
+            elif type(info[3]) is list:
+                nodule_id = info[3][0]
+            try:
+                id = nodule_id_list.index(nodule_id)
                 anns = scan.annotations[id]
-            else:
+            except:
                 print("Nodule '{}' not found".format(info[3]))
                 anns = None
 
@@ -69,17 +73,15 @@ def getAnnotation(info, return_all=False, nodule_ids=None):
     return anns
 
 
-def CheckPatch(entry, in_dicom=False):
+def check_patch(entry, in_dicom=False):
     info = entry['info']
     print(info)
-
     print('Patch Stats: Mean={}, Min={}, Max={}'.format( np.mean(entry['patch']),
                                                          np.min(entry['patch']),
-                                                         np.max(entry['patch'])
-                                                    ))
-    plt.figure('Patch')
-    plt.imshow(entry['patch']+1000*entry['mask'])
-    plt.title('Patch: {}'.format(np.mean(entry['rating'], axis=(0))))
+                                                         np.max(entry['patch'])))
+    plt.figure('Patch (P: {})'.format(info[0]))
+    plt.imshow(entry['patch']*(0.4 + 0.6*entry['mask']), cmap='gray')
+    plt.title('Patch: {}'.format(np.mean(entry['rating'], axis=0)))
 
     if in_dicom:
         getAnnotation(info).visualize_in_scan()

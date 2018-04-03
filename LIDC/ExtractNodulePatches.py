@@ -202,12 +202,9 @@ def get_z_range(annotations):
 # ----- Main -----
 # ----------------
 
-def extract_from_cluster_map(cluster_map, patch_size=144, res='Legacy', dump=True):
+def extract_from_cluster_map(cluster_map, patch_size=144, res='Legacy'):
 
-    filename = 'NodulePatchesNew{}-{}.p'.format(patch_size, res)
     dataset = []
-    if dump is False:
-        print("Running without dump")
 
     for scan in pl.query(pl.Scan).all()[:]:
     # cycle 1018 scans
@@ -230,7 +227,7 @@ def extract_from_cluster_map(cluster_map, patch_size=144, res='Legacy', dump=Tru
             z_range = get_z_range(nodules_in_cluster)
             img_zs = [float(img.ImagePositionPatient[-1]) for img in dicom]
             assert(len(np.unique(img_zs)) == len(img_zs))
-            for z in filter(lambda x: x <= z_range[1] and x >= z_range[0], img_zs):
+            for z in filter(lambda x: (x <= z_range[1]) & (x >= z_range[0]), img_zs):
                 image = getSlice(dicom, z, rescale=True)
                 full_mask = np.zeros(image.shape).astype('bool')
                 weights = []
@@ -239,7 +236,7 @@ def extract_from_cluster_map(cluster_map, patch_size=144, res='Legacy', dump=Tru
                 annotation_size = []
                 for nod in nodules_in_cluster:
                     mask, bb, w = getMask(z, nod, img_zs, scan)
-                    if mask is None or 0 == w: # skip annotation
+                    if mask is None or 0 == w:  # skip annotation
                         continue
                     full_mask[int(bb[0][0]):int(bb[0][1]+1), int(bb[1][0]):int(bb[1][1]+1)] |= mask
                     nodule_ids += [nod._nodule_id]
@@ -247,19 +244,19 @@ def extract_from_cluster_map(cluster_map, patch_size=144, res='Legacy', dump=Tru
                     assert(len(np.flatnonzero(mask)) > 0)
                     annotation_size += [calc_mask_size(mask, mm_per_px=scan.pixel_spacing)]
                     weights += [w]
-                if 0 == np.count_nonzero(full_mask): # skips slice
+                if 0 == np.count_nonzero(full_mask):  # skips slice
                     continue
                 mask_size = calc_mask_size(full_mask, mm_per_px=scan.pixel_spacing)
                 if type(res) is float:
                     new_shape = tuple((np.array(image.shape) * (scan.pixel_spacing / res)).astype('int'))
-                    image =     transform.resize(image,     output_shape=new_shape, order=2, preserve_range=True, mode='constant')
+                    image =     transform.resize(image,     output_shape=new_shape, order=1, preserve_range=True, mode='constant')
                     full_mask = transform.resize(full_mask, output_shape=new_shape, order=0, preserve_range=True, mode='constant')
                     if 0 == np.count_nonzero(full_mask):
                         # sometimes the mask is pixel-wide, so after resize nothing is left
                         # would've anyhow been filtered in later stages
                         continue
                 patch, mask = crop(image, full_mask, fix_size=patch_size, stdev=0)
-                patch = rescale_im_to_hu(patch, dicom[0].RescaleIntercept, dicom[0].RescaleSlope)
+
                 if np.abs(mask_size - calc_mask_size(mask, mm_per_px=res)) > res:
                     print("{}, {}:\n\tfull mask size = {}\n\tmask size = {}".format(scan.patient_id, z, mask_size, calc_mask_size(mask, mm_per_px=res)))
                 assert(patch.shape == (patch_size, patch_size))
@@ -272,7 +269,7 @@ def extract_from_cluster_map(cluster_map, patch_size=144, res='Legacy', dump=Tru
                     'rating':   np.array(ratings),
                     'ann_size': np.array(annotation_size),
                     'weights':  np.array(weights),
-                    'mask':     mask.astype(np.int8),
+                    'mask':     mask.astype(np.bool),
                     'z':        z,
                     'size':     mask_size
                 }
@@ -280,11 +277,7 @@ def extract_from_cluster_map(cluster_map, patch_size=144, res='Legacy', dump=Tru
 
     print("Prepared {} entries".format(len(dataset)))
 
-    if dump:
-        pickle.dump(dataset, open(filename, 'wb'))
-        print("Dumped to {}".format(filename))
-    else:
-        print("No Dump")
+    return dataset
 
 
 def extract(patch_size=144, res='Legacy', dump=True):

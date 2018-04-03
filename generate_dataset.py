@@ -10,9 +10,9 @@ np.random.seed(1337)
 #   Setup
 # ==========
 
-size_list = [144]
-res_list  = [0.5]
-norm_list = ['Normal']
+size_list = [144]*2
+res_list  = [0.5, 0.7]
+norm_list = ['Normal']*2  # UniformNC Uniform Normal
 do_dump = True
 
 assert(len(size_list) == len(res_list))
@@ -30,36 +30,80 @@ except:
 
 for size, res, norm in zip(size_list, res_list, norm_list):
 
-    #LIDC.extract_from_cluster_map(cluster_map, patch_size=size, res=res, dump=do_dump)
-    #LIDC.extract(patch_size=144, res="0.5I", dump=do_dump)
+    # ===================================
+    #   Extract ("Raw") Data from LIDC
+    # ===================================
 
+    if True:
+        filename = 'LIDC/NodulePatchesNew{}-{}.p'.format(size, res)
+        try:
+            dataset = pickle.load(open(filename, 'br'))
+        except:
+            dataset = LIDC.extract_from_cluster_map(cluster_map, patch_size=size, res=res)
+            # LIDC.extract(patch_size=144, res="0.5I", dump=do_dump)
+            pickle.dump(dataset, open(filename, 'wb'))
+            print("Dumped to {}".format(filename))
+        print("Loaded {} entries".format(len(dataset)))
 
-    filename = 'NodulePatchesNew{}-{}.p'.format(size, res)
-    dataset = pickle.load(open(filename, 'br'))
-    print("Loaded {} entries".format(len(dataset)))
+    # ===================================
+    #   Post-Process dataset
+    # ===================================
+    n_groups = 5
+    dataset = []*n_groups
+    try:
+        for i in range(n_groups):
+            out_filename = 'DatasetFullCV{}_{}-{}-{}.p'.format(i, size, res, norm)
+            dataset[i] = pickle.load(group, open('Dataset/' + out_filename, 'br'))
+            print("Loaded from {}".format(out_filename))
 
-    # post-process
-    min_size = 3.0
-    min_weight = 0.5
-    dataset = LIDC.filter_entries(dataset, min_size=min_size, min_weight=min_weight)
-    print("Filtered to {} entries, using min size = {}, and min weight = {}".format(len(dataset), min_size, min_weight))
+    except:
+        min_size = 3.0
+        min_weight = 0.5
+        dataset = LIDC.filter_entries(dataset, min_size=min_size, min_weight=min_weight)
+        print("Filtered to {} entries, using min size = {}, and min weight = {}".format(len(dataset), min_size, min_weight))
 
-    dataset = LIDC.append_malignancy_class(dataset)
+        dataset = LIDC.append_malignancy_class(dataset)
+        print("Appended malignancy class")
 
-    dataset = data.scale_image_values(dataset, window=(-1000, 400), normalize=norm)
+        window = (-1000, 400)
+        dataset = data.scale_image_values(dataset, window=window, normalize=norm) # statistics=(-500, 420)
+        print("Rescaled images with window={} and {} normalization".format(window, norm))
 
-    dataset = data.split_to_crossvalidation_groups(dataset, n_groups=5)
+        dataset = data.split_to_crossvalidation_groups(dataset, n_groups=n_groups)
+        print("Entries split to {} groups".format(len(dataset)))
 
-    out_filename = 'DatasetCV{}-{}-{}.p'.format(size, res, norm)
-    pickle.dump(dataset, open('Dataset/' + out_filename, 'bw'))
+        for i, group in enumerate(dataset):
+            out_filename = 'DatasetFullCV{}_{}-{}-{}.p'.format(i, size, res, norm)
+            pickle.dump(group, open('Dataset/' + out_filename, 'bw'))
+            print("Dumped to {}".format(out_filename))
 
-    '''
-    data.generate_nodule_dataset(filename='LIDC/{}ByMalignancy.p'.format(filename),
-                            output_filename=out_filename,
-                            test_ratio=0.2,
-                            validation_ratio=0.25,
-                            window=(-1000, 400),
-                            normalize=norm,
-                            dump=do_dump)
-    '''
+    # ===================================
+    #   Derive secondary datasets
+    # ===================================
+
+    for i, group in enumerate(dataset):
+        #
+        #   filter to Primary slices
+        #
+        print("Group #{}:".format(i))
+        group = data.filter_to_primary(group)
+        label_counter = np.bincount(np.concatenate([e['label'] for e in group]))
+        print("\tFiltered to {} primary entries".format(len(group)))
+        print("\t{} benign, {} malignant, {} unknown".format(label_counter[0], label_counter[1], label_counter[2]))
+
+        out_filename = 'DatasetPrimaryCV{}_{}-{}-{}.p'.format(i, size, res, norm)
+        pickle.dump(dataset, open('Dataset/' + out_filename, 'bw'))
+        print("\tDumped to {}".format(out_filename))
+
+        #
+        #   crop all
+        #
+        new_size = 128
+        group = data.crop_dataset(group, size=new_size)
+        print("\tpatch size = {}".format(group[0]['patch'].shape))
+
+        out_filename = 'DatasetPrimaryCV{}_{}-{}-{}.p'.format(i, new_size, res, norm)
+        pickle.dump(group, open('Dataset/' + out_filename, 'bw'))
+        print("\tDumped to {}".format(out_filename))
+
 plt.show()

@@ -3,7 +3,7 @@ from tables.idxutils import col_light
 from init import *
 from Analysis import Retriever
 from matplotlib.axes import Axes
-from Network.data import load_nodule_raw_dataset
+from Network.data_loader import load_nodule_raw_dataset
 from Analysis.RatingCorrelator import calc_distance_matrix
 import Analysis.metric_space_indexes as index
 import FileManager

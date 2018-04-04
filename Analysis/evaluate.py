@@ -7,7 +7,7 @@ import numpy as np
 from Analysis.analysis import MalignancyConfusionMatrix, MalignancyBySize
 from LIDC.lidcUtils import getAnnotation
 from Network.Direct.directArch import directArch
-from Network.data import load_nodule_dataset, load_nodule_raw_dataset, prepare_data
+from Network.data_loader import load_nodule_dataset, load_nodule_raw_dataset, prepare_data
 from Network.model import miniXception_loader
 
 size = 128

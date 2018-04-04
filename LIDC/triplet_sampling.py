@@ -8,7 +8,7 @@ from PIL import Image
 #random.seed(1337)
 import matplotlib.pyplot as plt
 from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
-from Network.data import load_nodule_dataset, load_nodule_raw_dataset, normalize
+from Network.data_loader import load_nodule_dataset, load_nodule_raw_dataset, normalize
 from Network.dataUtils import crop_center, rating_normalize
 
 

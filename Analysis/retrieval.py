@@ -6,7 +6,7 @@ from sklearn.model_selection import LeaveOneOut
 from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
 
 from LIDC.lidcUtils import calc_rating
-from Network.data import load_nodule_raw_dataset
+from Network.data_loader import load_nodule_raw_dataset
 from Network.dataUtils import rating_normalize
 
 def accuracy(true, pred):

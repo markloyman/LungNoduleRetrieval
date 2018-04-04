@@ -6,7 +6,7 @@ from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
 from keras.metrics import categorical_accuracy
 from keras.models import Model
 from keras.optimizers import Adam
-
+from keras.layers import Input, Dense
 try:
     from Network.dataUtils import get_class_weight
     from Network.Direct.metrics import sensitivity, f1, precision, specificity, root_mean_squared_error, multitask_accuracy

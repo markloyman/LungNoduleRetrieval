@@ -81,7 +81,7 @@ def kumar(nbrs_distances, res=0.0025):
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    from Network.data import load_nodule_raw_dataset
+    from Network.data_loader import load_nodule_raw_dataset
     from Analysis.retrieval import Retriever
     from Analysis.RatingCorrelator import calc_distance_matrix
     from Network.dataUtils import rating_normalize

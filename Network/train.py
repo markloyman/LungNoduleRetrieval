@@ -17,7 +17,7 @@ try:
     from Network.Triplet.tripletArch import tripArch
     from Network.Triplet.DataGenTrip import DataGeneratorTrip
     from Network.model import miniXception_loader
-    from Network.data import load_nodule_dataset, prepare_data_direct
+    from Network.data_loader import load_nodule_dataset, prepare_data_direct
     from Network.dataUtils import crop_center
 except:
     # Paths for floyd cloud

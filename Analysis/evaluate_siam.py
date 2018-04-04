@@ -94,10 +94,10 @@ try:
             open('junk', 'br')
         pred, labels_test, meta = pickle.load(open(pred_filename(run, epoch=epoch, post=post), 'br'))
         print("loaded saved dump of predications")
-        from Network.data import load_nodule_raw_dataset
+        from Network.data_loader import load_nodule_raw_dataset
         from Network.Direct.metrics import siamese_margin
     except:
-        from Network.data import load_nodule_dataset, load_nodule_raw_dataset, prepare_data_siamese, prepare_data_siamese_simple
+        from Network.data_loader import load_nodule_dataset, load_nodule_raw_dataset, prepare_data_siamese, prepare_data_siamese_simple
         from Network.model import miniXception_loader
         from Network.Direct.metrics import siamese_margin
         from Network.Siamese.siameseArch import siamArch

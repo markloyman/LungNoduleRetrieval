@@ -211,7 +211,7 @@ def test_augment(dataset):
 if __name__ == "__main__":
 
     try:
-        from Network.data import load_nodule_dataset
+        from Network.data_loader import load_nodule_dataset
     except:
         from data import load_nodule_dataset
 		

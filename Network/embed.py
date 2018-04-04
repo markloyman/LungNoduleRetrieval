@@ -6,7 +6,7 @@ import FileManager
 from Network.Direct.directArch import directArch
 from Network.Siamese.siameseArch import siamArch
 from Network.Triplet.tripletArch import tripArch
-from Network.data import load_nodule_dataset, prepare_data
+from Network.data_loader import load_nodule_dataset, prepare_data
 from Network.dataUtils import crop_center
 from Network.model import miniXception_loader
 

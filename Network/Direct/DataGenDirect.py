@@ -31,7 +31,7 @@ class DataGeneratorDir(object):
         self.val_factor = val_factor
 
         if objective == 'malignancy':
-            labels = np.array([entry[2] for entry in dataset[2]])
+            labels = np.concatenate([entry[2] for entry in dataset[2]])
             Nb = np.count_nonzero(1 - labels)
             Nm = np.count_nonzero(labels)
 

@@ -64,7 +64,7 @@ def run(choose_model = "DIR"):
 
     #data
     data_size  = 144
-    res    = '0.5I' #'Legacy' #0.7 #0.5
+    res    = 0.5 #'Legacy' #0.7 #0.5
     sample = 'Normal' #'UniformNC' #'Normal' #'Uniform'
     #model
     model_size = 128
@@ -98,6 +98,7 @@ def run(choose_model = "DIR"):
         if use_gen:
             data_augment_params = {'max_angle': 0, 'flip_ratio': 0.1, 'crop_stdev': 0.05, 'epoch': 0}
             generator = DataGeneratorDir(
+                            configuration=0,
                             data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=32,
                             val_factor=1, balanced=False,
                             do_augment=False, augment=data_augment_params,

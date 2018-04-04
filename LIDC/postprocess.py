@@ -80,7 +80,7 @@ def append_and_group_malignancy_class_to_nodule_db(filename, save_dump = False):
 
 def append_malignancy_class(dataset):
     for entry in dataset:
-        entry['label'] = vote(np.array([r[8] for r in entry['rating']]))
+        entry['label'] = vote(np.array([r[8] for r in entry['rating']]))[0]
 
     lenM = np.count_nonzero([entry['label']==1 for entry in dataset])
     lenB = np.count_nonzero([entry['label']==0 for entry in dataset])

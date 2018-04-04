@@ -55,8 +55,8 @@ for size, res, norm in zip(size_list, res_list, norm_list):
     try:
         for i in range(n_groups):
             out_filename = 'DatasetFullCV{}_{}-{}-{}.p'.format(i, size, res, norm)
-            dataset[i] = pickle.load(group, open('Dataset/' + out_filename, 'br'))
-            print("Loaded from {}".format(out_filename))
+            dataset[i] = pickle.load(open('Dataset/' + out_filename, 'br'))
+            print("Loaded {} entries from {}".format(len(dataset[i]), out_filename))
 
     except:
         min_size = 3.0
@@ -118,8 +118,19 @@ for size, res, norm in zip(size_list, res_list, norm_list):
         # check masks
         masks = np.concatenate([np.expand_dims(e['mask'], axis=0) for e in group], axis=0)
         mask_sizes = [np.max([np.max(a) - np.min(a) for a in np.nonzero(m)]) for m in masks]
-        plt.subplot(n_groups, 1, i)
+        plt.subplot(n_groups, 1, i+1)
         plt.title("{} mask size".format(out_filename))
         plt.hist(mask_sizes, 20)
+
+        #
+        #   remove uknown
+        #
+        group = list(filter(lambda x: x['label'] < 2, group))
+        print("\tFiltered to {} clean (no unknown) entries".format(len(group)))
+
+        out_filename = 'DatasetCleanCV{}_{}-{}-{}.p'.format(i, new_size, res, norm)
+        pickle.dump(group, open('Dataset/' + out_filename, 'bw'))
+        print("\tDumped to {}".format(out_filename))
+
 
 plt.show()

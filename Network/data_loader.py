@@ -12,7 +12,7 @@ except:
 # =========================
 
 
-def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='Normal', configuration=None, full=False, n_groups=5):
+def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='Normal', configuration=None, full=False, include_unknown=False, n_groups=5):
     if configuration is None:
         return load_nodule_dataset_old_style(size=size, res=res, apply_mask_to_patch=apply_mask_to_patch, sample=sample)
 
@@ -27,6 +27,9 @@ def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='No
             data_group = pickle.load(open(filename, 'br'))
         except:
             data_group = pickle.load(open('.'+filename, 'br'))
+
+        if not include_unknown:
+            data_group = list(filter(lambda x: x['label'] < 2, data_group))
 
         if c == test_id:
             set = "Test"

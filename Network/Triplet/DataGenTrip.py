@@ -2,9 +2,9 @@ import numpy as np
 
 try:
     from Network.data_loader import load_nodule_dataset, prepare_data_triplet
-    from Network.dataUtils import augment, crop_center, get_sample_weight, get_class_weight
+    from Network.dataUtils import augment, crop_center, get_sample_weight_for_similarity, get_class_weight
 except:
-    from data import load_nodule_dataset, prepare_data_triplet
+    from data_loader import load_nodule_dataset, prepare_data_triplet
     from dataUtils import augment, crop_center, get_sample_weight, get_class_weight
 
 class DataGeneratorTrip(object):
@@ -12,9 +12,9 @@ class DataGeneratorTrip(object):
 
     def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_sz=32,
                         do_augment=False, augment=None, use_class_weight=False, class_weight='dummy', debug=False,
-                        val_factor = 1, objective="malignancy"):
+                        val_factor = 1, objective="malignancy", configuration=None):
 
-        dataset = load_nodule_dataset(size=data_size, res=res, sample=sample, apply_mask_to_patch=debug)
+        dataset = load_nodule_dataset(size=data_size, res=res, sample=sample, apply_mask_to_patch=debug,  configuration=configuration)
 
         self.train_set = dataset[2]
         self.valid_set = dataset[1]

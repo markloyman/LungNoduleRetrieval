@@ -1,21 +1,18 @@
 import os
-os.environ['PYTHONHASHSEED'] = '0'
 import numpy as np
-np.random.seed(1337)  # for reproducibility
 import random
-random.seed(1337)
 import matplotlib.pyplot as plt
+from Network.Siamese.DataGenSiam import DataGeneratorSiam
+from Network.Direct.DataGenDirect import DataGeneratorDir
+# for reproducibility
+os.environ['PYTHONHASHSEED'] = '0'
+np.random.seed(1337)
+random.seed(1337)
 
-try:
-    from Network.DataGenSiam import DataGenerator
-    from Network.DataGenDirect import DataGeneratorDir
-except:
-    from DataGenSiam import DataGenerator
-	
 data_augment_params = {'max_angle': 0, 'flip_ratio': 0.0, 'crop_stdev': 0.1, 'epoch': 0}
 
-if True:
-    gen = DataGenerator(    data_size=144, model_size=128, res='Legacy', sample='Normal', batch_sz=64,
+if False:
+    gen = DataGeneratorSiam(data_size=144, model_size=128, res='Legacy', sample='Normal', batch_sz=64,
                             do_augment=False, augment=data_augment_params,
                             use_class_weight=True, class_weight='dummy',
                             debug=True)
@@ -45,11 +42,11 @@ if True:
         plt.imshow(np.squeeze(imgs[1][i + 5]))
 
 else:
-    gen = DataGeneratorDir(data_size=144, model_size=128, res='0.5I', sample='Normal', batch_sz=64,
-                        objective='rating',
-                        do_augment=False, augment=data_augment_params,
-                        use_class_weight=False, class_weight='dummy',
-                        debug=True)
+    gen = DataGeneratorDir(configuration=0, data_size=128, model_size=128, res=0.5, sample='Normal', batch_sz=64,
+                           objective='malignancy',
+                           do_augment=False, augment=data_augment_params,
+                           use_class_weight=False, class_weight='dummy',
+                           debug=True)
     imgs, lbl = gen.next_val().__next__()
 
     for i in [0, 10, 20, 30, 40]:
@@ -58,15 +55,12 @@ else:
 
         plt.subplot(231)
         plt.title('L:{}'.format(lbl[i]))
-        plt.imshow(np.squeeze(imgs[i]))
+        plt.imshow(np.squeeze(imgs[i]), cmap='gray')
         plt.subplot(232)
         plt.title('L:{}'.format(lbl[i+2]))
-        plt.imshow(np.squeeze(imgs[i+2]))
+        plt.imshow(np.squeeze(imgs[i+2]), cmap='gray')
         plt.subplot(233)
         plt.title('L:{}'.format(lbl[i+5]))
-        plt.imshow(np.squeeze(imgs[i+5]))
-
-
-
+        plt.imshow(np.squeeze(imgs[i+5]), cmap='gray')
 
 plt.show()

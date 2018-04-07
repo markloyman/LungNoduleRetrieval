@@ -115,7 +115,7 @@ def split_to_crossvalidation_groups(dataset, n_groups):
             data_by_patients[patient_id] = [entry]
 
     for patient_id, entry_list in data_by_patients.items():
-        label_count = np.bincount(np.concatenate([entry['label'] for entry in entry_list]), minlength=3)
+        label_count = np.bincount(np.array([entry['label'] for entry in entry_list]), minlength=3)
         max_size_per_group = [np.max([b + label_count[0], m + label_count[1], u + label_count[2]]) for b, m, u in
                                 zip(benign_count, malig_count, unknown_count)]
         group_id = np.argmin(max_size_per_group)
@@ -169,10 +169,11 @@ def crop_dataset(dataset, size):
         entry['mask']  = mask
     return dataset
 
+
 def filter_to_primary(dataset):
     def get_filtered_iterator():
         return filter(lambda entry: np.max(entry['weights']) == 1, dataset)
-    cluster_ids = np.array([reduce(lambda x,y: x + y, entry['info'][-1]) for entry in get_filtered_iterator()])
+    cluster_ids = np.array([entry['info'][0][-4:] + reduce(lambda x, y: x + y, entry['info'][-1]) for entry in get_filtered_iterator()])
     cluster_ids_unique_map = np.unique(cluster_ids, return_inverse=True)[1]
     weights = np.array([np.sum(entry['weights']) for entry in get_filtered_iterator()])
 

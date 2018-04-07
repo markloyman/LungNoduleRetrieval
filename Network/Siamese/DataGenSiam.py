@@ -2,23 +2,23 @@ import numpy as np
 
 try:
     from Network.data_loader import load_nodule_dataset, prepare_data_siamese, prepare_data_siamese_simple
-    from Network.dataUtils import augment, crop_center, get_sample_weight, get_class_weight
+    from Network.dataUtils import augment, crop_center, get_sample_weight_for_similarity, get_class_weight
     from Network.Siamese.metrics import siamese_rating_factor
 except:
-    from data import load_nodule_dataset, prepare_data_siamese, prepare_data_siamese_simple
+    from data_loader import load_nodule_dataset, prepare_data_siamese, prepare_data_siamese_simple
     from dataUtils import augment, crop_center, get_sample_weight, get_class_weight
     from Siamese.metrics import siamese_rating_factor
 
-class DataGenerator(object):
+class DataGeneratorSiam(object):
     """docstring for DataGenerator"""
 
     def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_sz=32, objective="malignancy",
                         do_augment=False, augment=None, use_class_weight=False, class_weight='dummy', debug=False,
-                        val_factor = 1, balanced=False):
+                        val_factor = 1, balanced=False, configuration=None):
 
         self.objective = objective
 
-        dataset = load_nodule_dataset(size=data_size, res=res, sample=sample, apply_mask_to_patch=debug)
+        dataset = load_nodule_dataset(size=data_size, res=res, sample=sample, apply_mask_to_patch=debug, configuration=configuration)
 
         self.train_set = dataset[2]
         self.valid_set = dataset[1]
@@ -124,10 +124,8 @@ class DataGenerator(object):
 
             for im0, im1, lbl, msk0, msk1, cnf in zip(images[0], images[1], labels, masks[0], masks[1], confidence):
                 if self.use_class_weight:
-                    w = get_sample_weight(cnf,  wD=class_weight['D'],
-                                                wSB=class_weight['SB'],
-                                                wSM=class_weight['SM']
-                                          )
+                    w = get_sample_weight_for_similarity(cnf, wD=class_weight['D'], wSB=class_weight['SB'],
+                                                         wSM=class_weight['SM'])
                     if verbose == 1:
                         print([(li, np.round(10*wi, 2).astype('uint')) for li, wi in zip(lbl, w)])
                     verbose = 0

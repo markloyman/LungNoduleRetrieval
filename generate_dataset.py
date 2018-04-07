@@ -4,15 +4,16 @@ import random
 import pickle
 import LIDC
 from Network import dataset as data
-random.seed(1337)   # for reproducibility
+# for reproducibility
+random.seed(1337)
 np.random.seed(1337)
 
 #   Setup
 # ==========
 
-size_list = [144]*2
-res_list  = [0.5, 0.7]
-norm_list = ['Normal']*2  # UniformNC Uniform Normal
+res_list  = [0.5]
+size_list = [144]*len(res_list)
+norm_list = ['Normal']*len(res_list)  # UniformNC Uniform Normal
 n_groups = 5
 do_dump = True
 
@@ -46,19 +47,27 @@ for size, res, norm in zip(size_list, res_list, norm_list):
             print("Dumped to {}".format(filename))
         print("Loaded {} entries from {}".format(len(dataset), filename))
     else:
-        dataset = [None]*5
+        dataset = None
 
     # ===================================
     #   Post-Process dataset
     # ===================================
 
+    #perform_postprocessing = False
+    #if dataset is not None:
+    #    # previous step was recalculated so override existing post-procesed datasets
+    #    perform_postprocessing = True
+    #else:
     try:
+        split_dataset = [None]*n_groups
         for i in range(n_groups):
             out_filename = 'DatasetFullCV{}_{}-{}-{}.p'.format(i, size, res, norm)
-            dataset[i] = pickle.load(open('Dataset/' + out_filename, 'br'))
-            print("Loaded {} entries from {}".format(len(dataset[i]), out_filename))
+            split_dataset[i] = pickle.load(open('Dataset/' + out_filename, 'br'))
+            print("Loaded {} entries from {}".format(len(split_dataset[i]), out_filename))
+        dataset = split_dataset
 
     except:
+        assert(dataset is not None)
         min_size = 3.0
         min_weight = 0.5
         dataset = LIDC.filter_entries(dataset, min_size=min_size, min_weight=min_weight)
@@ -94,9 +103,11 @@ for size, res, norm in zip(size_list, res_list, norm_list):
         #
         #   filter to Primary slices
         #
+        #if list(filter(lambda d: (d['info'][0]=='LIDC-IDRI-0010') and ('4' in d['info'][-1]), group)):
+        #    stop = True
         print("Group #{}:".format(i))
         group = data.filter_to_primary(group)
-        label_counter = np.bincount(np.concatenate([e['label'] for e in group]))
+        label_counter = np.bincount(np.array([e['label'] for e in group]))
         print("\tFiltered to {} primary entries".format(len(group)))
         print("\t{} benign, {} malignant, {} unknown".format(label_counter[0], label_counter[1], label_counter[2]))
 

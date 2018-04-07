@@ -14,8 +14,8 @@ def vote(rating):
     b = np.count_nonzero(rating < 3,  axis=0)
     m = np.count_nonzero(rating > 3,  axis=0)
     u = np.count_nonzero(rating == 3, axis=0)
-    v = np.argmax(np.vstack([b,m,u]), axis=0)
-    v = np.where(m==b,2, v)
+    v = np.argmax(np.vstack([b, m, u]))
+    v = np.where(m == b, 2, v)
     return v
 
 
@@ -80,7 +80,7 @@ def append_and_group_malignancy_class_to_nodule_db(filename, save_dump = False):
 
 def append_malignancy_class(dataset):
     for entry in dataset:
-        entry['label'] = vote(np.array([r[8] for r in entry['rating']]))[0]
+        entry['label'] = vote(np.array([r[8] for r in entry['rating']]))
 
     lenM = np.count_nonzero([entry['label']==1 for entry in dataset])
     lenB = np.count_nonzero([entry['label']==0 for entry in dataset])

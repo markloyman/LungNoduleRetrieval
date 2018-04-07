@@ -16,7 +16,7 @@ def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='No
     if configuration is None:
         return load_nodule_dataset_old_style(size=size, res=res, apply_mask_to_patch=apply_mask_to_patch, sample=sample)
 
-    dataset_type = "Full" if full else "Primary"
+    dataset_type = "Full" if full else ("Primary" if include_unknown else "Clean")
     test_id  = configuration
     valid_id = (configuration + 1) % n_groups
     testData, validData, trainData = [], [], []
@@ -28,8 +28,8 @@ def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='No
         except:
             data_group = pickle.load(open('.'+filename, 'br'))
 
-        if not include_unknown:
-            data_group = list(filter(lambda x: x['label'] < 2, data_group))
+        #if not include_unknown:
+        #    data_group = list(filter(lambda x: x['label'] < 2, data_group))
 
         if c == test_id:
             set = "Test"
@@ -58,6 +58,9 @@ def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='No
         trainData = [(entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size'], entry['rating'])
                      for entry in trainData]
 
+    image_ = np.concatenate([e[0] for e in trainData])
+    print("\tImage Range = [{:.1f}, {:.1f}]".format(np.max(image_), np.min(image_)))
+
     return testData, validData, trainData
 
 
@@ -74,7 +77,8 @@ def load_nodule_dataset_old_style(size=128, res=1.0, apply_mask_to_patch=False, 
         testData, validData, trainData = pickle.load(open('.'+filename, 'br'))
 
     print('Loaded: {}'.format(filename))
-    print("\tImage Range = [{:.1f}, {:.1f}]".format(np.max(trainData[0]['patch']), np.min(trainData[0]['patch'])))
+    image_ = np.concatenate([e['patch'] for e in trainData])
+    print("\tImage Range = [{:.1f}, {:.1f}]".format(np.max(image_), np.min(image_)))
     print("\tMasks Range = [{}, {}]".format(np.max(trainData[0]['mask']), np.min(trainData[0]['mask'])))
     #print("\tLabels Range = [{}, {}]".format(np.max(trainData[0]['label']), np.min(trainData[0]['label'])))
 

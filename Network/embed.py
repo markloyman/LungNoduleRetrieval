@@ -2,12 +2,12 @@ import pickle
 
 import numpy as np
 
-import FileManager
+from Network import FileManager
 from Network.Direct.directArch import directArch
 from Network.Siamese.siameseArch import siamArch
 from Network.Triplet.tripletArch import tripArch
-from Network.data_loader import load_nodule_dataset, prepare_data
 from Network.dataUtils import crop_center
+from Network.data_loader import load_nodule_dataset, prepare_data
 from Network.model import miniXception_loader
 
 
@@ -29,9 +29,12 @@ class Embeder:
         self.net_pool = pooling
         self.categorize = categorize
 
-    def prepare_data(self, data_subset_id):
+        self.model = None
+
+    def prepare_data(self, data_subset_id, configuration=None):
+
         images, labels, classes, masks, meta, conf = \
-            prepare_data(load_nodule_dataset(size=self.data_size, res=self.data_res, sample=self.data_sample)[data_subset_id],
+            prepare_data(load_nodule_dataset(configuration=configuration, size=self.data_size, res=self.data_res, sample=self.data_sample)[data_subset_id],
                          categorize=False,
                          reshuffle=False,
                          return_meta=True,
@@ -44,29 +47,33 @@ class Embeder:
         print("Image size changed to {}".format(self.images.shape))
         print('Mask not updated')
 
+    def set_network(self, model):
+        self.model = model
+
     def prepare_network(self, run, epoch):
-        model = None
+        if self.model is None:
+            if self.network == 'dir':
+                model = directArch(miniXception_loader, self.net_input_shape, objective="malignancy", output_size=self.net_out_size,
+                                   normalize=self.net_normalize, pooling=self.net_pool)
 
-        if self.network == 'dir':
-            model = directArch(miniXception_loader, self.net_input_shape, objective="malignancy", output_size=self.net_out_size,
-                               normalize=self.net_normalize, pooling=self.net_pool)
+            elif self.network == 'siam':
+                model = siamArch(miniXception_loader, self.net_input_shape, distance='l2', output_size=self.net_out_size, normalize=self.net_normalize,
+                                 pooling=self.net_pool)
 
-        elif self.network == 'siam':
-            model = siamArch(miniXception_loader, self.net_input_shape, distance='l2', output_size=self.net_out_size, normalize=self.net_normalize,
-                             pooling=self.net_pool)
+            elif self.network == 'dirR':
+                model = directArch(miniXception_loader, self.net_input_shape, objective="rating", output_size=self.net_out_size,
+                                   normalize=self.net_normalize, pooling=self.net_pool)
 
-        elif self.network == 'dirR':
-            model = directArch(miniXception_loader, self.net_input_shape, objective="rating", output_size=self.net_out_size,
-                               normalize=self.net_normalize, pooling=self.net_pool)
-
-        elif self.network == 'siamR':
-            model = siamArch(miniXception_loader, self.net_input_shape, distance='l2', output_size=self.net_out_size, normalize=self.net_normalize,
-                             pooling=self.net_pool, objective="rating")
-        elif self.network == 'trip':
-            model = tripArch(miniXception_loader, self.net_input_shape, distance='l2', output_size=self.net_out_size, normalize=self.net_normalize,
-                             pooling=self.net_pool, categorize=self.categorize)
+            elif self.network == 'siamR':
+                model = siamArch(miniXception_loader, self.net_input_shape, distance='l2', output_size=self.net_out_size, normalize=self.net_normalize,
+                                 pooling=self.net_pool, objective="rating")
+            elif self.network == 'trip':
+                model = tripArch(miniXception_loader, self.net_input_shape, distance='l2', output_size=self.net_out_size, normalize=self.net_normalize,
+                                 pooling=self.net_pool, categorize=self.categorize)
+            else:
+                assert (False)
         else:
-            assert (False)
+            model = self.model
 
         w = self.Weights(run=run, epoch=epoch)
         assert (w is not None)
@@ -78,9 +85,9 @@ class Embeder:
 
         return embed_model
 
-    def run(self, runs, epochs, post, data_subset_id):
+    def run(self, runs, epochs, post, data_subset_id, configuration=None):
 
-        self.prepare_data(data_subset_id)
+        self.prepare_data(data_subset_id, configuration=configuration)
 
         for run in runs:
             for epoch in epochs:

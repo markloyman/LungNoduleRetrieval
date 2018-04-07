@@ -68,3 +68,61 @@ class Rating:
 
 
 
+class Malignancy:
+    def __init__(self, pooling='max'):
+        self.pred_file_format = '.\output\embed\pred_dir{}_E{}_{}.p'
+        self.pooling = pooling
+        # Setup
+        self.data_size = 144
+        self.sample = 'Normal'
+        self.res = '0.5I'
+        self.model_size = 128
+        self.out_size = 128
+
+    def pred_filename(self, run, epoch, post):
+        return self.pred_file_format.format(run, epoch, post)
+
+    def load(self, run, epoch, post):
+        filename = self.pred_filename(run=run, epoch=epoch, post=post)
+        images, predict, meta_data, labels, masks = pickle.load(open(filename, 'br'))
+        return images, predict, meta_data, labels, masks
+
+    def predict_malignancy(self, weights_file, out_filename, data_subset_id, configuration=None):
+
+        input_shape = (self.model_size, self.model_size, 1)
+
+        # prepare model
+        model = directArch(miniXception_loader, input_shape, objective="malignancy", pooling=self.pooling, output_size=self.out_size,
+                           normalize=True)
+        if weights_file is not None:
+            model.load_weights(weights_file)
+            print('Load from: {}'.format(weights_file))
+        else:
+            print('Model without weights')
+
+        # prepare test data
+        images_test, labels_test, classes_test, masks_test, meta_test = \
+            prepare_data_direct(
+                load_nodule_dataset(configuration=configuration, size=self.data_size, res=self.res, sample=self.sample)[data_subset_id],
+                    size=self.model_size, return_meta=True, objective="malignancy", verbose=1, balanced=False)
+
+        print("Data ready: images({}), labels({})".format(images_test[0].shape, labels_test.shape))
+        print("Range = [{:.2f},{:.2f}]".format(np.min(images_test[0]), np.max(images_test[0])))
+
+        images_test = np.array([crop_center(im, msk, size=self.model_size)[0]
+                                 for im, msk in zip(images_test, masks_test)])
+
+        print("Image size changed to {}".format(images_test.shape))
+        print('Mask not updated')
+
+        # eval
+        print("Begin Predicting...")
+        pred = model.predict(images_test, round=False)
+        print("Predication Ready")
+        print("\tshape = {}\n\trange [{}, {}]".format(pred.shape, np.min(pred), np.max(pred)))
+
+
+        pickle.dump((images_test, pred, meta_test, labels_test, masks_test), open(out_filename, 'bw'))
+        print("Saved to: {}".format(out_filename))
+
+        return (images_test, pred, meta_test, labels_test, masks_test), out_filename

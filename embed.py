@@ -5,12 +5,13 @@ from Network import embed
 ## ======= Setup ======= ##
 ## ===================== ##
 
-network = 'trip'
+network = 'dir'
 
-wRuns = ['027']
-wEpchs= [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60]
+wRuns = ['201']
+conf = 2
+wEpchs= [40]  # [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60]
 
-pooling = 'rmac'
+pooling = 'max'
 
 # 0     Test
 # 1     Validation
@@ -37,13 +38,15 @@ try:
     Embd = embed.Embeder(network, pooling=pooling, categorize=True)
 
     DataSubSet = 0
-    Embd.run(runs=wRuns, post=data_label(DataSubSet), data_subset_id=DataSubSet, epochs=wEpchs)
+    Embd.data_size = 128
+    Embd.data_res = 0.5
+    Embd.run(runs=wRuns, post=data_label(DataSubSet), data_subset_id=DataSubSet, epochs=wEpchs, configuration=2)
 
-    DataSubSet = 1
-    Embd.run(runs=wRuns, post=data_label(DataSubSet), data_subset_id=DataSubSet, epochs=wEpchs)
+    #DataSubSet = 1
+    #Embd.run(runs=wRuns, post=data_label(DataSubSet), data_subset_id=DataSubSet, epochs=wEpchs)
 
-    DataSubSet = 2
-    Embd.run(runs=wRuns, post=data_label(DataSubSet), data_subset_id=DataSubSet, epochs=wEpchs)
+    #DataSubSet = 2
+    #Embd.run(runs=wRuns, post=data_label(DataSubSet), data_subset_id=DataSubSet, epochs=wEpchs)
 
 finally:
     plt.show()

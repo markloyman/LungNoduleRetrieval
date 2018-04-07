@@ -1,12 +1,8 @@
-from tables.idxutils import col_light
-
-from init import *
-from Analysis import Retriever
+import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
-from Network.data_loader import load_nodule_raw_dataset
-from Analysis.RatingCorrelator import calc_distance_matrix
-import Analysis.metric_space_indexes as index
-import FileManager
+from Analysis import Retriever
+from Network import FileManager
+from init import *
 
 
 def accuracy(true, pred):
@@ -23,16 +19,19 @@ def precision(query, nn):
     assert(False)
 
 
-def eval_classification(run, net_type, metric, epochs, dset):
+def eval_classification(run, net_type, metric, epochs, dset, cross_validation=False, n_groups=5):
     NN = [3, 5, 7, 11, 17]
     Embed = FileManager.Embed(net_type)
-    WW = [Embed(run, E, dset) for E in epochs]
 
     Pred_L1O = []
-    for W in WW:
+    for E in epochs:
         # Load
+        if cross_validation:
+            embed_source = [Embed(run + 'c{}'.format(c), E, dset) for c in range(n_groups)]
+        else:
+            embed_source = Embed(run, E, dset)
         Ret = Retriever(title='{}-{}'.format(net_type, run), dset=dset)
-        Ret.load_embedding(W)
+        Ret.load_embedding(embed_source)
         # Calc
         pred_l1o = []
         for N in NN:
@@ -44,15 +43,18 @@ def eval_classification(run, net_type, metric, epochs, dset):
     return np.mean(Pred_L1O, axis=-1), np.std(Pred_L1O, axis=-1)
 
 
-def eval_retrieval(run, net_type, metric, epochs, dset):
+def eval_retrieval(run, net_type, metric, epochs, dset, cross_validation=False, n_groups=5):
     NN = [3, 5, 7, 11, 17]
     Embed = FileManager.Embed(net_type)
     Prec, Prec_b, Prec_m = [], [], []
-    WW = [Embed(run, E, dset) for E in epochs]
 
-    for W in WW:
+    for E in epochs:
         Ret = Retriever(title='', dset='')
-        Ret.load_embedding(W)
+        if cross_validation:
+            embed_source = [Embed(run + 'c{}'.format(c), E, dset) for c in range(n_groups)]
+        else:
+            embed_source = Embed(run, E, dset)
+        Ret.load_embedding(embed_source)
 
         prec, prec_b, prec_m = [], [], []
         for N in NN:
@@ -113,7 +115,7 @@ if __name__ == "__main__":
     # ===========================
     '''
 
-    #'''
+    '''
     # ===========================
     #   Triplets
     # ===========================
@@ -127,8 +129,17 @@ if __name__ == "__main__":
                     ]
     run_names       = ['malig-obj', 'rating-obj', 'rating-obj', 'trip-finetuned']
     # ===========================
-    #'''
+    '''
 
+    # ===========================
+    #   configurations test
+    # ===========================
+    runs            = ['999']
+    run_net_types   = ['dir']*len(runs)
+    run_metrics     = ['l2']*len(runs)
+    run_epochs      = [[1, 2, 3, 4]]*len(runs)
+    run_names       = ['999']
+    # ===========================
 
     '''
     #runs = ['100', '016XXXX', '021', '023X']  #['064X', '078X', '026'] #['064X', '071' (is actually 071X), '078X', '081', '082']
@@ -171,13 +182,13 @@ if __name__ == "__main__":
 # Evaluate
 
     for run, net_type, _, metric, epochs in zip(runs, run_net_types, range(len(runs)), run_metrics, run_epochs):
-        acc, acc_std = eval_classification(run=run, net_type=net_type, metric=metric, epochs=epochs, dset=dset)
+        acc, acc_std = eval_classification(run=run, net_type=net_type, metric=metric, epochs=epochs, dset=dset, cross_validation=True, n_groups=2)
         q = plt_[idx(0, 0)].plot(epochs, acc, '-*')
         plt_[idx(0, 0)].plot(epochs, acc + acc_std, color=q[0].get_color(), ls='--')
         plt_[idx(0, 0)].plot(epochs, acc - acc_std, color=q[0].get_color(), ls='--')
         Axes.set_ylim(plt_[idx(0, 0)].axes, .8, .9)
 
-        prec, prec_std, index, index_std = eval_retrieval(run=run, net_type=net_type, metric=metric, epochs=epochs, dset=dset)
+        prec, prec_std, index, index_std = eval_retrieval(run=run, net_type=net_type, metric=metric, epochs=epochs, dset=dset, cross_validation=True, n_groups=2)
         q = plt_[idx(1, 0)].plot(epochs, prec, '-*')
         plt_[idx(1, 0)].plot(epochs, prec + prec_std, color=q[0].get_color(), ls='--')
         plt_[idx(1, 0)].plot(epochs, prec - prec_std, color=q[0].get_color(), ls='--')

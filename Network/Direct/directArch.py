@@ -1,6 +1,5 @@
 import pickle
 from timeit import default_timer as timer
-
 import numpy as np
 from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
 from keras.metrics import categorical_accuracy
@@ -10,10 +9,12 @@ from keras.layers import Input, Dense
 try:
     from Network.dataUtils import get_class_weight
     from Network.Direct.metrics import sensitivity, f1, precision, specificity, root_mean_squared_error, multitask_accuracy
+    import Network.FileManager  as File
     output_dir = './output'
 except:
     from dataUtils import get_class_weight
     from Direct.metrics import sensitivity, f1, precision, specificity, root_mean_squared_error, multitask_accuracy
+    import FileManager as File
     output_dir = '/output'
 
 
@@ -72,59 +73,93 @@ class directArch:
         assert(data_gen.objective == self.objective)
         self.data_gen = data_gen
 
-    def train(self, label='', epoch=0, n_epoch=100, gen = False, do_graph=False):
-        check = 'loss'
-        if self.objective == 'malignancy':
-            check = 'accuracy'
-        checkpoint = ModelCheckpoint(output_dir+'/Weights/w_' + label + '_{{epoch:02d}}-{{{}:.2f}}-{{val_{}:.2f}}.h5'.format(check, check),
-                                           monitor='val_loss', save_best_only=False)
-        #on_plateau       = ReduceLROnPlateau(monitor='val_loss', factor=0.5, epsilon=0.05, patience=10, min_lr=1e-8, verbose=1)
-        early_stop       = EarlyStopping(monitor='loss', min_delta=0.05, patience=15)
-        if gen:
-            board            = TensorBoard(log_dir=output_dir+'/logs', histogram_freq=0, write_graph=do_graph)
+    def set_callbacks(self, label='', gen=False, do_graph=False):
+        callbacks = []
+        check = 'accuracy' if self.objective == 'malignancy' else 'loss'
+        if self.data_gen.val_factor > 0:
+            weight_file_pattern = '_{{epoch:02d}}-{{{}:.2f}}-{{val_{}:.2f}}'.format(check, check)
         else:
-            board = TensorBoard(log_dir=output_dir + '/logs', histogram_freq=1, write_graph=do_graph,
-                                write_images=False, write_grads=True)
-                                #embeddings_freq=5, embeddings_layer_names='n_embedding', embeddings_metadata='meta.tsv')
+            weight_file_pattern = '_{{epoch:02d}}-{{{}:.2f}}-0'.format(check)
+        callbacks += [ModelCheckpoint(
+            output_dir + '/Weights/w_' + label + weight_file_pattern + '.h5',
+            monitor='val_loss', save_best_only=False)]
+        # on_plateau=ReduceLROnPlateau(monitor='val_loss',factor=0.5,epsilon=0.05,patience=10,min_lr=1e-8,verbose=1)
+        callbacks += [EarlyStopping(monitor='loss', min_delta=0.05, patience=15)]
+        if gen:
+            callbacks += [TensorBoard(log_dir=output_dir + '/logs/' + label, histogram_freq=0, write_graph=do_graph)]
+        else:
+            callbacks += [TensorBoard(log_dir=output_dir + '/logs/' + label, histogram_freq=1, write_graph=do_graph,
+                                write_images=False, write_grads=True)]
+            # embeddings_freq=5, embeddings_layer_names='n_embedding', embeddings_metadata='meta.tsv')
+        return callbacks
+
+    def train(self, label='', epoch=0, n_epoch=100, gen=False, do_graph=False):
+        callbacks = self.set_callbacks(label=label, gen=gen, do_graph=do_graph)
         start = timer()
         total_time = None
+        self.last_epoch = epoch + n_epoch
         try:
             if gen:
                 print("Train Steps: {}, Val Steps: {}".format(self.data_gen.train_N(), self.data_gen.val_N()))
                 history = self.model.fit_generator(
-                    generator =  self.data_gen.next_train(),
-                    steps_per_epoch= self.data_gen.train_N(),
-                    #class_weight = class_weight,
-                    validation_data  = self.data_gen.next_val(),
-                    validation_steps = self.data_gen.val_N(),
-                    initial_epoch = epoch,
-                    epochs = epoch+n_epoch,
+                    generator=self.data_gen.next_train(),
+                    steps_per_epoch=self.data_gen.train_N(),
+                    validation_data=self.data_gen.next_val(),
+                    validation_steps=self.data_gen.val_N(),
+                    initial_epoch=epoch,
+                    epochs=self.last_epoch,
                     max_queue_size=3,
-                    callbacks = [checkpoint, board], # early_stop, on_plateau, early_stop, checkpoint_val, lr_decay, pb
-                    verbose = 2
+                    callbacks=callbacks,  # early_stop, on_plateau, early_stop, checkpoint_val, lr_decay, pb
+                    verbose=2
                 )
             else:
-                class_weight = get_class_weight(self.labels_train)
                 history = self.model.fit(
-                    x = self.images_train,
-                    y = self.labels_train,
-                    shuffle = True,
-                    #class_weight = class_weight,
-                    validation_data = (self.images_valid, self.labels_valid),
-                    batch_size = self.batch_sz,
+                    x=self.images_train,
+                    y=self.labels_train,
+                    shuffle=True,
+                    validation_data=(self.images_valid, self.labels_valid),
+                    batch_size=self.batch_sz,
                     initial_epoch=epoch,
-                    epochs = epoch+n_epoch,
-                    callbacks = [checkpoint, early_stop, board],
-                    verbose = 2
+                    epochs=epoch+n_epoch,
+                    callbacks=callbacks,
+                    verbose=2
                 )
             total_time = (timer() - start) / 60 / 60
             # history_summarize(history, label)
-            pickle.dump(history.history, open(output_dir+ '/history/history-{}.p'.format(label), 'bw'))
+            pickle.dump(history.history, open(output_dir + '/history/history-{}.p'.format(label), 'bw'))
 
         finally:
             if total_time is None:
                 total_time = (timer() - start) / 60 / 60
             print("Total training time is {:.1f} hours".format(total_time))
+
+    def embed(self, epoch0=0, delta_epoch=5):
+        # init file managers
+        Weights = File.Weights(self.net_type)
+        Embed = File.Embed(self.net_type)
+
+        # get data from generator
+        images, labels, classes, masks, meta = self.data_gen.get_valid_data()
+
+        epochs = list(range(epoch0, self.last_epoch, delta_epoch))
+        embedding = []
+        for epch in epochs:
+            # load weights
+            w = Weights(run=self.run, epoch=epch)
+            assert(w is not None)
+            embed_model = self.extract_core(weights=w, repool=False)
+            print("Loaded {}".format(w))
+
+            # predict
+            pred = embed_model.predict(images)
+            embedding.append(np.expand_dims(pred, axis=0))
+
+        embedding = np.concatenate(embedding, axis=0)
+
+        # dump to Embed file
+        out_filename = Embed(self.run, 'Valid')
+        pickle.dump((embedding, epochs, meta, images, classes, labels, masks), open(out_filename, 'bw'))
+        print("Saved embedding of shape {} to: {}".format(embedding.shape, out_filename))
 
     def test(self, images, labels, N=0):
         assert images.shape[0] == labels.shape[0]

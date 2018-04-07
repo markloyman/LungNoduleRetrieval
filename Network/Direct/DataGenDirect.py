@@ -4,7 +4,7 @@ try:
     from Network.data_loader import load_nodule_dataset, prepare_data, prepare_data_direct
     from Network.dataUtils import augment, crop_center, get_sample_weight, get_class_weight
 except:
-    from data import load_nodule_dataset, prepare_data, prepare_data_direct
+    from data_loader import load_nodule_dataset, prepare_data, prepare_data_direct
     from dataUtils import augment, crop_center, get_sample_weight, get_class_weight
 
 class DataGeneratorDir(object):
@@ -12,10 +12,13 @@ class DataGeneratorDir(object):
 
     def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_sz=32,
                         objective='malignancy', rating_scale='none', categorize=False,
-                        do_augment=False, augment=None, use_class_weight=False, class_weight='dummy', debug=False,
-                        val_factor = 1, balanced=False, configuration=None):
+                        do_augment=False, augment=None,
+                        use_class_weight=False, use_confidence=False,
+                        val_factor = 1, balanced=False, configuration=None,
+                        debug=False,):
 
         assert(categorize==False)
+        assert(use_confidence==False)
 
         self.objective = objective
         self.rating_scale = rating_scale
@@ -31,7 +34,7 @@ class DataGeneratorDir(object):
         self.val_factor = val_factor
 
         if objective == 'malignancy':
-            labels = np.concatenate([entry[2] for entry in dataset[2]])
+            labels = np.array([entry[2] for entry in dataset[2]])
             Nb = np.count_nonzero(1 - labels)
             Nm = np.count_nonzero(labels)
 
@@ -41,16 +44,16 @@ class DataGeneratorDir(object):
             else:
                 self.trainN = (Nb+Nm) // self.batch_sz
                 #self.trainN = 1023 // self.batch_sz
-            self.valN = val_factor * (339 // self.batch_sz)
+            self.valN = val_factor * (len(self.valid_set) // self.batch_sz) # 339
 
             self.balanced = balanced
 
             self.use_class_weight = use_class_weight
-            if use_class_weight:
-                self.class_weight = get_class_weight(labels, class_weight)
-                print("Class Weight -> Benign: {:.2f}, Malignant: {:.2f}".format(self.class_weight[0], self.class_weight[1]))
-            else:
-                self.class_weight = None
+            #if use_class_weight:
+            #    self.class_weight = get_class_weight(labels, class_weight)
+            #    print("Class Weight -> Benign: {:.2f}, Malignant: {:.2f}".format(self.class_weight[0], self.class_weight[1]))
+            #else:
+            #    self.class_weight = None
         elif objective == 'rating':
             self.trainN = len(self.train_set) // batch_sz
             self.valN = len(self.valid_set) // batch_sz
@@ -97,6 +100,14 @@ class DataGeneratorDir(object):
             images, labels, classes, masks = \
                 prepare_data_direct(set, objective=self.objective, rating_scale=self.rating_scale, classes=2, size=self.model_size, verbose=verbose)[:4]
             #prepare_data(set, classes=2, verbose=verbose, reshuffle=True)
+
+            if self.use_class_weight:
+                class_weights = get_class_weight(np.argmax(labels, axis=1), 'balanced')
+                print("Class Weight -> Benign: {:.2f}, Malignant: {:.2f}".format(class_weights[0], class_weights[1]))
+                sample_weights = get_sample_weight(np.argmax(labels, axis=1), class_weights)
+            else:
+                sample_weights = np.ones(len(labels))
+
             Nb = np.count_nonzero(1-classes)
             Nm = np.count_nonzero(classes)
             N = np.minimum(Nb, Nm)
@@ -109,6 +120,8 @@ class DataGeneratorDir(object):
                 labels = self.select_balanced(labels, labels_, N, new_order)
                 classes = self.select_balanced(classes, labels_, N, new_order)
                 masks = self.select_balanced(masks, labels_, N, new_order)
+                sample_weights = self.select_balanced(sample_weights, labels_, N, new_order)
+
                 if verbose:
                     Nb = np.count_nonzero(1 - np.argmax(classes, axis=1))
                     Nm = np.count_nonzero(np.argmax(classes, axis=1))
@@ -119,19 +132,17 @@ class DataGeneratorDir(object):
                     images = self.augment_all(images, masks)
             else:
                 images = np.array([crop_center(im, msk, size=self.model_size)[0]
-                                    for im, msk in zip(images, masks)])
+                                   for im, msk in zip(images, masks)])
             if verbose:
                 print("images after augment/crop: {}".format(images[0].shape))
-
-            #if self.use_class_weight:
-            #    class_weight = get_class_weight(confidence, method=self.class_weight_method)
 
             # split into batches
             split_idx = [b for b in range(self.batch_sz, images.shape[0], self.batch_sz)]
             images = np.array_split(images, split_idx)
             labels = np.array_split(labels,  split_idx)
             classes = np.array_split(classes, split_idx)
-            masks  = np.array_split(masks, split_idx)
+            masks = np.array_split(masks, split_idx)
+            sample_weights = np.array_split(sample_weights, split_idx)
             #confidence = np.array_split(confidence,  split_idx)
 
             if verbose == 1: print("batch size:{}, sets:{}".format(images[0].shape[0], len(images[0])))
@@ -142,10 +153,12 @@ class DataGeneratorDir(object):
                 labels = labels[:-1]
                 classes = classes[:-1]
                 masks  = masks[:-1]
+                sample_weights = sample_weights[:-1]
                 #if self.use_class_weight:
                 #    confidence = confidence[:-1]
                 if verbose == 1:
                     print("discard last unfull batch -> sets:{}".format(len(images)))
+
 
             if epoch == 0:
                 if is_training:
@@ -154,8 +167,8 @@ class DataGeneratorDir(object):
                     assert( (self.val_factor*len(images)) == self.valN)
 
             #for im, lbl, msk, cnf in zip(images, labels, masks, confidence):
-            for im, lbl, msk in zip(images, labels, masks):
-                yield (im, lbl)
+            for im, lbl, w in zip(images, labels, sample_weights):
+                yield (im, lbl, w)
                 #if self.use_class_weight:
                 #    assert(False)
                 #    w = get_sample_weight(cnf,  wD=class_weight['D'],
@@ -175,10 +188,25 @@ class DataGeneratorDir(object):
         return self.next(self.train_set, is_training=True)
 
     def next_val(self):
-        return self.next(self.valid_set, is_training=False)
+        return self.next(self.valid_set, is_training=False) if (self.val_factor >= 1) else None
 
     def train_N(self):
         return self.trainN
 
     def val_N(self):
-        return self.valN
+        return self.valN if (self.val_factor >= 1) else 0
+
+    def get_train_data(self):
+        return prepare_data_direct(self.train_set, objective=self.objective,
+                                   rating_scale=self.rating_scale, classes=2, size=self.model_size,
+                                   verbose=True, return_meta=True)
+
+    def get_valid_data(self):
+        return prepare_data_direct(self.valid_set, objective=self.objective,
+                                   rating_scale=self.rating_scale, classes=2, size=self.model_size,
+                                   verbose=True, return_meta=True)
+
+    def get_test_images(self):
+        return prepare_data_direct(self.test_set, objective=self.objective,
+                                   rating_scale=self.rating_scale, classes=2, size=self.model_size,
+                                   verbose=True, return_meta=True)

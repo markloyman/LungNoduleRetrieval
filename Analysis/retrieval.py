@@ -6,8 +6,9 @@ from sklearn.model_selection import LeaveOneOut
 from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
 
 from LIDC.lidcUtils import calc_rating
-from Network.data_loader import load_nodule_raw_dataset
 from Network.dataUtils import rating_normalize
+from Network.data_loader import load_nodule_raw_dataset
+
 
 def accuracy(true, pred):
     pred = np.clip(pred, 0, 1)
@@ -32,10 +33,27 @@ class Retriever:
         self.nod_ids = None
 
     def load_embedding(self, filename):
+        if type(filename) is list:
+            self.images, self.embedding, self.meta_data, self.labels, self.masks = [], [], [], [], []
+            for fn in filename:
+                assert(type(fn) is str)
+                images, embedding, meta_data, labels, masks = pickle.load(open(fn, 'br'))
+                self.images.append(images)
+                self.embedding.append(embedding)
+                self.meta_data += meta_data
+                self.labels.append(labels)
+                self.masks.append(masks)
+            self.images = np.concatenate(self.images)
+            self.embedding = np.concatenate(self.embedding)
+            self.labels = np.concatenate(self.labels)
+            self.masks = np.concatenate(self.masks)
+        else:
+            assert (type(filename) is str)
+            self.images, self.embedding, self.meta_data, self.labels, self.masks \
+                = pickle.load(open(filename, 'br'))
+        if self.labels.shape[1] > 1:
+            self.labels = np.argmax(self.labels, axis=1)
 
-        self.images, self.embedding, self.meta_data, self.labels, self.masks \
-            = pickle.load(open(filename, 'br'))
-            #= pickle.load(open('./output/embed/{}'.format(filename), 'br'))
         self.len = len(self.meta_data)
         self.nod_ids = [None]*self.len
 
@@ -123,7 +141,6 @@ class Retriever:
         else:
             return self.meta_data[query]
 
-
     def classify_naive(self):
         clf = KNeighborsClassifier(self.n, weights='uniform')
         clf.fit(self.embedding, self.labels)
@@ -135,7 +152,7 @@ class Retriever:
     def classify_leave1out(self):
         loo = LeaveOneOut()
         clf = KNeighborsClassifier(self.n, weights='uniform')
-        pred = np.zeros((len(self.labels),1))
+        pred = np.zeros((len(self.labels), 1))
         for train_index, test_index in loo.split(self.embedding):
             clf.fit(self.embedding[train_index], self.labels[train_index])
             pred[test_index] = clf.predict(self.embedding[test_index])
@@ -203,9 +220,8 @@ if __name__ == "__main__":
     #leg = ['Chained-E15', 'Chained-E25', 'Base-E30', 'Base-E40']
     #WW = ['embed_siam000-10_Test.p', 'embed_siam000-15_Test.p', 'embed_siam000-20_Test.p', 'embed_siam000-25_Test.p', 'embed_siam000-30_Test.p',
     #      'embed_siam000-35_Test.p', 'embed_siam000-40_Test.p', 'embed_siam000-45_Test.p', 'embed_siam000-50_Test.p']
-    from Analysis.RatingCorrelator import calc_distance_matrix
-    import Analysis.metric_space_indexes as index
-    import FileManager
+    from Network import FileManager
+
     #Embed = FileManager.Embed('siam')
 
     dset = 'Valid'

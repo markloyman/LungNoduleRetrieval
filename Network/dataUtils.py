@@ -70,7 +70,7 @@ def get_class_weight(labels, method='balanced'):
     return CW
 
 
-def get_sample_weight(labels, wD=None, wSB=None, wSM=None):
+def get_sample_weight_for_similarity(labels, wD=None, wSB=None, wSM=None):
     if labels.ndim > 1:
         labels = uncategorize(labels)
     if (wD is None) or (wSB is None) or (wSM is None):
@@ -90,6 +90,10 @@ def get_sample_weight(labels, wD=None, wSB=None, wSM=None):
     # calc sample weights
     sample_weights = class_weight.compute_sample_weight(label_weights, labels)
     return sample_weights
+
+
+def get_sample_weight(labels, class_weights):
+    return np.array([class_weights[l] for l in labels])
 
 
 def crop_center(image, mask, size=None):

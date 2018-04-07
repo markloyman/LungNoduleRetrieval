@@ -1,15 +1,16 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import pickle
+import sys
+
+import matplotlib.pyplot as plt
+import numpy as np
 from keras.models import Model
 
-import sys
-sys.path.insert(0, 'E:\LungNoduleRetrieval')
+sys.path.insert(0, 'G:\LungNoduleRetrieval')
 
 try:
     from Network.model import  miniXception_loader
-    from Network.siameseArch import siamArch
-    from Network.data import load_nodule_dataset, prepare_data
+    from Network.Siamese.siameseArch import siamArch
+    from Network.data_loader import load_nodule_dataset, prepare_data
     from Network.dataUtils import crop_center
     from Analysis.analysis import calc_embedding_statistics
 except:
@@ -17,7 +18,7 @@ except:
     from siameseArch import siamArch
     from data import load_nodule_dataset, prepare_data
     from dataUtils import crop_center
-import FileManager
+from Network import FileManager
 
 # Setup
 # ===================

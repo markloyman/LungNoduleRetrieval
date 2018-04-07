@@ -1,12 +1,12 @@
-import matplotlib.pyplot as plt
-import tensorflow as tf
-import numpy as np
 import os
-from skimage.transform import resize
 
+import matplotlib.pyplot as plt
+import numpy as np
+import tensorflow as tf
+from skimage.transform import resize
 from tensorflow.contrib.tensorboard.plugins import projector
 
-import FileManager
+from Network import FileManager
 
 
 def create_sprite_image(images, masks):

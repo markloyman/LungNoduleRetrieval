@@ -9,7 +9,7 @@ from timeit import default_timer as timer
 import matplotlib.pyplot as plt
 import sys
 sys.path.insert(0, 'E:\LungNoduleRetrieval')
-import FileManager
+from Network import FileManager
 from Network.dataUtils import crop_center
 
 eps = 0.0000000001

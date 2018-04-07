@@ -1,11 +1,7 @@
 import numpy as np
-from keras import objectives
 from keras import backend as K
 
-from Network.siameseArch import contrastive_loss
-from Network.tripletArch import triplet_loss
-from Network.metrics import pearson_correlation
-from scipy.stats import pearsonr
+from Network.Triplet.tripletArch import triplet_loss
 
 _EPSILON = K.epsilon()
 

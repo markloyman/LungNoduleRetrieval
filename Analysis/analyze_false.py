@@ -5,11 +5,9 @@ np.random.seed(1337)  # for reproducibility
 import random
 random.seed(1337)
 import pickle
-from timeit import default_timer as timer
 import matplotlib.pyplot as plt
 import sys
-sys.path.insert(0, 'E:\LungNoduleRetrieval')
-import FileManager
+sys.path.insert(0, 'G:\LungNoduleRetrieval')
 
 
 def factor(a, b):

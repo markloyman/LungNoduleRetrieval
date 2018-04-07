@@ -2,14 +2,12 @@ import pickle
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.spatial.distance import pdist, cdist, squareform
-from scipy.stats import pearsonr, spearmanr, kendalltau #, wasserstein_distance
+from scipy.stats import pearsonr, spearmanr, kendalltau  # , wasserstein_distance
 from sklearn import linear_model
-from sklearn.metrics import mean_squared_error, r2_score, pairwise
-from sklearn.neighbors import DistanceMetric
+from sklearn.metrics import mean_squared_error, r2_score
 
-from LIDC.lidcUtils import calc_rating
 from Analysis.analysis import calc_distance_matrix, calc_cross_distance_matrix
+from LIDC.lidcUtils import calc_rating
 from Network.dataUtils import rating_normalize
 
 '''
@@ -343,7 +341,8 @@ if __name__ == "__main__":
     #   Kendall tau distance
     #   Spearman's rank correlation
     #   Distance Correlation
-    import FileManager
+    from Network import FileManager
+
     Embed = FileManager.Embed('siam')
 
     Reg = RatingCorrelator(Embed(run='064X',epoch=30,dset='Valid'))

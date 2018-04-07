@@ -1,5 +1,7 @@
-from init import *
 from Analysis import RatingCorrelator
+from init import *
+
+
 #from Network import PredictRating
 #pred_loader = PredictRating()
 

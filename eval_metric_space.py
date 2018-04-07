@@ -1,8 +1,7 @@
-from init import *
-from Analysis.retrieval import Retriever
 from Analysis import metric_space_indexes as index
 from Analysis.RatingCorrelator import calc_distance_matrix
-
+from Analysis.retrieval import Retriever
+from init import *
 
 dset = 'Valid'
 rating_normalizaion = 'Scale' # 'None', 'Normal', 'Scale'

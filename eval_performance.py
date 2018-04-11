@@ -1,8 +1,9 @@
-import matplotlib.pyplot as plt
-from matplotlib.axes import Axes
+from init import *
+from functools import reduce
+from scipy.signal import savgol_filter
 from Analysis import Retriever
 from Network import FileManager
-from init import *
+from experiments import load_experiments
 
 
 def accuracy(true, pred):
@@ -19,54 +20,79 @@ def precision(query, nn):
     assert(False)
 
 
-def eval_classification(run, net_type, metric, epochs, dset, cross_validation=False, n_groups=5):
-    NN = [3, 5, 7, 11, 17]
+def eval_classification(run, net_type, metric, epochs, dset, NN=[3, 5, 7, 11, 17], cross_validation=False, n_groups=5):
     Embed = FileManager.Embed(net_type)
-
     Pred_L1O = []
-    for E in epochs:
+
+    if cross_validation:
         # Load
-        if cross_validation:
-            embed_source = [Embed(run + 'c{}'.format(c), E, dset) for c in range(n_groups)]
-        else:
-            embed_source = Embed(run, E, dset)
+        embed_source= [Embed(run + 'c{}'.format(c), dset) for c in range(n_groups)]
         Ret = Retriever(title='{}-{}'.format(net_type, run), dset=dset)
-        Ret.load_embedding(embed_source)
-        # Calc
-        pred_l1o = []
-        for N in NN:
-            Ret.fit(N, metric=metric)
-            pred_l1o.append(Ret.classify_leave1out()[1])
-        Pred_L1O.append(np.array(pred_l1o))
-    Pred_L1O = np.array(Pred_L1O)
+        Ret.load_embedding(embed_source, multi_epcch=True)
+        for E in epochs:
+            # Calc
+            pred_l1o = []
+            for N in NN:
+                pred_l1o.append(Ret.classify_leave1out(epoch=E, n=N)[1])
+            Pred_L1O.append(np.array(pred_l1o))
+        Pred_L1O = np.array(Pred_L1O)
+    else:
+        for E in epochs:
+            # Load
+            embed_source = Embed(run, E, dset)
+            Ret = Retriever(title='{}-{}'.format(net_type, run), dset=dset)
+            Ret.load_embedding(embed_source)
+            # Calc
+            pred_l1o = []
+            for N in NN:
+                pred_l1o.append(Ret.classify_leave1out(n=N)[1])
+            Pred_L1O.append(np.array(pred_l1o))
+        Pred_L1O = np.array(Pred_L1O)
 
     return np.mean(Pred_L1O, axis=-1), np.std(Pred_L1O, axis=-1)
 
 
-def eval_retrieval(run, net_type, metric, epochs, dset, cross_validation=False, n_groups=5):
-    NN = [3, 5, 7, 11, 17]
+def eval_retrieval(run, net_type, metric, epochs, dset, NN=[3, 5, 7, 11, 17], cross_validation=False, n_groups=5):
     Embed = FileManager.Embed(net_type)
     Prec, Prec_b, Prec_m = [], [], []
 
-    for E in epochs:
-        Ret = Retriever(title='', dset='')
-        if cross_validation:
-            embed_source = [Embed(run + 'c{}'.format(c), E, dset) for c in range(n_groups)]
-        else:
-            embed_source = Embed(run, E, dset)
-        Ret.load_embedding(embed_source)
+    if cross_validation:
+        # Load
+        embed_source= [Embed(run + 'c{}'.format(c), dset) for c in range(n_groups)]
+        Ret = Retriever(title='{}-{}'.format(net_type, run), dset=dset)
+        Ret.load_embedding(embed_source, multi_epcch=True)
+        for E in epochs:
+            # Calc
+            prec, prec_b, prec_m = [], [], []
+            Ret.fit(np.max(NN), metric=metric, epoch=E)
+            for N in NN:
+                p, pb, pm = Ret.evaluate_precision(n=N)
+                prec.append(p)
+                prec_b.append(pb)
+                prec_m.append(pm)
+            Prec.append(np.array(prec))
+            Prec_b.append(np.array(prec_b))
+            Prec_m.append(np.array(prec_m))
 
-        prec, prec_b, prec_m = [], [], []
-        for N in NN:
-            Ret.fit(N, metric=metric)
-            p = Ret.evaluate_precision(plot=False, split=False)
-            pm, pb = Ret.evaluate_precision(plot=False, split=True)
-            prec.append(p)
-            prec_b.append(pb)
-            prec_m.append(pm)
-        Prec.append(np.array(prec))
-        Prec_b.append(np.array(prec_b))
-        Prec_m.append(np.array(prec_m))
+    else:
+        for E in epochs:
+            Ret = Retriever(title='', dset='')
+            if cross_validation:
+                embed_source = [Embed(run + 'c{}'.format(c), E, dset) for c in range(n_groups)]
+            else:
+                embed_source = Embed(run, E, dset)
+            Ret.load_embedding(embed_source)
+
+            prec, prec_b, prec_m = [], [], []
+            Ret.fit(np.max(NN), metric=metric)
+            for N in NN:
+                p, pm, pb = Ret.evaluate_precision(n=N)
+                prec.append(p)
+                prec_b.append(pb)
+                prec_m.append(pm)
+            Prec.append(np.array(prec))
+            Prec_b.append(np.array(prec_b))
+            Prec_m.append(np.array(prec_m))
 
     # Pred_L1O = np.transpose(np.array(Pred_L1O))
     Prec = (np.array(Prec))
@@ -79,83 +105,12 @@ def eval_retrieval(run, net_type, metric, epochs, dset, cross_validation=False, 
 
 if __name__ == "__main__":
 
-# Setup
+    # Setup
 
     dset = 'Valid'
+    start = timer()
 
-    '''
-    # ===========================
-    #   Malignancy Objective
-    # ===========================
-    runs            = ['103', '100', '011XXX']
-    run_net_types   = ['dir', 'siam', 'trip']
-    run_metrics     = ['l2']*len(runs)
-    run_epochs      = [ [5, 10, 15, 20, 25, 30, 35, 40, 45],
-                        [5, 10, 15, 20, 25, 30, 35, 40, 45],
-                        [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
-                    ]
-    run_names       = run_net_types
-    # ===========================
-    '''
-
-
-    '''
-    # ===========================
-    #   Triplet Compare to dirR reference
-    # ===========================
-    runs            = ['011X', '011XXX', '016XXXX', '023X']
-    run_net_types   = ['dirR', 'trip', 'trip', 'trip']
-    run_metrics     = ['l2']*len(runs)
-    run_epochs      = [ [5, 15, 25, 35, 45, 55],
-                        [5, 15, 25, 35, 45, 55],
-                        [20, 40, 100, 150, 180],
-                        [5, 15, 20, 25, 30, 35]
-                    ]
-    run_names       = ['dirR', 'malig-obj', 'trip', 'trip-finetuned']
-    # ===========================
-    '''
-
-    '''
-    # ===========================
-    #   Triplets
-    # ===========================
-    runs            = ['011XXX', '016XXXX', '027', '023X']
-    run_net_types   = ['trip']*len(runs)
-    run_metrics     = ['l2']*len(runs)
-    run_epochs      = [ [5, 15, 25, 35, 45, 55],
-                        [20, 40, 100, 150, 180],
-                        [5, 15, 25, 35, 40, 45, 50, 55, 60],
-                        [5, 15, 20, 25, 30, 35]
-                    ]
-    run_names       = ['malig-obj', 'rating-obj', 'rating-obj', 'trip-finetuned']
-    # ===========================
-    '''
-
-    # ===========================
-    #   configurations test
-    # ===========================
-    runs            = ['999']
-    run_net_types   = ['dir']*len(runs)
-    run_metrics     = ['l2']*len(runs)
-    run_epochs      = [[1, 2, 3, 4]]*len(runs)
-    run_names       = ['999']
-    # ===========================
-
-    '''
-    #runs = ['100', '016XXXX', '021', '023X']  #['064X', '078X', '026'] #['064X', '071' (is actually 071X), '078X', '081', '082']
-    #run_net_types = ['siam', 'trip','trip', 'trip']  #, 'dir']
-    runs            = ['021', '022XX', '023X', '025']
-    run_names       = ['max-pool', 'rmac', 'categ', 'confidence+cat' ]
-    run_net_types   = ['trip']*len(runs)
-    run_metrics     = ['l2']*len(runs)
-    #rating_normalizaion = 'Scale' # 'None', 'Normal', 'Scale'
-
-    run_epochs = [ [5, 15, 25, 35],
-                   [5, 15, 25, 35, 45, 55],
-                   [5, 15, 25, 35],
-                   [5, 15, 25, 35, 45, 55]
-               ]
-    '''
+    runs, run_net_types, run_metrics, run_epochs, run_names = load_experiments('Pooling')
 
     # Initialize Figures
 
@@ -179,28 +134,87 @@ if __name__ == "__main__":
         plt_[idx(c, 0)].axes.yaxis.label.set_text(col_labels[c])
     plt_[-2].axes.xaxis.label.set_text("Epochs")
 
-# Evaluate
+    # Evaluate
 
-    for run, net_type, _, metric, epochs in zip(runs, run_net_types, range(len(runs)), run_metrics, run_epochs):
-        acc, acc_std = eval_classification(run=run, net_type=net_type, metric=metric, epochs=epochs, dset=dset, cross_validation=True, n_groups=2)
+    label = reduce(lambda x, y: x + y, ['_' + n[:3] for n in run_names])
+    plot_data_filename = './Plots/performance{}.p'.format(label)
+    try:
+        Acc, Acc_std, Prec, Prec_std, Index, Index_std = pickle.load(open(plot_data_filename, 'br'))
+    except:
+        Acc, Acc_std, Prec, Prec_std, Index, Index_std = [], [], [], [], [], []
+        for run, net_type, _, metric, epochs in zip(runs, run_net_types, range(len(runs)), run_metrics, run_epochs):
+            print("Evaluating classification accuracy for {}{}".format(net_type, run))
+            acc, acc_std = eval_classification(
+                                    run=run, net_type=net_type, dset=dset,
+                                    metric=metric, epochs=epochs,
+                                    cross_validation=True)
+            print("Evaluating retrieval precision for {}{}".format(net_type, run))
+            prec, prec_std, index, index_std = eval_retrieval(
+                                    run=run, net_type=net_type, dset=dset,
+                                    metric=metric, epochs=epochs,
+                                    cross_validation=True)
+            Acc += [acc]
+            Acc_std += [acc_std]
+            Prec += [prec]
+            Prec_std += [prec_std]
+            Index += [index]
+            Index_std += [index_std]
+        pickle.dump((Acc, Acc_std, Prec, Prec_std, Index, Index_std), open(plot_data_filename, 'bw'))
+
+    print("Evaluation Done in {:.1f} hours".format((timer() - start) / 60 / 60))
+
+    # Display
+
+    alpha = 0.6
+
+    def smooth(signal):
+        return savgol_filter(signal, window_length=3, polyorder=2, mode='nearest')
+
+    for acc, acc_std, prec, prec_std, index, index_std, epochs in zip(Acc, Acc_std, Prec, Prec_std, Index, Index_std, run_epochs):
+        '''
+        # Accuracy
         q = plt_[idx(0, 0)].plot(epochs, acc, '-*')
-        plt_[idx(0, 0)].plot(epochs, acc + acc_std, color=q[0].get_color(), ls='--')
-        plt_[idx(0, 0)].plot(epochs, acc - acc_std, color=q[0].get_color(), ls='--')
+        plt_[idx(0, 0)].plot(epochs, acc + acc_std, color=q[0].get_color(), ls='--', alpha=alpha)
+        plt_[idx(0, 0)].plot(epochs, acc - acc_std, color=q[0].get_color(), ls='--', alpha=alpha)
         Axes.set_ylim(plt_[idx(0, 0)].axes, .8, .9)
 
-        prec, prec_std, index, index_std = eval_retrieval(run=run, net_type=net_type, metric=metric, epochs=epochs, dset=dset, cross_validation=True, n_groups=2)
+        # Precision
         q = plt_[idx(1, 0)].plot(epochs, prec, '-*')
-        plt_[idx(1, 0)].plot(epochs, prec + prec_std, color=q[0].get_color(), ls='--')
-        plt_[idx(1, 0)].plot(epochs, prec - prec_std, color=q[0].get_color(), ls='--')
+        plt_[idx(1, 0)].plot(epochs, prec + prec_std, color=q[0].get_color(), ls='--', alpha=alpha)
+        plt_[idx(1, 0)].plot(epochs, prec - prec_std, color=q[0].get_color(), ls='--', alpha=alpha)
         Axes.set_ylim(plt_[idx(0, 0)].axes, .75, .85)
 
+        # Precision Index
         q = plt_[idx(2, 0)].plot(epochs, index, '-*')
-        plt_[idx(2, 0)].plot(epochs, index + index_std, color=q[0].get_color(), ls='--')
-        plt_[idx(2, 0)].plot(epochs, index - index_std, color=q[0].get_color(), ls='--')
+        plt_[idx(2, 0)].plot(epochs, index + index_std, color=q[0].get_color(), ls='--', alpha=alpha)
+        plt_[idx(2, 0)].plot(epochs, index - index_std, color=q[0].get_color(), ls='--', alpha=alpha)
         Axes.set_ylim(plt_[idx(0, 0)].axes, .75, .85)
+        '''
+
+        # Smoothed
+        row = 0
+
+        # Accuracy
+        q = plt_[idx(0, row)].plot(epochs, smooth(acc), '-*')
+        plt_[idx(0, row)].plot(epochs, smooth(acc + acc_std), color=q[0].get_color(), ls='--', alpha=alpha)
+        plt_[idx(0, row)].plot(epochs, smooth(acc - acc_std), color=q[0].get_color(), ls='--', alpha=alpha)
+        Axes.set_ylim(plt_[idx(0, row)].axes, .7, .9)
+
+        # Precision
+        q = plt_[idx(1, row)].plot(epochs, smooth(prec), '-*')
+        plt_[idx(1, row)].plot(epochs, smooth(prec + prec_std), color=q[0].get_color(), ls='--', alpha=alpha)
+        plt_[idx(1, row)].plot(epochs, smooth(prec - prec_std), color=q[0].get_color(), ls='--', alpha=alpha)
+        Axes.set_ylim(plt_[idx(1, row)].axes, .6, .8)
+
+        # Precision Index
+        q = plt_[idx(2, row)].plot(epochs, smooth(index), '-*')
+        plt_[idx(2, row)].plot(epochs, smooth(index + index_std), color=q[0].get_color(), ls='--', alpha=alpha)
+        plt_[idx(2, row)].plot(epochs, smooth(index - index_std), color=q[0].get_color(), ls='--', alpha=alpha)
+        Axes.set_ylim(plt_[idx(2, row)].axes, .6, .8)
 
     plt_[-1].legend(legend)
 
-    print('Plots Ready')
+    print("Plots Ready in {:.1f} hours".format((timer() - start) / 60 / 60))
+
     plt.show()
 

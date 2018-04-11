@@ -1,8 +1,8 @@
 import numpy as np
 from numpy.random import rand
+import matplotlib.pyplot as plt
 from scipy.ndimage.interpolation import rotate
 from sklearn.utils import class_weight
-import matplotlib.pyplot as plt
 
 
 def rating_normalize(rating, method):

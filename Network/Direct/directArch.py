@@ -11,11 +11,13 @@ try:
     from Network.Direct.metrics import sensitivity, f1, precision, specificity, root_mean_squared_error, multitask_accuracy
     import Network.FileManager  as File
     output_dir = './output'
+    input_dir = './output'
 except:
     from dataUtils import get_class_weight
     from Direct.metrics import sensitivity, f1, precision, specificity, root_mean_squared_error, multitask_accuracy
     import FileManager as File
     output_dir = '/output'
+    input_dir = '/input'
 
 
 class directArch:
@@ -133,15 +135,15 @@ class directArch:
                 total_time = (timer() - start) / 60 / 60
             print("Total training time is {:.1f} hours".format(total_time))
 
-    def embed(self, epoch0=0, delta_epoch=5):
+    def embed(self, epoch0=1, delta_epoch=5):
         # init file managers
-        Weights = File.Weights(self.net_type)
-        Embed = File.Embed(self.net_type)
+        Weights = File.Weights(self.net_type, output_dir=input_dir)
+        Embed = File.Embed(self.net_type, output_dir=output_dir)
 
         # get data from generator
         images, labels, classes, masks, meta = self.data_gen.get_valid_data()
 
-        epochs = list(range(epoch0, self.last_epoch, delta_epoch))
+        epochs = list(range(epoch0, self.last_epoch+1, delta_epoch))
         embedding = []
         for epch in epochs:
             # load weights

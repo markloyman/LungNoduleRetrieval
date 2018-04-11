@@ -5,11 +5,12 @@ import numpy as np
 
 class Weights(object):
 
-    def __init__(self, pre):
-        self.weightsTemplate = 'output/Weights/w_{}{{}}_{{}}-{{}}-{{}}.h5'.format(pre)
+    def __init__(self, pre, output_dir='./output'):
+        print(output_dir)
+        self.weightsTemplate = output_dir + '/Weights/w_{}{{}}_{{}}-{{}}-{{}}.h5'.format(pre)
 
     def read(self, run=None, epoch=None):
-        match = self.weightsTemplate.format(run,epoch,'*','*')
+        match = self.weightsTemplate.format(run,epoch, '*', '*')
         return open(glob(match)[0], 'br')
 
     def write(self, run=None, epoch=None, loss=None, val_loss=None):
@@ -47,8 +48,8 @@ class Weights(object):
 
 class Embed(object):
 
-    def __init__(self, pre):
-        self.weightsTemplate = './output/embed/embed_{}{{}}_{{}}.p'.format(pre)
+    def __init__(self, pre, output_dir='./output'):
+        self.weightsTemplate = output_dir + '/embed/embed_{}{{}}_{{}}.p'.format(pre)
 
     def read(self, run=None, dset=None):
         match = self.weightsTemplate.format(run, dset)
@@ -73,12 +74,12 @@ class Embed(object):
 
 
 class Pred(object):
-    def __init__(self, type, pre):
+    def __init__(self, type, pre, output_dir='./output'):
         self.manager = Embed('')
         if type == 'rating':
-            self.manager.weightsTemplate = './output/embed/predR_{}{{}}_E{{}}_{{}}.p'.format(pre)
+            self.manager.weightsTemplate = output_dir + '/embed/predR_{}{{}}_E{{}}_{{}}.p'.format(pre)
         elif type == 'malig':
-            self.manager.weightsTemplate = './output/embed/pred_{}{{}}_E{{}}_{{}}.p'.format(pre)
+            self.manager.weightsTemplate = output_dir + '/embed/pred_{}{{}}_E{{}}_{{}}.p'.format(pre)
         else:
             print("{} - illegal pred type".format(type))
             assert(False)

@@ -49,16 +49,16 @@ except:
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise
-
-import argparse
-parser = argparse.ArgumentParser(description="Train Lung Nodule Retrieval NN")
-parser.add_argument("-e", "--epochs", type=int, help="epochs", default=0)
-parser.add_argument("-c", "--config", type=int, help="configuration", default=-1)
-args = parser.parse_args()
-
+    try:
+        os.makedirs('/output/embed/')
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
 
 # DIR / SIAM / DIR_RATING / SIAM_RATING
-def run(choose_model="DIR", epochs=200, config=0, skip_validation=False):
+
+
+def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_training=False):
 
     ## --------------------------------------- ##
     ## ------- General Setup ----------------- ##
@@ -72,7 +72,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False):
     model_size = 128
     input_shape = (model_size, model_size, 1)
     normalize = True
-    out_size = 128
+    out_size = 32
 
     print("Running training for --** {} **-- model, with #{} configuration".format(choose_model, config))
 
@@ -88,12 +88,18 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False):
         #run = 'dir104c'  # rmac-pooling
         #run = 'dir200'  # rmac, decay=0
         #run = 'dir201'  # max, decay=0
-        run = 'dir999'  # junk
+        #run = 'dir999'  # rmac
+        #run  = 'dir900'   # max
+        #run = 'dir901'  # avg
+        #run = 'dir902'  # msrmac
+        #run = 'dir210'  # out64
+        #run = 'dir211'  # out256
+        run = 'dir212'  # out32
 
         use_gen = True
 
         model = directArch( miniXception_loader, input_shape, output_size=out_size,
-                            normalize=normalize, pooling='rmac')
+                            normalize=normalize, pooling='max')
         model.model.summary()
         model.compile(learning_rate=1e-3, decay=0)
         if use_gen:
@@ -116,7 +122,10 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False):
         model.net_type = run[:-3]
         model.run = '{}c{}'.format(run[-3:], config)
 
-        model.train(label=run, n_epoch=epochs, gen=use_gen, do_graph=False)
+        if no_training:
+            model.last_epoch = epochs
+            return model
+        model.train(label=model.net_type+model.run, n_epoch=epochs, gen=use_gen, do_graph=False)
 
     if choose_model is "DIR_RATING":
         #run = 'dirR000'  # mse
@@ -281,6 +290,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False):
 
     return model
 
+'''
 if __name__ == "__main__":
 
     epochs = args.epochs if (args.epochs != 0) else 60
@@ -294,3 +304,4 @@ if __name__ == "__main__":
 
     for config in config_list:
         run(net_type, epochs=epochs, config=config)
+'''

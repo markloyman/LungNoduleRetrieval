@@ -32,19 +32,28 @@ class Retriever:
 
         self.nod_ids = None
 
-    def load_embedding(self, filename):
+    def load_embedding(self, filename, multi_epcch=False):
+        self.multi_epcch = multi_epcch
         if type(filename) is list:
             self.images, self.embedding, self.meta_data, self.labels, self.masks = [], [], [], [], []
             for fn in filename:
                 assert(type(fn) is str)
-                images, embedding, meta_data, labels, masks = pickle.load(open(fn, 'br'))
+                if multi_epcch:
+                    embedding, epochs, meta_data, images, classes, labels, masks = pickle.load(open(fn, 'br'))
+                    epochs = np.array(epochs)
+                    embed_concat_axis = 1
+                else:
+                    images, embedding, meta_data, labels, masks = pickle.load(open(fn, 'br'))
+                    epochs = None
+                    embed_concat_axis = 0
                 self.images.append(images)
                 self.embedding.append(embedding)
                 self.meta_data += meta_data
                 self.labels.append(labels)
                 self.masks.append(masks)
+                self.epochs = epochs
             self.images = np.concatenate(self.images)
-            self.embedding = np.concatenate(self.embedding)
+            self.embedding = np.concatenate(self.embedding, axis=embed_concat_axis)
             self.labels = np.concatenate(self.labels)
             self.masks = np.concatenate(self.masks)
         else:
@@ -62,7 +71,7 @@ class Retriever:
 
         print("Loaded {} entries from {}".format(self.len, filename))
 
-        return self.embedding
+        return self.embedding, self.epochs
 
     def load_rating(self, dataset):
         images, mask, rating, meta, labels, nod_ids = \
@@ -78,26 +87,34 @@ class Retriever:
 
         print("Loaded {} entries from dataset".format(self.len))
 
-    def fit(self, n=None, metric='l1', normalization='None'):
+    def fit(self, n=None, metric='l2', normalization='None', epoch=None):
         if n is None:
             self.n = self.embedding.shape[0]-1
         else:
             self.n = n
 
-        nbrs = NearestNeighbors(n_neighbors=(self.n+1), algorithm='auto', metric=metric).fit(rating_normalize(self.embedding, normalization))
-        distances, indices = nbrs.kneighbors(rating_normalize(self.embedding, normalization))
+        if self.multi_epcch:
+            assert(epoch is not None)
+            assert (self.epochs is not None)
+            epoch_idx = np.argwhere(epoch == self.epochs)[0][0]
+            embedding = self.embedding[epoch_idx]
+        else:
+            embedding = self.embedding
+        nbrs = NearestNeighbors(n_neighbors=(self.n+1), algorithm='auto', metric=metric).fit(rating_normalize(embedding, normalization))
+        distances, indices = nbrs.kneighbors(rating_normalize(embedding, normalization))
         self.indices = indices[:, 1:]
         self.distances = distances[:, 1:]
 
     def ret_nbrs(self, n_top=None):
-        if n_top == None:
+        if n_top is None:
             n_top = self.n
         assert n_top <= self.n
 
         return self.indices[:,:n_top], self.distances[:,:n_top]
 
     def ret(self, query, n_top=None, return_distance=False):
-        if n_top==None: n_top = self.n
+        if n_top is None:
+            n_top = self.n
         assert n_top <= self.n
 
         nn = self.indices[query, :n_top]
@@ -149,54 +166,40 @@ class Retriever:
 
         return pred
 
-    def classify_leave1out(self):
+    def classify_leave1out(self, epoch=None, n=None, metric='l2', verbose=False):
+        if self.multi_epcch:
+            assert(epoch is not None)
+            assert (self.epochs is not None)
+            epoch_idx = np.argwhere(epoch == self.epochs)[0][0]
+            embedding = self.embedding[epoch_idx]
+        else:
+            embedding = self.embedding
+        if n is None:
+            n = self.n
         loo = LeaveOneOut()
-        clf = KNeighborsClassifier(self.n, weights='uniform')
+        clf = KNeighborsClassifier(n, weights='uniform', metric=metric)
         pred = np.zeros((len(self.labels), 1))
-        for train_index, test_index in loo.split(self.embedding):
-            clf.fit(self.embedding[train_index], self.labels[train_index])
-            pred[test_index] = clf.predict(self.embedding[test_index])
+        for train_index, test_index in loo.split(embedding):
+            clf.fit(embedding[train_index], self.labels[train_index])
+            pred[test_index] = clf.predict(embedding[test_index])
         acc = accuracy(self.labels, pred)
-        print('Classification Accuracy: {:.2f}'.format(acc))
+        if verbose:
+            print('Classification Accuracy: {:.2f}'.format(acc))
         return (pred, self.labels), acc
 
-    def evaluate_precision(self, pred = None, plot=False, split=False):
-        #if pred is None:
-        #    pred = self.classify_leave1out()[0]
-        acc = []
-        acc.append([])
-        if split:
-            acc.append([])
-
-        set = 0
+    def evaluate_precision(self, n=None):
+        Acc = [[], []]
         for idx in range(self.len):
-            nn = self.ret(idx)
+            nn = self.ret(idx, n_top=n)
+            true = self.labels[idx]
+            acc = accuracy(true, self.labels[nn])
+            Acc[true].append(acc)
+        precision_benign = np.mean(Acc[0])
+        precision_malig = np.mean(Acc[1])
+        precision_total = np.mean(np.concatenate(Acc))
 
-            if split:
-                set = self.labels[idx]
 
-            acc[set].append(accuracy(self.labels[idx], self.labels[nn]))
-
-        if split:
-            prec = ( np.mean(acc[0]), np.mean(acc[1]) )
-        else:
-            prec = np.mean(acc[0])
-
-        if plot:
-            plt.figure()
-            if split:
-                plt.title("Precision")
-                plt.subplot(121)
-                plt.hist(acc[0])
-                plt.title('Benign (Mean:{}), {}, {}'.format(prec[0], self.title, self.set))
-                plt.subplot(122)
-                plt.hist(acc[1])
-                plt.title('Malignant (Mean:{}), {}, {}'.format(prec[1], self.title, self.set))
-            else:
-                plt.title('Precision (Mean:{}), {}, {}'.format(prec,self.title,self.set))
-                plt.hist(acc[0])
-
-        return prec
+        return precision_total, precision_benign, precision_malig
 
     def pca(self):
         #Metric = DistanceMetric.get_metric(metric)

@@ -47,6 +47,24 @@ def load_experiments(experiment):
         run_epochs      = [list(range(1, 37, 6))]*len(runs)
         run_names       = ['900-max', '901-avg', '999-rmac', '902-msrmac']
     # ===========================
+    #   Output Size
+    # ===========================
+    elif experiment == 'OutputSize':
+        runs = ['212', '210', '900', '211']
+        run_net_types = ['dir'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 37, 1))] * len(runs)
+        run_names = ['212-32', '210-64', '900-128', '211-256']
+    # ===========================
+    #   New Network Atchitectures
+    # ===========================
+    elif experiment == 'NewNetwork':
+        runs = ['900', '220', '221', '222']
+        run_net_types = ['dir'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 46, 1))] * len(runs)
+        run_names = ['900-base', '220-w256', '221-dataug', '222-data-aug']
+    # ===========================
     else:
         print("No Such Experiment")
         assert(False)

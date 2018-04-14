@@ -86,7 +86,7 @@ class directArch:
             output_dir + '/Weights/w_' + label + weight_file_pattern + '.h5',
             monitor='val_loss', save_best_only=False)]
         # on_plateau=ReduceLROnPlateau(monitor='val_loss',factor=0.5,epsilon=0.05,patience=10,min_lr=1e-8,verbose=1)
-        callbacks += [EarlyStopping(monitor='loss', min_delta=0.05, patience=15)]
+        #callbacks += [EarlyStopping(monitor='loss', min_delta=0.05, patience=15)]
         if gen:
             callbacks += [TensorBoard(log_dir=output_dir + '/logs/' + label, histogram_freq=0, write_graph=do_graph)]
         else:
@@ -110,7 +110,7 @@ class directArch:
                     validation_steps=self.data_gen.val_N(),
                     initial_epoch=epoch,
                     epochs=self.last_epoch,
-                    max_queue_size=3,
+                    max_queue_size=9,
                     callbacks=callbacks,  # early_stop, on_plateau, early_stop, checkpoint_val, lr_decay, pb
                     verbose=2
                 )
@@ -145,22 +145,26 @@ class directArch:
 
         epochs = list(range(epoch0, self.last_epoch+1, delta_epoch))
         embedding = []
+        epochs_done = []
         for epch in epochs:
             # load weights
-            w = Weights(run=self.run, epoch=epch)
-            assert(w is not None)
-            embed_model = self.extract_core(weights=w, repool=False)
-            print("Loaded {}".format(w))
+            try:
+                w = Weights(run=self.run, epoch=epch)
+                assert(w is not None)
+                embed_model = self.extract_core(weights=w, repool=False)
+                print("Loaded {}".format(w))
 
-            # predict
-            pred = embed_model.predict(images)
-            embedding.append(np.expand_dims(pred, axis=0))
-
+                # predict
+                pred = embed_model.predict(images)
+                embedding.append(np.expand_dims(pred, axis=0))
+                epochs_done.append(epch)
+            except:
+                print("Epoch {} failed".format(epch))
         embedding = np.concatenate(embedding, axis=0)
 
         # dump to Embed file
         out_filename = Embed(self.run, 'Valid')
-        pickle.dump((embedding, epochs, meta, images, classes, labels, masks), open(out_filename, 'bw'))
+        pickle.dump((embedding, epochs_done, meta, images, classes, labels, masks), open(out_filename, 'bw'))
         print("Saved embedding of shape {} to: {}".format(embedding.shape, out_filename))
 
     def test(self, images, labels, N=0):

@@ -29,12 +29,17 @@ def eval_classification(run, net_type, metric, epochs, dset, NN=[3, 5, 7, 11, 17
         embed_source= [Embed(run + 'c{}'.format(c), dset) for c in range(n_groups)]
         Ret = Retriever(title='{}-{}'.format(net_type, run), dset=dset)
         Ret.load_embedding(embed_source, multi_epcch=True)
+        valid_epochs = []
         for E in epochs:
             # Calc
             pred_l1o = []
-            for N in NN:
-                pred_l1o.append(Ret.classify_leave1out(epoch=E, n=N)[1])
-            Pred_L1O.append(np.array(pred_l1o))
+            try:
+                for N in NN:
+                    pred_l1o.append(Ret.classify_leave1out(epoch=E, n=N)[1])
+                Pred_L1O.append(np.array(pred_l1o))
+                valid_epochs.append(E)
+            except:
+                print("Epoch {} - no calculated embedding".format(E))
         Pred_L1O = np.array(Pred_L1O)
     else:
         for E in epochs:
@@ -49,7 +54,7 @@ def eval_classification(run, net_type, metric, epochs, dset, NN=[3, 5, 7, 11, 17
             Pred_L1O.append(np.array(pred_l1o))
         Pred_L1O = np.array(Pred_L1O)
 
-    return np.mean(Pred_L1O, axis=-1), np.std(Pred_L1O, axis=-1)
+    return np.mean(Pred_L1O, axis=-1), np.std(Pred_L1O, axis=-1), valid_epochs
 
 
 def eval_retrieval(run, net_type, metric, epochs, dset, NN=[3, 5, 7, 11, 17], cross_validation=False, n_groups=5):
@@ -61,19 +66,23 @@ def eval_retrieval(run, net_type, metric, epochs, dset, NN=[3, 5, 7, 11, 17], cr
         embed_source= [Embed(run + 'c{}'.format(c), dset) for c in range(n_groups)]
         Ret = Retriever(title='{}-{}'.format(net_type, run), dset=dset)
         Ret.load_embedding(embed_source, multi_epcch=True)
+        valid_epochs = []
         for E in epochs:
             # Calc
             prec, prec_b, prec_m = [], [], []
-            Ret.fit(np.max(NN), metric=metric, epoch=E)
-            for N in NN:
-                p, pb, pm = Ret.evaluate_precision(n=N)
-                prec.append(p)
-                prec_b.append(pb)
-                prec_m.append(pm)
-            Prec.append(np.array(prec))
-            Prec_b.append(np.array(prec_b))
-            Prec_m.append(np.array(prec_m))
-
+            try:
+                Ret.fit(np.max(NN), metric=metric, epoch=E)
+                for N in NN:
+                    p, pb, pm = Ret.evaluate_precision(n=N)
+                    prec.append(p)
+                    prec_b.append(pb)
+                    prec_m.append(pm)
+                Prec.append(np.array(prec))
+                Prec_b.append(np.array(prec_b))
+                Prec_m.append(np.array(prec_m))
+                valid_epochs.append(E)
+            except:
+                print("Epoch {} - no calculated embedding".format(E))
     else:
         for E in epochs:
             Ret = Retriever(title='', dset='')
@@ -100,7 +109,7 @@ def eval_retrieval(run, net_type, metric, epochs, dset, NN=[3, 5, 7, 11, 17], cr
     Prec_b = (np.array(Prec_b))
     f1 = 2 * Prec_b * Prec_m / (Prec_b + Prec_m)
 
-    return np.mean(Prec, axis=-1), np.std(Prec, axis=-1), np.mean(f1, axis=-1), np.std(f1, axis=-1)
+    return np.mean(Prec, axis=-1), np.std(Prec, axis=-1), np.mean(f1, axis=-1), np.std(f1, axis=-1), valid_epochs
 
 
 if __name__ == "__main__":
@@ -110,7 +119,7 @@ if __name__ == "__main__":
     dset = 'Valid'
     start = timer()
 
-    runs, run_net_types, run_metrics, run_epochs, run_names = load_experiments('Pooling')
+    runs, run_net_types, run_metrics, run_epochs, run_names = load_experiments('NewNetwork')
 
     # Initialize Figures
 
@@ -136,30 +145,33 @@ if __name__ == "__main__":
 
     # Evaluate
 
-    label = reduce(lambda x, y: x + y, ['_' + n[:3] for n in run_names])
-    plot_data_filename = './Plots/performance{}.p'.format(label)
-    try:
-        Acc, Acc_std, Prec, Prec_std, Index, Index_std = pickle.load(open(plot_data_filename, 'br'))
-    except:
-        Acc, Acc_std, Prec, Prec_std, Index, Index_std = [], [], [], [], [], []
-        for run, net_type, _, metric, epochs in zip(runs, run_net_types, range(len(runs)), run_metrics, run_epochs):
+    Acc, Acc_std, Prec, Prec_std, Index, Index_std, Valid_epochs = [], [], [], [], [], [], []
+    for run, net_type, _, metric, epochs in zip(runs, run_net_types, range(len(runs)), run_metrics, run_epochs):
+        plot_data_filename = './Plots/performance_{}{}.p'.format(net_type, run)
+        try:
+            acc, acc_std, prec, prec_std, index, index_std, valid_epochs = pickle.load(open(plot_data_filename, 'br'))
+            print("Loaded results for {}{}".format(net_type, run))
+        except:
             print("Evaluating classification accuracy for {}{}".format(net_type, run))
-            acc, acc_std = eval_classification(
+            acc, acc_std, valid_epochs = eval_classification(
                                     run=run, net_type=net_type, dset=dset,
                                     metric=metric, epochs=epochs,
                                     cross_validation=True)
             print("Evaluating retrieval precision for {}{}".format(net_type, run))
-            prec, prec_std, index, index_std = eval_retrieval(
+            prec, prec_std, index, index_std, _ = eval_retrieval(
                                     run=run, net_type=net_type, dset=dset,
-                                    metric=metric, epochs=epochs,
+                                    metric=metric, epochs=valid_epochs,
                                     cross_validation=True)
-            Acc += [acc]
-            Acc_std += [acc_std]
-            Prec += [prec]
-            Prec_std += [prec_std]
-            Index += [index]
-            Index_std += [index_std]
-        pickle.dump((Acc, Acc_std, Prec, Prec_std, Index, Index_std), open(plot_data_filename, 'bw'))
+
+            pickle.dump((Acc, Acc_std, Prec, Prec_std, Index, Index_std, Valid_epochs), open(plot_data_filename, 'bw'))
+
+        Acc += [acc]
+        Acc_std += [acc_std]
+        Prec += [prec]
+        Prec_std += [prec_std]
+        Index += [index]
+        Index_std += [index_std]
+        Valid_epochs += [valid_epochs]
 
     print("Evaluation Done in {:.1f} hours".format((timer() - start) / 60 / 60))
 
@@ -168,9 +180,9 @@ if __name__ == "__main__":
     alpha = 0.6
 
     def smooth(signal):
-        return savgol_filter(signal, window_length=3, polyorder=2, mode='nearest')
+        return savgol_filter(signal, window_length=5, polyorder=2, mode='nearest')
 
-    for acc, acc_std, prec, prec_std, index, index_std, epochs in zip(Acc, Acc_std, Prec, Prec_std, Index, Index_std, run_epochs):
+    for acc, acc_std, prec, prec_std, index, index_std, epochs in zip(Acc, Acc_std, Prec, Prec_std, Index, Index_std, Valid_epochs):
         '''
         # Accuracy
         q = plt_[idx(0, 0)].plot(epochs, acc, '-*')

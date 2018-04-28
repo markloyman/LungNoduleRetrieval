@@ -1,4 +1,3 @@
-import gc
 import os
 import numpy as np
 import random
@@ -60,22 +59,36 @@ except:
 
 def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_training=False):
 
+    np.random.seed(1337)
+    random.seed(1337)
+    tf.set_random_seed(1234)
+    K.set_session(tf.Session(graph=tf.get_default_graph()))
+
     ## --------------------------------------- ##
     ## ------- General Setup ----------------- ##
     ## --------------------------------------- ##
 
     #data
-    data_size = 128
+    data_size = 160
+    if no_training:
+        data_size = 128
     res = 0.5  # 'Legacy' #0.7 #0.5 #'0.5I'
     sample = 'Normal'  # 'UniformNC' #'Normal' #'Uniform'
     #model
     model_size = 128
     input_shape = (model_size, model_size, 1)
     normalize = True
-    out_size = 32
+    out_size = 128
+    do_augment = True
+    if no_training:
+        do_augment = False
 
-    print("Running training for --** {} **-- model, with #{} configuration".format(choose_model, config))
-
+    print("-"*30)
+    print("Running {} for --** {} **-- model, with #{} configuration".
+          format("training" if not no_training else "validation", choose_model, config))
+    print("\tdata_size = {},\n\tmodel_size = {},\n\tres = {},\n\tdo_augment = {}".
+          format(data_size, model_size, res, do_augment))
+    print("-" * 30)
     ## --------------------------------------- ##
     ## ------- Run Direct Architecture ------- ##
     ## --------------------------------------- ##
@@ -94,20 +107,47 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         #run = 'dir902'  # msrmac
         #run = 'dir210'  # out64
         #run = 'dir211'  # out256
-        run = 'dir212'  # out32
+        #run = 'dir212'  # out32
+        #run = 'dir220'  # network max width 256
+        #run = 'dir221'  # network max width 256, data aug ('crop_stdev': 0.05) - used 128 data
+        #run = 'dir222'  # network max width 256, data aug ('crop_stdev': 0.15) - used 128 data
+        #run = 'dir223'  # Sequence, 3 workers, data aug with 144 data
+        #run = 'dir224'  # Sequence, 5 deg rotation, data aug with 144 data
+        #run = 'dir225'  # Sequence, 0 deg rotation, data aug with 144 data, drop.5
+        #run = 'dir226'  # Sequence, 0 deg rotation, data aug with 144 data, drop.3
+        #run = 'dir227'  # Sequence, 0 deg rotation, data aug with 144 data, drop.0
+        #run = 'dir228'  # Sequence, 0 deg rotation, data aug with 144 data, drop.1
+        #run = 'dir229'  # 10 deg rotation, drop.1
+        #run = 'dir230'  # 20 deg rotation, drop.1
+        #run = 'dir231'  # 30 deg rotation, drop.1
+        #run = 'dir232'  # no rotation, drop.1
+        #run = 'dir233'  # no rotation, drop.1
+        #run = 'dir234'  # 30 deg rotation, drop.1
+        #run = 'dir235g'  # baseline with Dataset160
+        #run = 'dir236'  # baseline with Dataset128
+        #run = 'dir240b'  # data-aug-no-rot
+        #run = 'dir241'  # data-aug-rot20
+        #run = 'dir242'  # data-aug-rot40
+        #run = 'dir243b'  # data-aug-rot60
+        #run = 'dir250'  # max2-pooling
+        #run = 'dir251'  # avg-pooling
+        #run = 'dir252'  # msrmac-pooling
+        run = 'dir253'  # avg-pooling, aug
+        #run = 'dir254'  # msrmac-pooling, aug
+
 
         use_gen = True
 
         model = directArch( miniXception_loader, input_shape, output_size=out_size,
-                            normalize=normalize, pooling='max')
+                            normalize=normalize, pooling='avg')
         model.model.summary()
         model.compile(learning_rate=1e-3, decay=0)
         if use_gen:
-            data_augment_params = {'max_angle': 0, 'flip_ratio': 0.1, 'crop_stdev': 0.05, 'epoch': 0}
+            data_augment_params = {'max_angle': 60, 'flip_ratio': 0.5, 'crop_stdev': 0.15, 'epoch': 0}
             generator = DataGeneratorDir(
                             configuration=config, val_factor=0 if skip_validation else 1, balanced=False,
-                            data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=32,
-                            do_augment=False, augment=data_augment_params,
+                            data_size=data_size, model_size=model_size, res=res, sample=sample, batch_size=32,
+                            do_augment=do_augment, augment=data_augment_params,
                             use_class_weight=True, use_confidence=False)
             model.load_generator(generator)
         else:
@@ -285,23 +325,4 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
 
         model.train(label=run, n_epoch=epochs, gen=gen)
 
-    #K.clear_session()
-    #gc.collect()
-
     return model
-
-'''
-if __name__ == "__main__":
-
-    epochs = args.epochs if (args.epochs != 0) else 60
-    config_list = [args.config] if (args.config != -1) else list(range(5))
-
-    if len(config_list) > 1:
-        print("Perform Full Cross-Validation Run")
-
-    # DIR / SIAM / DIR_RATING / SIAM_RATING / TRIPLET
-    net_type = 'DIR'
-
-    for config in config_list:
-        run(net_type, epochs=epochs, config=config)
-'''

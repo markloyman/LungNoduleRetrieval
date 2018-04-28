@@ -2,7 +2,7 @@ import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.decomposition import PCA
-from sklearn.model_selection import LeaveOneOut
+from sklearn.model_selection import LeaveOneOut, KFold
 from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
 
 from LIDC.lidcUtils import calc_rating
@@ -37,21 +37,25 @@ class Retriever:
         if type(filename) is list:
             self.images, self.embedding, self.meta_data, self.labels, self.masks = [], [], [], [], []
             for fn in filename:
-                assert(type(fn) is str)
-                if multi_epcch:
-                    embedding, epochs, meta_data, images, classes, labels, masks = pickle.load(open(fn, 'br'))
-                    epochs = np.array(epochs)
-                    embed_concat_axis = 1
-                else:
-                    images, embedding, meta_data, labels, masks = pickle.load(open(fn, 'br'))
-                    epochs = None
-                    embed_concat_axis = 0
-                self.images.append(images)
-                self.embedding.append(embedding)
-                self.meta_data += meta_data
-                self.labels.append(labels)
-                self.masks.append(masks)
-                self.epochs = epochs
+                try:
+                    assert(type(fn) is str)
+                    if multi_epcch:
+                        embedding, epochs, meta_data, images, classes, labels, masks = pickle.load(open(fn, 'br'))
+                        epochs = np.array(epochs)
+                        embed_concat_axis = 1
+                    else:
+                        images, embedding, meta_data, labels, masks = pickle.load(open(fn, 'br'))
+                        epochs = None
+                        embed_concat_axis = 0
+                    self.images.append(images)
+                    self.embedding.append(embedding)
+                    self.meta_data += meta_data
+                    self.labels.append(labels)
+                    self.masks.append(masks)
+                    self.epochs = epochs
+                except:
+                    print("failed to load " + fn)
+            assert len(self.images) > 0
             self.images = np.concatenate(self.images)
             self.embedding = np.concatenate(self.embedding, axis=embed_concat_axis)
             self.labels = np.concatenate(self.labels)
@@ -88,17 +92,18 @@ class Retriever:
         print("Loaded {} entries from dataset".format(self.len))
 
     def fit(self, n=None, metric='l2', normalization='None', epoch=None):
-        if n is None:
-            self.n = self.embedding.shape[0]-1
-        else:
-            self.n = n
+        self.n = n
 
         if self.multi_epcch:
             assert(epoch is not None)
             assert (self.epochs is not None)
+            if self.n is None:
+                self.n = self.embedding.shape[1] - 1
             epoch_idx = np.argwhere(epoch == self.epochs)[0][0]
             embedding = self.embedding[epoch_idx]
         else:
+            if self.n is None:
+                self.n = self.embedding.shape[0] - 1
             embedding = self.embedding
         nbrs = NearestNeighbors(n_neighbors=(self.n+1), algorithm='auto', metric=metric).fit(rating_normalize(embedding, normalization))
         distances, indices = nbrs.kneighbors(rating_normalize(embedding, normalization))
@@ -176,16 +181,39 @@ class Retriever:
             embedding = self.embedding
         if n is None:
             n = self.n
-        loo = LeaveOneOut()
+
+        model_select = LeaveOneOut()
         clf = KNeighborsClassifier(n, weights='uniform', metric=metric)
         pred = np.zeros((len(self.labels), 1))
-        for train_index, test_index in loo.split(embedding):
+        for train_index, test_index in model_select.split(embedding):
             clf.fit(embedding[train_index], self.labels[train_index])
             pred[test_index] = clf.predict(embedding[test_index])
         acc = accuracy(self.labels, pred)
         if verbose:
             print('Classification Accuracy: {:.2f}'.format(acc))
         return (pred, self.labels), acc
+
+    def classify_kfold(self, epoch=None, n=None, metric='l2', verbose=False, k_fold=None):
+        if self.multi_epcch:
+            assert(epoch is not None)
+            assert (self.epochs is not None)
+            epoch_idx = np.argwhere(epoch == self.epochs)[0][0]
+            embedding = self.embedding[epoch_idx]
+        else:
+            embedding = self.embedding
+        if n is None:
+            n = self.n
+
+        model_select = KFold(n_splits=k_fold, shuffle=False)
+        clf = KNeighborsClassifier(n, weights='uniform', metric=metric)
+        acc = []
+        for train_index, test_index in model_select.split(embedding):
+            clf.fit(embedding[train_index], self.labels[train_index])
+            pred = clf.predict(embedding[test_index])
+            acc += [accuracy(self.labels[test_index], pred)]
+        if verbose:
+            print('Classification Accuracy: {:.2f}'.format(acc))
+        return np.mean(acc)
 
     def evaluate_precision(self, n=None):
         Acc = [[], []]
@@ -198,19 +226,21 @@ class Retriever:
         precision_malig = np.mean(Acc[1])
         precision_total = np.mean(np.concatenate(Acc))
 
-
         return precision_total, precision_benign, precision_malig
 
-    def pca(self):
+    def pca(self, epoch = None, plt_=None):
         #Metric = DistanceMetric.get_metric(metric)
         #DM = Metric.pairwise(self.embedding)
-        E = PCA(n_components=2).fit_transform(self.embedding)
+        epoch_idx = np.argwhere(epoch == self.epochs)[0][0]
+        embed = self.embedding if epoch is None else self.embedding[epoch_idx]
+        E = PCA(n_components=2).fit_transform(embed)
 
-        plt.figure()
-        plt.scatter(E[self.labels == 0,0], E[self.labels == 0,1], c='blue')
-        plt.scatter(E[self.labels == 1,0], E[self.labels == 1,1], c='red')
-        plt.legend(('B', 'M'))
-        plt.title('PCA: {}, {}'.format(self.title, self.set))
+        #plt.figure()
+        plt_.scatter(E[self.labels == 0, 0], E[self.labels == 0, 1], c='blue', s=1, alpha=0.2)
+        plt_.scatter(E[self.labels == 1, 0], E[self.labels == 1, 1], c='red', s=1, alpha=0.2)
+        plt_.legend(('B', 'M'))
+        plt_.axes.title.set_text('PCA: {}-{}, {}'.format(self.title, epoch, self.set))
+        #plt_.title('PCA: {}, {}'.format(self.title, self.set))
 
 
 # -----------------------------------

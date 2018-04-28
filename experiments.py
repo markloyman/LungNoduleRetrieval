@@ -41,11 +41,11 @@ def load_experiments(experiment):
     #   Pooling
     # ===========================
     elif experiment == 'Pooling':
-        runs            = ['900', '901', '999', '902']
+        runs            = ['235', '252', '251']  # '250', '900', '901', '999', '902',
         run_net_types   = ['dir']*len(runs)
         run_metrics     = ['l2']*len(runs)
-        run_epochs      = [list(range(1, 37, 6))]*len(runs)
-        run_names       = ['900-max', '901-avg', '999-rmac', '902-msrmac']
+        run_epochs      = [list(range(1, 61, 1))]*len(runs)
+        run_names       = ['235-max', '252-msrmac', '251-avg']  # '250-max2', '900-max', '901-avg', '999-rmac', '902-msrmac',
     # ===========================
     #   Output Size
     # ===========================
@@ -59,11 +59,38 @@ def load_experiments(experiment):
     #   New Network Atchitectures
     # ===========================
     elif experiment == 'NewNetwork':
-        runs = ['900', '220', '221', '222']
+        runs = ['900', '220', '223', '224'] # '221', '222'
         run_net_types = ['dir'] * len(runs)
         run_metrics = ['l2'] * len(runs)
         run_epochs = [list(range(1, 46, 1))] * len(runs)
-        run_names = ['900-base', '220-w256', '221-dataug', '222-data-aug']
+        run_names = ['900-base', '220-w256', '223-seq-aug', '224-no-rot'] # '221-dataug', '222-data-aug'
+    # ===========================
+    #   Dropout
+    # ===========================
+    elif experiment == 'Dropout':
+        runs = ['225', '226', '227', '228']
+        run_net_types = ['dir'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 61, 1))] * len(runs)
+        run_names = [ '225-drp.5', '226-drp.3', '227-drp.0', '228-drp.1']
+    # ===========================
+    #   Rotation
+    # ===========================
+    elif experiment == 'Rotation':
+        runs = ['235', '236', '240', '240b', '242', '243b'] #['228', '224', '229', '230', '231', '232', '234', '233', '235']
+        run_net_types = ['dir'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 71, 1))] * len(runs)
+        run_names = ['235-baseline', '236-128', '240-rot0', '240b-ro0', '242-rot40', '243b-rot60'] #['228-rot0', '224-rot5', '229-rot10', '230-rot20', '231-rot30', '232-no-rot', '234-rot30', '233-no-rot', '235-baseline']
+    # ===========================
+    #   Repeat
+    # ===========================
+    elif experiment == 'Repeat160':
+        runs = ['235', '235e', '235f', '235g', '236'] # '235b', '235c', '235d'
+        run_net_types = ['dir'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 41, 1))] * len(runs)
+        run_names = ['235-m', '235e-f', '235f-f', '235g-f', '236-128'] # '235b-f0', '235c-f0', '235d-f0'
     # ===========================
     else:
         print("No Such Experiment")

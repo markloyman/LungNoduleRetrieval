@@ -12,10 +12,10 @@ np.random.seed(1337)
 # ==========
 
 res_list  = [0.5]
-size_list = [144]*len(res_list)
+size_list = [160]*len(res_list)
 norm_list = ['Normal']*len(res_list)  # UniformNC Uniform Normal
 n_groups = 5
-do_dump = True
+do_dump = False
 
 assert(len(size_list) == len(res_list))
 assert(len(size_list) == len(norm_list))
@@ -36,7 +36,7 @@ for size, res, norm in zip(size_list, res_list, norm_list):
     #   Extract ("Raw") Data from LIDC
     # ===================================
 
-    if False:
+    if True:
         filename = 'LIDC/NodulePatchesNew{}-{}.p'.format(size, res)
         try:
             dataset = pickle.load(open(filename, 'br'))
@@ -110,38 +110,44 @@ for size, res, norm in zip(size_list, res_list, norm_list):
         label_counter = np.bincount(np.array([e['label'] for e in group]))
         print("\tFiltered to {} primary entries".format(len(group)))
         print("\t{} benign, {} malignant, {} unknown".format(label_counter[0], label_counter[1], label_counter[2]))
-
         out_filename = 'DatasetPrimaryCV{}_{}-{}-{}.p'.format(i, size, res, norm)
         pickle.dump(group, open('Dataset/' + out_filename, 'bw'))
         print("\tDumped to {}".format(out_filename))
 
+        '''
         #
         #   crop all
         #
         new_size = 128
-        group = data.crop_dataset(group, size=new_size)
+        group_new_size = data.crop_dataset(group, size=new_size)
         print("\tpatch size = {}".format(group[0]['patch'].shape))
-
         out_filename = 'DatasetPrimaryCV{}_{}-{}-{}.p'.format(i, new_size, res, norm)
-        pickle.dump(group, open('Dataset/' + out_filename, 'bw'))
+        pickle.dump(group_new_size, open('Dataset/' + out_filename, 'bw'))
         print("\tDumped to {}".format(out_filename))
 
         # check masks
-        masks = np.concatenate([np.expand_dims(e['mask'], axis=0) for e in group], axis=0)
+        masks = np.concatenate([np.expand_dims(e['mask'], axis=0) for e in group_new_size], axis=0)
         mask_sizes = [np.max([np.max(a) - np.min(a) for a in np.nonzero(m)]) for m in masks]
         plt.subplot(n_groups, 1, i+1)
         plt.title("{} mask size".format(out_filename))
         plt.hist(mask_sizes, 20)
-
+        '''
         #
-        #   remove uknown
+        #   remove uknown - full size
         #
         group = list(filter(lambda x: x['label'] < 2, group))
         print("\tFiltered to {} clean (no unknown) entries".format(len(group)))
-
-        out_filename = 'DatasetCleanCV{}_{}-{}-{}.p'.format(i, new_size, res, norm)
+        out_filename = 'DatasetCleanCV{}_{}-{}-{}.p'.format(i, size, res, norm)
         pickle.dump(group, open('Dataset/' + out_filename, 'bw'))
         print("\tDumped to {}".format(out_filename))
-
-
+        '''
+        #
+        #   remove uknown - new size
+        #
+        group_new_size = list(filter(lambda x: x['label'] < 2, group_new_size))
+        print("\tFiltered to {} clean (no unknown) entries".format(len(group_new_size)))
+        out_filename = 'DatasetCleanCV{}_{}-{}-{}.p'.format(i, new_size, res, norm)
+        pickle.dump(group_new_size, open('Dataset/' + out_filename, 'bw'))
+        print("\tDumped to {}".format(out_filename))
+        '''
 plt.show()

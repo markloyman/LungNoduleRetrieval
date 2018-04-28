@@ -122,6 +122,8 @@ def crop(image, mask, fix_size=None, min_size=0, ratio=1.0, stdev=0.15):
     # the shift of the crop window is sampled with normal distribution to have a bias towards a centered crop
     mask_y = np.where(np.sum(mask, axis=1))[0]
     mask_x = np.where(np.sum(mask, axis=0))[0]
+    assert (len(mask_y) > 0)
+    assert (len(mask_x) > 0)
     if fix_size is None:
         # Determine Size boundries on Y axis
         max_size_y = image.shape[0]
@@ -189,8 +191,11 @@ def augment(image, mask, size=0, max_angle=0, flip_ratio=0.0, crop_ratio=1.0, cr
     do_flip = rand() < flip_ratio
 
     # apply
-    image_r = rotate(image, angle, reshape=False, mode='nearest')
-    mask_r  = rotate(mask,  angle, reshape=False, mode='nearest')
+    if max_angle > 0:
+        image_r = rotate(image, angle, reshape=False, mode='nearest')
+        mask_r  = rotate(mask,  angle, reshape=False, mode='nearest', order=1)
+    else:
+        image_r, mask_r = image, mask
 
     image_r, mask_r = crop(image_r, mask_r, fix_size=size, ratio=crop_ratio, stdev=crop_stdev)
 
@@ -198,6 +203,16 @@ def augment(image, mask, size=0, max_angle=0, flip_ratio=0.0, crop_ratio=1.0, cr
         image_r, mask_r = np.fliplr(image_r), np.fliplr(mask_r)
 
     return image_r, mask_r
+
+
+def augment_all(images, masks, model_size, augment_params):
+    images = [augment(im, msk,
+                      size=model_size,
+                      max_angle=augment_params['max_angle'],
+                      flip_ratio=augment_params['flip_ratio'],
+                      crop_stdev=augment_params['crop_stdev'])[0]
+              for im, msk in zip(images, masks)]
+    return np.array(images)
 
 
 def test_augment(dataset):

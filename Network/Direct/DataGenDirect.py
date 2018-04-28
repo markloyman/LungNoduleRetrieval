@@ -1,20 +1,30 @@
 import numpy as np
+from keras import utils
 
 try:
     from Network.data_loader import load_nodule_dataset, prepare_data, prepare_data_direct
-    from Network.dataUtils import augment, crop_center, get_sample_weight, get_class_weight
+    from Network.dataUtils import augment_all, crop_center, get_sample_weight, get_class_weight
 except:
     from data_loader import load_nodule_dataset, prepare_data, prepare_data_direct
-    from dataUtils import augment, crop_center, get_sample_weight, get_class_weight
+    from dataUtils import augment_all, crop_center, get_sample_weight, get_class_weight
+
+
+def select_balanced(some_set, labels, N, permutation):
+    b = some_set[0 == labels][:N]
+    m = some_set[1 == labels][:N]
+    merged = np.concatenate([b, m], axis=0)
+    reshuff = merged[permutation]
+    return reshuff
+
 
 class DataGeneratorDir(object):
     """docstring for DataGenerator"""
 
-    def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_sz=32,
+    def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_size=32,
                         objective='malignancy', rating_scale='none', categorize=False,
                         do_augment=False, augment=None,
                         use_class_weight=False, use_confidence=False,
-                        val_factor = 1, balanced=False, configuration=None,
+                        val_factor = 0, balanced=False, configuration=None,
                         debug=False,):
 
         assert(categorize==False)
@@ -23,178 +33,44 @@ class DataGeneratorDir(object):
         self.objective = objective
         self.rating_scale = rating_scale
 
-        dataset = load_nodule_dataset(size=data_size, res=res, sample=sample, apply_mask_to_patch=debug, configuration=configuration)
+        dataset = load_nodule_dataset(size=data_size, res=res, sample=sample, configuration=configuration,
+                                      apply_mask_to_patch=debug)
         self.train_set = dataset[2]
         self.valid_set = dataset[1]
 
-        self.batch_sz = batch_sz
+        self.batch_size = batch_size
         self.data_size  = data_size
         self.model_size = model_size
 
-        self.val_factor = val_factor
+        self.train_seq = DataSequenceDir(self.train_set,
+                                         data_size=data_size, model_size=model_size, batch_size=batch_size,
+                                         is_training=True, objective=objective, rating_scale=rating_scale,
+                                         categorize=categorize, do_augment=do_augment, augment=augment,
+                                         use_class_weight=use_class_weight, use_confidence=use_confidence,
+                                         balanced=balanced)
 
-        if objective == 'malignancy':
-            labels = np.array([entry[2] for entry in dataset[2]])
-            Nb = np.count_nonzero(1 - labels)
-            Nm = np.count_nonzero(labels)
-
-            if balanced:
-                self.trainN = 2*np.minimum(Nb, Nm) // self.batch_sz
-                #self.trainN = 666 // self.batch_sz
-            else:
-                self.trainN = (Nb+Nm) // self.batch_sz
-                #self.trainN = 1023 // self.batch_sz
-            self.valN = val_factor * (len(self.valid_set) // self.batch_sz) # 339
-
-            self.balanced = balanced
-
-            self.use_class_weight = use_class_weight
-            #if use_class_weight:
-            #    self.class_weight = get_class_weight(labels, class_weight)
-            #    print("Class Weight -> Benign: {:.2f}, Malignant: {:.2f}".format(self.class_weight[0], self.class_weight[1]))
-            #else:
-            #    self.class_weight = None
-        elif objective == 'rating':
-            self.trainN = len(self.train_set) // batch_sz
-            self.valN = len(self.valid_set) // batch_sz
-            if balanced:
-                print("WRN: objective rating does not support balanced")
-            self.balanced = False
-            if use_class_weight:
-                print("WRN: objective rating does not support use class weight")
-            self.use_class_weight = False
-            self.class_weight = None
+        if val_factor > 1:
+            self.val_seq = DataSequenceDir(self.train_set,
+                                             data_size=data_size, model_size=model_size, batch_size=batch_size,
+                                             is_training=True, objective=objective, rating_scale=rating_scale,
+                                             categorize=categorize, do_augment=do_augment, augment=augment,
+                                             use_class_weight=use_class_weight, use_confidence=use_confidence,
+                                             balanced=balanced)
         else:
-            print("ERR: Illegual objective given ({})".format(objective))
-            assert (False)
+            self.val_seq = None
 
-        self.do_augment = do_augment
-        self.augment = augment
-        if do_augment: assert(augment is not None)
+        self.test_set = None
 
-        print("Trainings Sets: {}, Validation Sets: {}".format(self.trainN, self.valN))
+        print("Trainings Sets: {}, Validation Sets: {}".format(len(self.train_seq), len(self.val_seq) if self.val_seq is not None else 0))
 
-    def augment_all(self, images, masks):
-        images = [augment(im, msk,
-                          size=self.model_size,
-                          max_angle=self.augment['max_angle'],
-                          flip_ratio=self.augment['flip_ratio'],
-                          crop_stdev=self.augment['crop_stdev'])[0]
-                  for im, msk in zip(images, masks)]
-        return np.array(images)
+    def training_sequence(self):
+        return self.train_seq
 
-    def select_balanced(self, some_set, labels, N, permutation):
-        b = some_set[0 == labels][:N]
-        m = some_set[1 == labels][:N]
-        merged = np.concatenate([b, m], axis=0)
-        reshuff = merged[permutation]
-        return reshuff
+    def validation_sequence(self):
+        return self.val_seq
 
-    def next(self, set, is_training=False):
-        verbose = 1
-        epoch = 0
-        while 1:
-            print('Run Gen {}: {}'.format(epoch, np.where(is_training, 'Training', 'Validation')))
-            size = self.data_size if self.do_augment else self.model_size
-            #images, labels, masks, confidence = \
-            images, labels, classes, masks = \
-                prepare_data_direct(set, objective=self.objective, rating_scale=self.rating_scale, classes=2, size=self.model_size, verbose=verbose)[:4]
-            #prepare_data(set, classes=2, verbose=verbose, reshuffle=True)
-
-            if self.use_class_weight:
-                class_weights = get_class_weight(np.argmax(labels, axis=1), 'balanced')
-                print("Class Weight -> Benign: {:.2f}, Malignant: {:.2f}".format(class_weights[0], class_weights[1]))
-                sample_weights = get_sample_weight(np.argmax(labels, axis=1), class_weights)
-            else:
-                sample_weights = np.ones(len(labels))
-
-            Nb = np.count_nonzero(1-classes)
-            Nm = np.count_nonzero(classes)
-            N = np.minimum(Nb, Nm)
-            if verbose:
-                print("Benign: {}, Malignant: {}".format(Nb, Nm))
-            if self.balanced and is_training:
-                new_order = np.random.permutation(2*N)
-                labels_ = np.argmax(classes, axis=1)
-                images = self.select_balanced(images, labels_, N, new_order)
-                labels = self.select_balanced(labels, labels_, N, new_order)
-                classes = self.select_balanced(classes, labels_, N, new_order)
-                masks = self.select_balanced(masks, labels_, N, new_order)
-                sample_weights = self.select_balanced(sample_weights, labels_, N, new_order)
-
-                if verbose:
-                    Nb = np.count_nonzero(1 - np.argmax(classes, axis=1))
-                    Nm = np.count_nonzero(np.argmax(classes, axis=1))
-                    print("Balanced - Benign: {}, Malignant: {}".format(Nb, Nm))
-            if self.do_augment and is_training and (epoch >= self.augment['epoch']):
-                    if epoch == self.augment['epoch']:
-                        print("Begin augmenting")
-                    images = self.augment_all(images, masks)
-            else:
-                images = np.array([crop_center(im, msk, size=self.model_size)[0]
-                                   for im, msk in zip(images, masks)])
-            if verbose:
-                print("images after augment/crop: {}".format(images[0].shape))
-
-            # split into batches
-            split_idx = [b for b in range(self.batch_sz, images.shape[0], self.batch_sz)]
-            images = np.array_split(images, split_idx)
-            labels = np.array_split(labels,  split_idx)
-            classes = np.array_split(classes, split_idx)
-            masks = np.array_split(masks, split_idx)
-            sample_weights = np.array_split(sample_weights, split_idx)
-            #confidence = np.array_split(confidence,  split_idx)
-
-            if verbose == 1: print("batch size:{}, sets:{}".format(images[0].shape[0], len(images[0])))
-
-            # if last batch smaller than batch_sz, discard it
-            if images[-1].shape[0] < self.batch_sz:
-                images = images[:-1]
-                labels = labels[:-1]
-                classes = classes[:-1]
-                masks  = masks[:-1]
-                sample_weights = sample_weights[:-1]
-                #if self.use_class_weight:
-                #    confidence = confidence[:-1]
-                if verbose == 1:
-                    print("discard last unfull batch -> sets:{}".format(len(images)))
-
-
-            if epoch == 0:
-                if is_training:
-                    assert(len(images) == self.trainN)
-                else:
-                    assert( (self.val_factor*len(images)) == self.valN)
-
-            #for im, lbl, msk, cnf in zip(images, labels, masks, confidence):
-            for im, lbl, w in zip(images, labels, sample_weights):
-                yield (im, lbl, w)
-                #if self.use_class_weight:
-                #    assert(False)
-                #    w = get_sample_weight(cnf,  wD=class_weight['D'],
-                #                                wSB=class_weight['SB'],
-                #                                wSM=class_weight['SM']
-                #                          )
-                #    if verbose == 1:
-                #        print([(li, np.round(10*wi, 2).astype('uint')) for li, wi in zip(lbl, w)])
-                #    verbose = 0
-                #    yield (im, lbl, w)
-                #else:
-                #    yield (im, lbl)
-            epoch = epoch + 1
-            verbose = 0
-
-    def next_train(self):
-        return self.next(self.train_set, is_training=True)
-
-    def next_val(self):
-        return self.next(self.valid_set, is_training=False) if (self.val_factor >= 1) else None
-
-    def train_N(self):
-        return self.trainN
-
-    def val_N(self):
-        return self.valN if (self.val_factor >= 1) else 0
+    def has_validation(self):
+        return self.val_seq is not None
 
     def get_train_data(self):
         return prepare_data_direct(self.train_set, objective=self.objective,
@@ -210,3 +86,165 @@ class DataGeneratorDir(object):
         return prepare_data_direct(self.test_set, objective=self.objective,
                                    rating_scale=self.rating_scale, classes=2, size=self.model_size,
                                    verbose=True, return_meta=True)
+
+
+class DataSequenceDir(utils.Sequence):
+
+    def __init__(self, dataset, is_training=True, data_size=128, model_size=128, batch_size=32,
+                 objective='malignancy', rating_scale='none', categorize=False,
+                 do_augment=False, augment=None,
+                 use_class_weight=False, use_confidence=False,
+                 balanced=False, val_factor=1):
+
+        assert (categorize == False)
+        assert (use_confidence == False)
+
+        self.objective = objective
+        self.rating_scale = rating_scale
+
+        self.dataset = dataset
+        self.is_training = is_training
+
+        self.batch_size = batch_size
+        #self.data_size = data_size
+        self.model_size = model_size
+
+        if objective == 'malignancy':
+            labels = np.array([entry[2] for entry in dataset])
+            Nb = np.count_nonzero(1 - labels)
+            Nm = np.count_nonzero(labels)
+
+            if is_training:
+                if balanced:
+                    self.N = 2 * np.minimum(Nb, Nm) // self.batch_size
+                    # self.trainN = 666 // self.batch_size
+                else:
+                    self.N = (Nb + Nm) // self.batch_size
+                    # self.trainN = 1023 // self.batch_sz
+            else:
+                self.N = val_factor * (len(self.valid_set) // self.batch_size)  # 339
+
+            self.balanced = balanced
+
+            self.use_class_weight = use_class_weight
+            # if use_class_weight:
+            #    self.class_weight = get_class_weight(labels, class_weight)
+            #    print("Class Weight -> Benign: {:.2f}, Malignant: {:.2f}".format(self.class_weight[0], self.class_weight[1]))
+            # else:
+            #    self.class_weight = None
+        elif objective == 'rating':
+            self.N = len(self.dataset) // batch_size
+            if balanced:
+                print("WRN: objective rating does not support balanced")
+            self.balanced = False
+            if use_class_weight:
+                print("WRN: objective rating does not support use class weight")
+            self.use_class_weight = False
+            self.class_weight = None
+        else:
+            print("ERR: Illegual objective given ({})".format(objective))
+            assert (False)
+
+        self.do_augment = do_augment
+        self.augment = augment
+        if do_augment: assert (augment is not None)
+
+        self.verbose = 1
+        self.epoch = 0
+
+        self.on_epoch_end()
+
+    def on_epoch_end(self):
+        print('Run Gen {}: {}'.format(self.epoch, np.where(self.is_training, 'Training', 'Validation')))
+        #size = self.data_size if self.do_augment else self.model_size
+        # images, labels, masks, confidence = \
+        images, labels, classes, masks = \
+            prepare_data_direct(self.dataset, objective=self.objective, rating_scale=self.rating_scale, classes=2,
+                                size=self.model_size, verbose=self.verbose)[:4]
+
+        if self.use_class_weight:
+            class_weights = get_class_weight(np.argmax(labels, axis=1), 'balanced')
+            print("Class Weight -> Benign: {:.2f}, Malignant: {:.2f}".format(class_weights[0], class_weights[1]))
+            sample_weights = get_sample_weight(np.argmax(labels, axis=1), class_weights)
+        else:
+            sample_weights = np.ones(len(labels))
+
+        Nb = np.count_nonzero(1 - classes)
+        Nm = np.count_nonzero(classes)
+        N = np.minimum(Nb, Nm)
+        if self.verbose:
+            print("Benign: {}, Malignant: {}".format(Nb, Nm))
+        if self.balanced and self.is_training:
+            new_order = np.random.permutation(2 * N)
+            labels_ = np.argmax(classes, axis=1)
+            images = select_balanced(images, labels_, N, new_order)
+            labels = select_balanced(labels, labels_, N, new_order)
+            classes = select_balanced(classes, labels_, N, new_order)
+            masks = select_balanced(masks, labels_, N, new_order)
+            sample_weights = select_balanced(sample_weights, labels_, N, new_order)
+
+            if self.verbose:
+                Nb = np.count_nonzero(1 - np.argmax(classes, axis=1))
+                Nm = np.count_nonzero(np.argmax(classes, axis=1))
+                print("Balanced - Benign: {}, Malignant: {}".format(Nb, Nm))
+
+        #if self.verbose:
+        #    print("images after augment/crop: {}".format(images[0].shape))
+
+        # split into batches
+        split_idx = [b for b in range(self.batch_size, images.shape[0], self.batch_size)]
+        images = np.array_split(images, split_idx)
+        labels = np.array_split(labels, split_idx)
+        classes = np.array_split(classes, split_idx)
+        masks = np.array_split(masks, split_idx)
+        sample_weights = np.array_split(sample_weights, split_idx)
+        # confidence = np.array_split(confidence,  split_idx)
+
+        if self.verbose == 1:
+            print("batch size:{}, sets:{}".format(images[0].shape[0], len(images)))
+
+        # if last batch smaller than batch_sz, discard it
+        if images[-1].shape[0] < self.batch_size:
+            images = images[:-1]
+            labels = labels[:-1]
+            classes = classes[:-1]
+            masks = masks[:-1]
+            sample_weights = sample_weights[:-1]
+            # if self.use_class_weight:
+            #    confidence = confidence[:-1]
+            if self.verbose == 1:
+                print("discard last unfull batch -> sets:{}".format(len(images)))
+
+        if self.epoch == 0:
+            assert (len(images) == len(self.dataset)//self.batch_size)
+
+        self.images = images
+        self.labels = labels
+        self.classes = classes
+        self.masks = masks
+        self.sample_weights = sample_weights
+
+        self.epoch = self.epoch + 1
+        self.verbose = 0
+
+    def __getitem__(self, index):
+
+        if self.do_augment and self.is_training and (self.epoch >= self.augment['epoch']):
+            #print("Begin augmenting")
+            if np.count_nonzero(np.sum(self.masks[index], axis=(1,2,3))) != self.batch_size:
+                stop = True
+            images_batch = augment_all(self.images[index], self.masks[index],
+                                       model_size=self.model_size, augment_params=self.augment)
+        else:
+            images_batch = np.array([crop_center(im, msk, size=self.model_size)[0]
+                               for im, msk in zip(self.images[index], self.masks[index])])
+        labels_batch = self.labels[index]
+        weights_batch = self.sample_weights[index]
+
+        if index == 0:
+            print("Batch #{} of size {}".format(index, images_batch.shape))
+
+        return images_batch, labels_batch, weights_batch
+
+    def __len__(self):
+        return self.N

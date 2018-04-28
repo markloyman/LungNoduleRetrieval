@@ -1,4 +1,5 @@
 import pickle
+import os
 from timeit import default_timer as timer
 import numpy as np
 from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
@@ -78,7 +79,7 @@ class directArch:
     def set_callbacks(self, label='', gen=False, do_graph=False):
         callbacks = []
         check = 'accuracy' if self.objective == 'malignancy' else 'loss'
-        if self.data_gen.val_factor > 0:
+        if self.data_gen.has_validation():
             weight_file_pattern = '_{{epoch:02d}}-{{{}:.2f}}-{{val_{}:.2f}}'.format(check, check)
         else:
             weight_file_pattern = '_{{epoch:02d}}-{{{}:.2f}}-0'.format(check)
@@ -102,17 +103,19 @@ class directArch:
         self.last_epoch = epoch + n_epoch
         try:
             if gen:
-                print("Train Steps: {}, Val Steps: {}".format(self.data_gen.train_N(), self.data_gen.val_N()))
+                #print("Train Steps: {}, Val Steps: {}".format(self.data_gen.train_N(), self.data_gen.val_N()))
                 history = self.model.fit_generator(
-                    generator=self.data_gen.next_train(),
-                    steps_per_epoch=self.data_gen.train_N(),
-                    validation_data=self.data_gen.next_val(),
-                    validation_steps=self.data_gen.val_N(),
+                    generator=self.data_gen.training_sequence(),
+                    #steps_per_epoch=self.data_gen.train_N(),
+                    validation_data=self.data_gen.validation_sequence(),
+                    #validation_steps=self.data_gen.val_N(),
                     initial_epoch=epoch,
                     epochs=self.last_epoch,
                     max_queue_size=9,
+                    use_multiprocessing=True if os.name is not 'nt' else False,
+                    workers=6 if os.name is not 'nt' else 1,
                     callbacks=callbacks,  # early_stop, on_plateau, early_stop, checkpoint_val, lr_decay, pb
-                    verbose=2
+                    verbose=2,
                 )
             else:
                 history = self.model.fit(

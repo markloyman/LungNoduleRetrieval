@@ -35,7 +35,7 @@ def eval_classification(run, net_type, metric, epochs, dset, NN=[3, 5, 7, 11, 17
             pred_l1o = []
             try:
                 for N in NN:
-                    pred_l1o.append(Ret.classify_leave1out(epoch=E, n=N)[1])
+                    pred_l1o.append(Ret.classify_kfold(epoch=E, n=N, k_fold=10))
                 Pred_L1O.append(np.array(pred_l1o))
                 valid_epochs.append(E)
             except:
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     dset = 'Valid'
     start = timer()
 
-    runs, run_net_types, run_metrics, run_epochs, run_names = load_experiments('NewNetwork')
+    runs, run_net_types, run_metrics, run_epochs, run_names = load_experiments('Rotation')
 
     # Initialize Figures
 
@@ -163,7 +163,7 @@ if __name__ == "__main__":
                                     metric=metric, epochs=valid_epochs,
                                     cross_validation=True)
 
-            pickle.dump((Acc, Acc_std, Prec, Prec_std, Index, Index_std, Valid_epochs), open(plot_data_filename, 'bw'))
+            pickle.dump((acc, acc_std, prec, prec_std, index, index_std, valid_epochs), open(plot_data_filename, 'bw'))
 
         Acc += [acc]
         Acc_std += [acc_std]
@@ -177,10 +177,10 @@ if __name__ == "__main__":
 
     # Display
 
-    alpha = 0.6
+    alpha = 0.2
 
     def smooth(signal):
-        return savgol_filter(signal, window_length=5, polyorder=2, mode='nearest')
+        return savgol_filter(signal, window_length=7, polyorder=1, mode='nearest')
 
     for acc, acc_std, prec, prec_std, index, index_std, epochs in zip(Acc, Acc_std, Prec, Prec_std, Index, Index_std, Valid_epochs):
         '''

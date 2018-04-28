@@ -20,6 +20,8 @@ def hubness(nbrs_indices, k=3):
     k_occ = k_occurrences(nbrs_indices, k)
     distribution = np.bincount(k_occ)
     index = skew(distribution)
+    #index = 1 / (1e-6 + index)
+    index = np.exp(-np.abs(index))
     return index, distribution
 
 

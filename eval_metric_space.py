@@ -35,7 +35,7 @@ def calc_symmetry(indices, K=[3, 5, 7, 11, 17]):
     return np.mean(s), np.std(s)
 
 
-runs, run_net_types, run_metrics, run_epochs, run_names = load_experiments('Rotation')
+runs, run_net_types, run_metrics, run_epochs, run_names = load_experiments('DirRating')
 
 # initialize figures
 

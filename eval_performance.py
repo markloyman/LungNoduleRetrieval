@@ -35,7 +35,7 @@ def eval_classification(run, net_type, metric, epochs, dset, NN=[3, 5, 7, 11, 17
             pred_l1o = []
             try:
                 for N in NN:
-                    pred_l1o.append(Ret.classify_kfold(epoch=E, n=N, k_fold=10))
+                    pred_l1o.append(Ret.classify_kfold(epoch=E, n=N, k_fold=10, metric=metric))
                 Pred_L1O.append(np.array(pred_l1o))
                 valid_epochs.append(E)
             except:
@@ -50,7 +50,7 @@ def eval_classification(run, net_type, metric, epochs, dset, NN=[3, 5, 7, 11, 17
             # Calc
             pred_l1o = []
             for N in NN:
-                pred_l1o.append(Ret.classify_leave1out(n=N)[1])
+                pred_l1o.append(Ret.classify_leave1out(n=N, metric=metric)[1])
             Pred_L1O.append(np.array(pred_l1o))
         Pred_L1O = np.array(Pred_L1O)
 
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     dset = 'Valid'
     start = timer()
 
-    runs, run_net_types, run_metrics, run_epochs, run_names = load_experiments('Rotation')
+    runs, run_net_types, run_metrics, run_epochs, run_names = load_experiments('DirRating')
 
     # Initialize Figures
 

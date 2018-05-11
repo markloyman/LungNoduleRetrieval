@@ -17,7 +17,7 @@ class Weights(object):
         match = self.weightsTemplate.format(run, epoch, loss, val_loss)
         return open(match, 'bw')
 
-    def name(self, run=None, epoch=None, loss=None, val_loss=None):
+    def name(self, run=None, epoch=None, loss=None, val_loss=None, exact=True):
         if (run is None) or (epoch is None):
             return None
 
@@ -36,11 +36,17 @@ class Weights(object):
                     files = glob(match)
                     if len(files):
                         name = files[0]
+                        if len(files) > 1:
+                            print('[Warning] Multiple matches for template "{}"'.format(match))
                     else:
-                        epoch -= 1
+                        if exact:
+                            assert False
+                        else:
+                            epoch -= 1
         else:
             name = self.weightsTemplate.format(run, epoch, loss, val_loss)
 
+        assert name is not None
         return name
 
     __call__ = name
@@ -77,9 +83,9 @@ class Pred(object):
     def __init__(self, type, pre, output_dir='./output'):
         self.manager = Embed('')
         if type == 'rating':
-            self.manager.weightsTemplate = output_dir + '/embed/predR_{}{{}}_E{{}}_{{}}.p'.format(pre)
+            self.manager.weightsTemplate = output_dir + '/embed/predR_{}{{}}_{{}}.p'.format(pre)
         elif type == 'malig':
-            self.manager.weightsTemplate = output_dir + '/embed/pred_{}{{}}_E{{}}_{{}}.p'.format(pre)
+            self.manager.weightsTemplate = output_dir + '/embed/pred_{}{{}}_{{}}.p'.format(pre)
         else:
             print("{} - illegal pred type".format(type))
             assert(False)

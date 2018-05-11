@@ -1,5 +1,6 @@
 import pickle
 import numpy as np
+from functools import reduce
 from scipy.misc import imresize
 try:
     from Network.dataUtils import rating_normalize, crop_center
@@ -145,7 +146,7 @@ def prepare_data(data, objective='malignancy', new_size=None, do_augment=False, 
 
     if objective == 'malignancy':
         labels = np.array([entry[2] for entry in data]).reshape(N, 1)
-        classes = labels
+        classes = np.copy(labels)
     elif objective == 'rating':
         labels  = np.array([rating_normalize(np.mean(entry[5], axis=0), scaling) for entry in data]).reshape(N, 9)
         classes = np.array([entry[2] for entry in data]).reshape(N, 1)
@@ -195,10 +196,10 @@ def select_balanced(self, some_set, labels, N, permutation):
     return reshuff
 
 
-def prepare_data_direct(data, objective='malignancy', rating_scale = 'none', size=None, classes=2, balanced=False, return_meta=False, verbose= 0):
+def prepare_data_direct(data, objective='malignancy', rating_scale = 'none', size=None, classes=2, balanced=False, return_meta=False, verbose= 0, reshuffle=True):
     #scale = 'none' if (objective=='malignancy') else "none"
     images, labels, classes, masks, meta, conf = \
-        prepare_data(data, objective=objective, categorize=(2 if (objective=='malignancy') else 0), verbose=verbose, reshuffle=True, return_meta=return_meta, scaling=rating_scale)
+        prepare_data(data, objective=objective, categorize=(2 if (objective=='malignancy') else 0), verbose=verbose, reshuffle=reshuffle, return_meta=return_meta, scaling=rating_scale)
     Nb = np.count_nonzero(1 - classes)
     Nm = np.count_nonzero(classes)
     N = np.minimum(Nb, Nm)
@@ -219,9 +220,14 @@ def prepare_data_direct(data, objective='malignancy', rating_scale = 'none', siz
 
 
 def select_different_pair(class_A, class_B, n):
+    if type(class_A[0]) is np.ndarray:
+        concat = lambda x: np.concatenate(x)
+    else:
+        concat = lambda x: reduce(lambda r, s: r + s, x)
+
     different = [(a, b) for a, b in zip(
-        np.concatenate( [[a, a] for a in class_A[:n]] )[:-1],
-        np.concatenate( [[b, b] for b in class_B[:n]] )[1:])
+        concat( [[a, a] for a in class_A[:n]] )[:-1],
+        concat( [[b, b] for b in class_B[:n]] )[1:])
                  ] + [(class_A[:n][-1], class_B[0])]
     assert(2*n == len(different))
     return different, len(different)
@@ -264,7 +270,7 @@ def select_same_pairs(class_A, class_B):
     return same, sa_size, sb_size
 
 
-def prepare_data_siamese(data, size, objective="malignancy", balanced=False, return_meta=False, verbose= 0):
+def prepare_data_siamese(data, objective="malignancy", balanced=False, return_meta=False, verbose= 0):
     if verbose: print('prepare_data_siamese:')
     images, labels, classes, masks, meta, conf = \
         prepare_data(data, categorize=0, objective=objective, return_meta=return_meta, reshuffle=True, verbose=verbose)
@@ -328,8 +334,7 @@ def prepare_data_siamese(data, size, objective="malignancy", balanced=False, ret
         assert ((sb == sb_size) and (sm == sm_size))
 
         meta_pairs = same_meta + different_meta
-        meta_sub1 = np.array([pair[0] for pair in meta_pairs])
-        meta_sub2 = np.array([pair[1] for pair in meta_pairs])
+        meta_sub1, meta_sub2 = zip(*meta_pairs)
 
     #   Final touch
     # =========================
@@ -363,7 +368,7 @@ def prepare_data_siamese(data, size, objective="malignancy", balanced=False, ret
                 )
 
 
-def prepare_data_siamese_simple(data, size, objective="malignancy", balanced=False, return_meta=False, verbose= 0):
+def prepare_data_siamese_simple(data, siamese_rating_factor, objective="malignancy", balanced=False, return_meta=False, verbose=0):
     if verbose:
         print('prepare_data_siamese_simple:')
     images, labels, classes, masks, meta, conf = \
@@ -372,7 +377,9 @@ def prepare_data_siamese_simple(data, size, objective="malignancy", balanced=Fal
         if return_meta:
             print('Loaded Meta-Data')
         print("benign:{}, malignant: {}".format(np.count_nonzero(classes == 0),
-                                                        np.count_nonzero(classes == 1)))
+                                                np.count_nonzero(classes == 1)))
+
+    labels *= siamese_rating_factor
 
     N = images.shape[0]
     #benign_filter = np.where(classes == 0)[0]
@@ -479,6 +486,7 @@ def make_balanced_trip(elements, c1_head, c1_tail, c2_head, c2_tail):
     trips += [(elements[r], elements[p], elements[n]) for r, p, n in zip(c2_head, c2_tail, c1_head)]
     trips += [(elements[r], elements[p], elements[n]) for r, p, n in zip(c2_tail, c2_head, c1_tail)]
     return trips
+
 
 def prepare_data_triplet(data, objective="malignancy", balanced=False, return_confidence=False, return_meta=False, verbose= 0):
     if verbose:

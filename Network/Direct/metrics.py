@@ -1,7 +1,6 @@
 from keras import backend as K
 K.set_image_data_format('channels_last')
 
-smooth = 0.000001 # to avoid division by zero
 
 # ------------------------ #
 # ==== Categorical Metrics ==== #
@@ -10,7 +9,7 @@ smooth = 0.000001 # to avoid division by zero
 def f1(y_true, y_pred):
     p = precision(y_true, y_pred)
     r = recall(y_true, y_pred)
-    f = 2.0 * p * r / (p + r + smooth)
+    f = 2.0 * p * r / (p + r + K.epsilon())
     return f
 
 
@@ -21,7 +20,7 @@ def sensitivity(y_true, y_pred):
     y_pred_  = K.argmax(y_pred, axis=1)
     TP      = K.cast(K.sum(y_true_ * y_pred_), K.floatx())
     FN      = K.cast(K.sum(y_true_ * (1-y_pred_)), K.floatx())
-    sens    = TP / (TP + FN + smooth)
+    sens    = TP / (TP + FN + K.epsilon())
     return sens
 
 
@@ -31,7 +30,7 @@ def specificity(y_true, y_pred):
     y_pred_  = K.argmax(y_pred, axis=1)
     TN      = K.cast(K.sum((1-y_true_) * (1-y_pred_)), K.floatx())
     FP      = K.cast(K.sum((1-y_true_) * y_pred_), K.floatx())
-    spec    = TN / (TN + FP + smooth)
+    spec    = TN / (TN + FP + K.epsilon())
     return spec
 
 
@@ -41,7 +40,7 @@ def precision(y_true, y_pred):
     y_pred_  = K.argmax(y_pred, axis=1)
     TP = K.cast(K.sum(y_true_ * y_pred_), K.floatx())
     FP = K.cast(K.sum((1-y_true_) * y_pred_), K.floatx())
-    prec = TP / (TP + FP + smooth)
+    prec = TP / (TP + FP + K.epsilon())
     return prec
 
 

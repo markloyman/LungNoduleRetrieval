@@ -1,6 +1,6 @@
 from Analysis import RatingCorrelator
 from init import *
-
+from Network import FileManager
 
 #from Network import PredictRating
 #pred_loader = PredictRating()
@@ -9,6 +9,7 @@ from init import *
 def accuracy(true, pred):
     #pred = np.clip(pred, 0, 1)
     pred = np.squeeze(np.round(pred).astype('uint'))
+    true = np.squeeze(np.round(true).astype('uint'))
     mask = (true==pred).astype('uint')
     acc = np.mean(mask)
     return acc
@@ -85,14 +86,20 @@ def dir_rating_rmse(run, post, epochs):
                        'Lobulation', 'Spiculation', 'Texture', 'Malignancy']
     PredFile = FileManager.Pred(type='rating', pre='dirR')
     R = np.zeros([len(epochs), 10])
+    predict, valid_epochs, images, meta_data, classes, labels, masks = PredFile.load(run=run, dset=post)
     for i, e in enumerate(epochs):
         print(" Epoch {}:".format(e))
-        images, predict, meta_data, labels, masks = PredFile.load(run=run, epoch=e, dset=post)
+        try:
+            idx = int(np.argwhere(valid_epochs == e))
+        except:
+            print('skip epoch {}'.format(e))
+            continue
+        pred = predict[idx]
         for r in range(9):
-            rmse = np.sqrt(np.mean((predict[:, r] - labels[:, r]) ** 2))
+            rmse = np.sqrt(np.mean((pred[:, r] - labels[:, r]) ** 2))
             print("\t{}: \t{:.2f}".format(rating_property[r], rmse))
             R[i, r] = rmse
-        rmse = np.sqrt(np.mean(np.sum((predict - labels) ** 2, axis=1)))
+        rmse = np.sqrt(np.mean(np.sum((pred - labels) ** 2, axis=1)))
         print("\t{}: \t{:.2f}".format(rating_property[r], rmse))
         R[i, 9] = rmse
     plt.figure()
@@ -121,9 +128,14 @@ def dir_rating_accuracy(run, post, epochs):
                        'Lobulation', 'Spiculation', 'Texture', 'Malignancy']
     PredFile = FileManager.Pred(type='rating', pre='dirR')
     acc = np.zeros([len(epochs), 1])
+    predict, valid_epochs, images, meta_data, classes, labels, masks = PredFile.load(run=run, dset=post)
     for i, e in enumerate(epochs):
-        images, predict, meta_data, labels, masks = PredFile.load(run=run, epoch=e, dset=post)
-        acc[i] = accuracy(labels, predict)
+        try:
+            idx = int(np.argwhere(valid_epochs == e))
+        except:
+            print('skip epoch {}'.format(e))
+            continue
+        acc[i] = accuracy(labels, predict[idx])
     plt.figure()
     plt.title('Rating Acc')
     plt.plot(epochs, acc)
@@ -160,13 +172,13 @@ def dir_rating_view(run, post, epochs, factor=1.0):
 
 
 if __name__ == "__main__":
-    run = '011X'
-    epochs = [15, 25, 35, 45, 55, 65, 75, 85, 95]
+    run = '200'
+    epochs = np.arange(1, 101)  # [1, 10, 20, 30]
 
     # 0     Test
     # 1     Validation
     # 2     Training
-    DataSubSet = 2
+    DataSubSet = 1
 
     if DataSubSet == 0:
         post = "Test"
@@ -182,10 +194,10 @@ if __name__ == "__main__":
     start = timer()
     try:
 
-        #dir_rating_correlate(run, post, epochs, rating_norm='Round')
+        #dir_rating_correlate(run+'c4', post, epochs, rating_norm='Round')
         #embed_correlate('dirR', run, post, epochs, rating_norm='Round')
-        #dir_rating_rmse(run, post, epochs)
-        dir_rating_accuracy(run, post, epochs)
+        dir_rating_rmse(run+'c4', post, epochs)
+        dir_rating_accuracy(run+'c4', post, epochs)
 
         #dir_rating_view(run, post, epochs, factor=1)
 

@@ -50,7 +50,7 @@ class Retriever:
                     self.images.append(images)
                     self.embedding.append(embedding)
                     self.meta_data += meta_data
-                    self.labels.append(labels)
+                    self.labels.append(classes)
                     self.masks.append(masks)
                     self.epochs = epochs
                 except:
@@ -91,20 +91,23 @@ class Retriever:
 
         print("Loaded {} entries from dataset".format(self.len))
 
-    def fit(self, n=None, metric='l2', normalization='None', epoch=None):
+    def fit(self, n=None, metric='l2', normalization='None', epoch=None, label=None):
         self.n = n
 
         if self.multi_epcch:
             assert(epoch is not None)
             assert (self.epochs is not None)
-            if self.n is None:
-                self.n = self.embedding.shape[1] - 1
             epoch_idx = np.argwhere(epoch == self.epochs)[0][0]
             embedding = self.embedding[epoch_idx]
         else:
-            if self.n is None:
-                self.n = self.embedding.shape[0] - 1
             embedding = self.embedding
+
+        if label is not None:
+            embedding = embedding[self.labels == label]
+
+        if self.n is None:
+            self.n = embedding.shape[0] - 1
+
         nbrs = NearestNeighbors(n_neighbors=(self.n+1), algorithm='auto', metric=metric).fit(rating_normalize(embedding, normalization))
         distances, indices = nbrs.kneighbors(rating_normalize(embedding, normalization))
         self.indices = indices[:, 1:]
@@ -228,7 +231,7 @@ class Retriever:
 
         return precision_total, precision_benign, precision_malig
 
-    def pca(self, epoch = None, plt_=None):
+    def pca(self, epoch = None, plt_=None, label=None):
         #Metric = DistanceMetric.get_metric(metric)
         #DM = Metric.pairwise(self.embedding)
         epoch_idx = np.argwhere(epoch == self.epochs)[0][0]
@@ -236,9 +239,14 @@ class Retriever:
         E = PCA(n_components=2).fit_transform(embed)
 
         #plt.figure()
-        plt_.scatter(E[self.labels == 0, 0], E[self.labels == 0, 1], c='blue', s=1, alpha=0.2)
-        plt_.scatter(E[self.labels == 1, 0], E[self.labels == 1, 1], c='red', s=1, alpha=0.2)
-        plt_.legend(('B', 'M'))
+        leg = []
+        if label is None or label == 0:
+            plt_.scatter(E[self.labels == 0, 0], E[self.labels == 0, 1], c='blue', s=1, alpha=0.2)
+            leg += ['B']
+        if label is None or label == 1:
+            plt_.scatter(E[self.labels == 1, 0], E[self.labels == 1, 1], c='red', s=1, alpha=0.2)
+            leg += ['M']
+        plt_.legend(leg)
         plt_.axes.title.set_text('PCA: {}-{}, {}'.format(self.title, epoch, self.set))
         #plt_.title('PCA: {}, {}'.format(self.title, self.set))
 

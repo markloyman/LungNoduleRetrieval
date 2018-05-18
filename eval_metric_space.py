@@ -11,30 +11,6 @@ metrics = ['l2']
 n_groups = 5
 
 
-def calc_hubness(indices, K=[3, 5, 7, 11, 17], verbose=False):
-    if verbose:
-        plt.figure()
-    h = np.zeros(len(K))
-    for i in range(len(K)):
-        h_ = index.hubness(indices, K[i])
-        h[i] = h_[0]
-        if verbose:
-            #plt.subplot(1,len(K), i+1)
-            plt.plot(h_[1])
-    h_mean, h_std = np.mean(h), np.std(h)
-    if verbose:
-        plt.legend(['{}: {:.2f}'.format(k, ind) for k, ind in zip(K, h)])
-        plt.title('Hubness = {:.2f} ({:.2f})'.format(h_mean, h_std))
-    return h_mean, h_std
-
-
-def calc_symmetry(indices, K=[3, 5, 7, 11, 17]):
-    s = np.zeros(len(K))
-    for i in range(len(K)):
-        s[i] = index.symmetry(indices, K[i])
-    return np.mean(s), np.std(s)
-
-
 runs, run_net_types, run_metrics, run_epochs, run_names = load_experiments('DirRating')
 
 # initialize figures
@@ -68,17 +44,16 @@ for m, metric in enumerate(metrics):
                 try:
                     Ret.fit(metric=metric, epoch=e)
                     indices, distances = Ret.ret_nbrs()
-                    distance_matrix = calc_distance_matrix(embd[np.argwhere(e==epoch_mask)[0][0]], metric)
                     # hubness
-                    idx_hubness.append(calc_hubness(indices))
+                    idx_hubness.append(index.calc_hubness(indices))
                     #   symmetry
-                    idx_symmetry.append(calc_symmetry(indices))
+                    idx_symmetry.append(index.calc_symmetry(indices))
                     # kumar index
                     tau, l_e = index.kumar(distances, res=0.01)
                     idx_kummar.append(tau)
                     # concentration & contrast
-                    idx_concentration.append(index.concentration(distance_matrix))
-                    idx_contrast.append(index.relative_contrast_imp(distance_matrix))
+                    idx_concentration.append(index.concentration(distances))
+                    idx_contrast.append(index.relative_contrast_imp(distances))
                     valid_epochs.append(e)
                 except:
                     print("Epoch {} - no calculated embedding".format(e))

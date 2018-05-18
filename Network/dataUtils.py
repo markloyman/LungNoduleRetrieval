@@ -93,7 +93,7 @@ def get_sample_weight_for_similarity(labels, wD=None, wSB=None, wSM=None):
 
 
 def get_sample_weight(labels, class_weights):
-    return np.array([class_weights[l] for l in labels])
+    return np.array([class_weights[int(l)] for l in labels])
 
 
 def crop_center(image, mask, size=None):

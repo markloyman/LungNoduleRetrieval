@@ -1,4 +1,5 @@
 import pickle
+import os
 from timeit import default_timer as timer
 
 import numpy as np
@@ -12,9 +13,13 @@ from keras.optimizers import Adam
 
 try:
     from Network.Siamese.metrics import siamese_margin, binary_accuracy, binary_precision_inv, binary_recall_inv, binary_f1_inv, binary_assert, pearson_correlation
+    from Network import FileManager as File
+    input_dir = './output'
     output_dir = './output'
 except:
     from Siamese.metrics import siamese_margin, binary_accuracy, binary_precision_inv, binary_recall_inv, binary_f1_inv, binary_assert, pearson_correlation
+    import FileManager as File
+    input_dir = '/input'
     output_dir = '/output'
 
 
@@ -63,6 +68,7 @@ class printbatch(Callback):
     def on_batch_end(self, epoch, logs={}):
         print('E#{}: {}'.format(epoch, logs))
 
+
 class siamArch:
 
     def __init__(self, model_loader, input_shape, objective="malignancy", pooling='rmac', output_size=1024, distance='l2', normalize=False):
@@ -91,6 +97,8 @@ class siamArch:
             assert(False)
 
         self.objective = objective
+        self.net_type = 'siam' if objective == 'malignacy' else 'siamR'
+        self.run = None
 
         self.model =    Model(  inputs=[img_input1,img_input2],
                                 outputs = distance_layer,
@@ -143,14 +151,20 @@ class siamArch:
             print("lr changed to {}".format(lr * .9))
         return K.get_value(self.model.optimizer.lr)
 
-    def train(self, label='', epoch=0, n_epoch=100, gen = False):
+    def train(self, run='', epoch=0, n_epoch=100, gen=False, do_graph=False):
+        assert do_graph is False
+        self.run = run
+        label = self.net_type + run
         if self.lr_decay>0:
             print("LR Decay: {}".format([round(self.lr / (1. + self.lr_decay * n), 5) for n in range(n_epoch)]))
-
-        checkpoint      = ModelCheckpoint(output_dir+'/Weights/w_' + label + '_{epoch:02d}-{loss:.2f}-{val_loss:.2f}.h5',
-                                         monitor='loss', save_best_only=False)
-        #checkpoint_val  = ModelCheckpoint('./Weights/w_'+label+'_{epoch:02d}-{loss:.2f}-{val_loss:.2f}.h5',
-        #                                   monitor='val_loss', save_best_only=True)
+        check = 'loss'
+        if self.data_gen.has_validation():
+            weight_file_pattern = '_{{epoch:02d}}-{{{}:.2f}}-{{val_{}:.2f}}'.format(check, check)
+        else:
+            weight_file_pattern = '_{{epoch:02d}}-{{{}:.2f}}-0'.format(check)
+        checkpoint = ModelCheckpoint(
+            output_dir + '/Weights/w_' + label + weight_file_pattern + '.h5',
+            monitor='val_loss', save_best_only=False)
         #on_plateau      = ReduceLROnPlateau(monitor='val_loss', factor=0.5, epsilon=1e-2, patience=5, min_lr=1e-6, verbose=1)
         #early_stop      = EarlyStopping(monitor='loss', min_delta=1e-3, patience=5)
         #lr_decay        = LearningRateScheduler(self.scheduler)
@@ -165,19 +179,22 @@ class siamArch:
         start = timer()
         total_time = None
         try:
+            self.last_epoch = epoch + n_epoch
             if gen:
-                print("Train Steps: {}, Val Steps: {}".format(self.data_gen.train_N(), self.data_gen.val_N()))
+                #print("Train Steps: {}, Val Steps: {}".format(self.data_gen.train_N(), self.data_gen.val_N()))
                 history = self.model.fit_generator(
-                    generator =  self.data_gen.next_train(),
-                    steps_per_epoch= self.data_gen.train_N(),
+                    generator =  self.data_gen.training_sequence(),
+                    #steps_per_epoch= self.data_gen.train_N(),
                     #class_weight = class_weight,
-                    validation_data  = self.data_gen.next_val(),
-                    validation_steps = self.data_gen.val_N(),
-                    initial_epoch = epoch,
-                    epochs = epoch+n_epoch,
-                    max_queue_size=3,
-                    callbacks = [checkpoint, board ], # early_stop, on_plateau, early_stop, checkpoint_val, lr_decay, pb
-                    verbose = 2
+                    validation_data  = self.data_gen.validation_sequence(),
+                    #validation_steps = self.data_gen.val_N(),
+                    initial_epoch=epoch,
+                    epochs=epoch+n_epoch,
+                    max_queue_size=9,
+                    use_multiprocessing=True if os.name is not 'nt' else False,
+                    workers=6 if os.name is not 'nt' else 1,
+                    callbacks=[checkpoint, board ],  # early_stop, on_plateau, early_stop, checkpoint_val, lr_decay, pb
+                    verbose=2
                 )
 
                 #next_batch = self.data_gen.next_val().__next__()
@@ -207,6 +224,43 @@ class siamArch:
             if total_time is None:
                 total_time = (timer() - start) / 60 / 60
             print("Total training time is {:.1f} hours".format(total_time))
+
+    def embed(self, epoch0=1, delta_epoch=5):
+        # init file managers
+        Weights = File.Weights(self.net_type, output_dir=input_dir)
+        Embed = File.Embed(self.net_type, output_dir=output_dir)
+
+        # get data from generator
+        images, labels, classes, masks, meta, conf = self.data_gen.get_flat_valid_data()
+
+        start = timer()
+        epochs = list(range(epoch0, self.last_epoch+1, delta_epoch))
+        embedding = []
+        epochs_done = []
+        embed_model = self.extract_core()
+        for epch in epochs:
+            # load weights
+            try:
+                w = Weights(run=self.run, epoch=epch)
+                assert(w is not None)
+                embed_model.load_weights(w)
+                print("Loaded {}".format(w))
+            except:
+                print("Epoch {} failed (w={})".format(epch, w))
+                continue
+            # predict
+            pred = embed_model.predict(images)
+            embedding.append(np.expand_dims(pred, axis=0))
+            epochs_done.append(epch)
+
+        embedding = np.concatenate(embedding, axis=0)
+        total_time = (timer() - start) / 60
+        print("Total training time is {:.2f} minutes".format(total_time))
+
+        # dump to Embed file
+        out_filename = Embed(self.run, 'Valid')
+        pickle.dump((embedding, epochs_done, meta, images, classes, labels, masks), open(out_filename, 'bw'))
+        print("Saved embedding of shape {} to: {}".format(embedding.shape, out_filename))
 
     def test(self, images, labels, N=0):
         assert images.shape[0] == labels.shape[0]

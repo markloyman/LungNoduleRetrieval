@@ -27,6 +27,8 @@ class directArch:
     #   input_shape of form: (size, size,1)
 
         self.objective = objective
+        self.net_type = 'dir' if objective=='malignacy' else 'dirR'
+        self.run = None
         self.img_input   = Input(shape=input_shape)
         self.input_shape = input_shape
         self.output_size = output_size
@@ -64,7 +66,7 @@ class directArch:
                             metrics     = metrics )
         self.model_ready = True
 
-    def load_data(self, images_train, labels_train, images_valid, labels_valid, batch_sz=32):
+    def load_data(self, images_train, labels_train, images_valid, labels_valid, batch_size=32):
         self.images_train = images_train
         self.labels_train = labels_train
         self.images_valid = images_valid
@@ -96,7 +98,9 @@ class directArch:
             # embeddings_freq=5, embeddings_layer_names='n_embedding', embeddings_metadata='meta.tsv')
         return callbacks
 
-    def train(self, label='', epoch=0, n_epoch=100, gen=False, do_graph=False):
+    def train(self, run='', epoch=0, n_epoch=100, gen=False, do_graph=False):
+        self.run = run
+        label = self.net_type + run
         callbacks = self.set_callbacks(label=label, gen=gen, do_graph=do_graph)
         start = timer()
         total_time = None
@@ -146,24 +150,31 @@ class directArch:
         # get data from generator
         images, labels, classes, masks, meta = self.data_gen.get_valid_data()
 
+        start = timer()
         epochs = list(range(epoch0, self.last_epoch+1, delta_epoch))
         embedding = []
         epochs_done = []
+        embed_model = self.extract_core(repool=False)
         for epch in epochs:
             # load weights
             try:
                 w = Weights(run=self.run, epoch=epch)
                 assert(w is not None)
-                embed_model = self.extract_core(weights=w, repool=False)
-                print("Loaded {}".format(w))
-
-                # predict
-                pred = embed_model.predict(images)
-                embedding.append(np.expand_dims(pred, axis=0))
-                epochs_done.append(epch)
             except:
-                print("Epoch {} failed".format(epch))
+                print("Epoch {} failed ({})".format(epch, w))
+                continue
+
+            self.load_weights(w)
+            print("Loaded {}".format(w))
+
+            # predict
+            pred = embed_model.predict(images)
+            embedding.append(np.expand_dims(pred, axis=0))
+            epochs_done.append(epch)
+
         embedding = np.concatenate(embedding, axis=0)
+        total_time = (timer() - start) / 60 / 60
+        print("Total training time is {:.1f} hours".format(total_time))
 
         # dump to Embed file
         out_filename = Embed(self.run, 'Valid')

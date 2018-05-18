@@ -43,7 +43,7 @@ class DataGeneratorDir(object):
         self.model_size = model_size
 
         self.train_seq = DataSequenceDir(self.train_set,
-                                         data_size=data_size, model_size=model_size, batch_size=batch_size,
+                                         model_size=model_size, batch_size=batch_size,
                                          is_training=True, objective=objective, rating_scale=rating_scale,
                                          categorize=categorize, do_augment=do_augment, augment=augment,
                                          use_class_weight=use_class_weight, use_confidence=use_confidence,
@@ -51,8 +51,8 @@ class DataGeneratorDir(object):
 
         if val_factor > 1:
             self.val_seq = DataSequenceDir(self.train_set,
-                                             data_size=data_size, model_size=model_size, batch_size=batch_size,
-                                             is_training=True, objective=objective, rating_scale=rating_scale,
+                                             model_size=model_size, batch_size=batch_size,
+                                             is_training=False, objective=objective, rating_scale=rating_scale,
                                              categorize=categorize, do_augment=do_augment, augment=augment,
                                              use_class_weight=use_class_weight, use_confidence=use_confidence,
                                              balanced=balanced)
@@ -73,31 +73,31 @@ class DataGeneratorDir(object):
         return self.val_seq is not None
 
     def get_train_data(self):
-        return prepare_data_direct(self.train_set, objective=self.objective,
+        return prepare_data_direct(self.train_set, objective=self.objective, reshuffle=False,
                                    rating_scale=self.rating_scale, classes=2, size=self.model_size,
                                    verbose=True, return_meta=True)
 
     def get_valid_data(self):
-        return prepare_data_direct(self.valid_set, objective=self.objective,
+        return prepare_data_direct(self.valid_set, objective=self.objective, reshuffle=False,
                                    rating_scale=self.rating_scale, classes=2, size=self.model_size,
                                    verbose=True, return_meta=True)
 
     def get_test_images(self):
-        return prepare_data_direct(self.test_set, objective=self.objective,
+        return prepare_data_direct(self.test_set, objective=self.objective, reshuffle=False,
                                    rating_scale=self.rating_scale, classes=2, size=self.model_size,
                                    verbose=True, return_meta=True)
 
 
 class DataSequenceDir(utils.Sequence):
 
-    def __init__(self, dataset, is_training=True, data_size=128, model_size=128, batch_size=32,
+    def __init__(self, dataset, is_training=True, model_size=128, batch_size=32,
                  objective='malignancy', rating_scale='none', categorize=False,
                  do_augment=False, augment=None,
                  use_class_weight=False, use_confidence=False,
                  balanced=False, val_factor=1):
 
-        assert (categorize == False)
-        assert (use_confidence == False)
+        assert (categorize is False)
+        assert (use_confidence is False)
 
         self.objective = objective
         self.rating_scale = rating_scale
@@ -106,7 +106,6 @@ class DataSequenceDir(utils.Sequence):
         self.is_training = is_training
 
         self.batch_size = batch_size
-        #self.data_size = data_size
         self.model_size = model_size
 
         if objective == 'malignancy':
@@ -137,10 +136,11 @@ class DataSequenceDir(utils.Sequence):
             if balanced:
                 print("WRN: objective rating does not support balanced")
             self.balanced = False
-            if use_class_weight:
-                print("WRN: objective rating does not support use class weight")
-            self.use_class_weight = False
-            self.class_weight = None
+            #if use_class_weight:
+            #    print("WRN: objective rating does not support use class weight")
+            #self.use_class_weight = False
+            #self.class_weight = None
+            self.use_class_weight = use_class_weight
         else:
             print("ERR: Illegual objective given ({})".format(objective))
             assert (False)
@@ -163,9 +163,9 @@ class DataSequenceDir(utils.Sequence):
                                 size=self.model_size, verbose=self.verbose)[:4]
 
         if self.use_class_weight:
-            class_weights = get_class_weight(np.argmax(labels, axis=1), 'balanced')
+            class_weights = get_class_weight(np.squeeze(classes), 'balanced')
             print("Class Weight -> Benign: {:.2f}, Malignant: {:.2f}".format(class_weights[0], class_weights[1]))
-            sample_weights = get_sample_weight(np.argmax(labels, axis=1), class_weights)
+            sample_weights = get_sample_weight(classes, class_weights)
         else:
             sample_weights = np.ones(len(labels))
 
@@ -231,8 +231,6 @@ class DataSequenceDir(utils.Sequence):
 
         if self.do_augment and self.is_training and (self.epoch >= self.augment['epoch']):
             #print("Begin augmenting")
-            if np.count_nonzero(np.sum(self.masks[index], axis=(1,2,3))) != self.batch_size:
-                stop = True
             images_batch = augment_all(self.images[index], self.masks[index],
                                        model_size=self.model_size, augment_params=self.augment)
         else:

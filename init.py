@@ -3,6 +3,7 @@ import random
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 import pickle
+from functools import reduce
 import sys
 from timeit import default_timer as timer
 import os

@@ -1,5 +1,4 @@
 from init import *
-from functools import reduce
 from scipy.signal import savgol_filter
 from Analysis import Retriever
 from Network import FileManager

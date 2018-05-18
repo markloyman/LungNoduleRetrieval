@@ -492,7 +492,8 @@ def prepare_data_triplet(data, objective="malignancy", balanced=False, return_co
     if verbose:
         print('prepare_data_triplet:')
     images, ratings, classes, masks, meta, conf \
-        = prepare_data(data, categorize=0, objective="rating", scaling="Scale", rating_confidence=return_confidence,return_meta=return_meta, reshuffle=True, verbose=verbose)
+        = prepare_data(data, categorize=0, objective="rating", scaling="Scale", rating_confidence=return_confidence,
+                       return_meta=return_meta, reshuffle=True, verbose=verbose)
     if verbose:
         print("benign:{}, malignant: {}".format(np.count_nonzero(classes == 0), np.count_nonzero(classes == 1)))
         if meta is not None: print('Loaded Meta-Data')
@@ -500,6 +501,7 @@ def prepare_data_triplet(data, objective="malignancy", balanced=False, return_co
     N = images.shape[0]
 
     if objective=="malignancy":
+        print('Create a balanced split')
         benign_filter = np.where(classes == 0)[0]
         malign_filter = np.where(classes == 1)[0]
         M = min(benign_filter.shape[0], malign_filter.shape[0])

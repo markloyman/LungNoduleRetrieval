@@ -17,7 +17,7 @@ if __name__ == '__main__':
     parser.add_argument("-t", "--test", action="store_true", default=False, help="generate embeddings")
     args = parser.parse_args()
 
-    epochs = args.epochs if (args.epochs != 0) else 41
+    epochs = args.epochs if (args.epochs != 0) else 81
     config_list = [args.config] if (args.config != -1) else list(range(5))
     test = args.test
 
@@ -25,7 +25,7 @@ if __name__ == '__main__':
         print("Perform Full Cross-Validation Run")
 
     # DIR / SIAM / DIR_RATING / SIAM_RATING / TRIPLET
-    net_type = 'DIR'
+    net_type = 'DIR_RATING'
 
     for config in config_list:
         model = run_training(net_type, epochs=epochs, config=config, skip_validation=True, no_training=test)

@@ -74,12 +74,13 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         data_size = 128
     res = 0.5  # 'Legacy' #0.7 #0.5 #'0.5I'
     sample = 'Normal'  # 'UniformNC' #'Normal' #'Uniform'
+    use_gen = True
     #model
     model_size = 128
     input_shape = (model_size, model_size, 1)
     normalize = True
     out_size = 128
-    do_augment = True
+    do_augment = False
     if no_training:
         do_augment = False
 
@@ -89,8 +90,13 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
     print("\tdata_size = {},\n\tmodel_size = {},\n\tres = {},\n\tdo_augment = {}".
           format(data_size, model_size, res, do_augment))
     print("-" * 30)
+
+    model = None
+
+    data_augment_params = {'max_angle': 60, 'flip_ratio': 0.5, 'crop_stdev': 0.15, 'epoch': 0}
+
     ## --------------------------------------- ##
-    ## ------- Run Direct Architecture ------- ##
+    ## ------- Prepare Direct Architecture ------- ##
     ## --------------------------------------- ##
 
     if choose_model is "DIR":
@@ -132,18 +138,14 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         #run = 'dir250'  # max2-pooling
         #run = 'dir251'  # avg-pooling
         #run = 'dir252'  # msrmac-pooling
-        run = 'dir253'  # avg-pooling, aug
-        #run = 'dir254'  # msrmac-pooling, aug
-
-
-        use_gen = True
+        #run = 'dir253'  # avg-pooling, aug
+        run = '254'  # msrmac-pooling, aug
 
         model = directArch( miniXception_loader, input_shape, output_size=out_size,
-                            normalize=normalize, pooling='avg')
+                            normalize=normalize, pooling='msrmac')
         model.model.summary()
         model.compile(learning_rate=1e-3, decay=0)
         if use_gen:
-            data_augment_params = {'max_angle': 60, 'flip_ratio': 0.5, 'crop_stdev': 0.15, 'epoch': 0}
             generator = DataGeneratorDir(
                             configuration=config, val_factor=0 if skip_validation else 1, balanced=False,
                             data_size=data_size, model_size=model_size, res=res, sample=sample, batch_size=32,
@@ -158,14 +160,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
                                for im, msk in zip(images_train, masks_train)])
             images_valid = np.array([crop_center(im, msk, size=model_size)[0]
                                for im, msk in zip(images_valid, masks_valid)])
-            model.load_data(images_train, labels_train, images_valid, labels_valid, batch_sz=32)
-        model.net_type = run[:-3]
-        model.run = '{}c{}'.format(run[-3:], config)
-
-        if no_training:
-            model.last_epoch = epochs
-            return model
-        model.train(label=model.net_type+model.run, n_epoch=epochs, gen=use_gen, do_graph=False)
+            model.load_data(images_train, labels_train, images_valid, labels_valid, batch_size=32)
 
     if choose_model is "DIR_RATING":
         #run = 'dirR000'  # mse
@@ -182,25 +177,27 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         #run = 'dirR011X'  # logcosh, rmac, no scaling
         #run = 'dirR012'  # logcosh, rmac, no scaling, decay
         #run = 'dirR013'  # model-binary, rmac, logcosh
-        run = 'dirR014ZZ'  # model-not-binary, rmac, logcosh
+        #run = 'dirR014ZZ'  # model-not-binary, rmac, logcosh
+        #run = 'ZZZ'  # max-pool
+        #run = '200b'  # max-pool
+        #run = '201'  # msrmac-pool
+        run = '202c'  # avg-pool
 
         rating_scale = 'none'
-        use_gen = True
         obj = 'rating'
 
         model = directArch(miniXception_loader, input_shape, output_size=out_size, objective=obj,
-                           normalize=normalize, pooling='rmac', binary=False)
+                           normalize=normalize, pooling='avg')
         model.model.summary()
-        model.compile(learning_rate=1e-3, decay=1e-3, loss='logcosh') # mean_squared_logarithmic_error, binary_crossentropy, logcosh
+        model.compile(learning_rate=1e-3, decay=0, loss='logcosh') # mean_squared_logarithmic_error, binary_crossentropy, logcosh
 
         if use_gen:
-            data_augment_params = {'max_angle': 0, 'flip_ratio': 0.1, 'crop_stdev': 0.05, 'epoch': 0}
-            generator = DataGeneratorDir(configuration=config,
-                    data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=32,
-                    objective=obj, categorize=False, rating_scale=rating_scale,
-                    val_factor=1, balanced=False,
+            generator = DataGeneratorDir(configuration=config, val_factor=0 if skip_validation else 1,
+                    data_size=data_size, model_size=model_size, res=res, sample=sample, batch_size=32,
+                    objective=obj, rating_scale=rating_scale,
+                    balanced=False,
                     do_augment=False, augment=data_augment_params,
-                    use_class_weight=False)
+                    use_class_weight=True, use_confidence=False)
             model.load_generator(generator)
         else:
             dataset = load_nodule_dataset(size=data_size, res=res, sample=sample)
@@ -210,33 +207,38 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
                                for im, msk in zip(images_train, masks_train)])
             images_valid = np.array([crop_center(im, msk, size=model_size)[0]
                                for im, msk in zip(images_valid, masks_valid)])
-            model.load_data(images_train, labels_train, images_valid, labels_valid, batch_sz=32)
-
-        model.train(label=run, n_epoch=epochs, gen=use_gen, do_graph=False)
+            model.load_data(images_train, labels_train, images_valid, labels_valid, batch_size=32)
 
     ## --------------------------------------- ##
-    ## ------- Run Siamese Architecture ------ ##
+    ## ------- Prepare Siamese Architecture ------ ##
     ## --------------------------------------- ##
 
     if choose_model is "SIAM":
-
         #run = 'siam100'  # base model, res=0.5I, l2
         #run = 'siam101'  # base model, res=0.5I, l1 | b: lr->e-2
         #run = 'siam102'  # base model, res=0.5I, l2, msrmac
         #run = 'siam103'  # base model, res=0.5I, cosine
         #run = 'siam104'  # base model, res=0.5I, l1, norm-l1
-        run = 'siam200'   # l2, max-pool
+        #run = 'siam200b'   # l2, max-pool, w256
+        #run = 'siam202c'  # l2, rmac-pool, w512
+        #run = 'siam203'  # l2, rmac-pool, w512, old data style
+        #run = 'siam204'  # l2, msrmac-pool, w256
+        #run = 'siam205'  # l1, max-pool, w256
+        #run = 'siam206'  # l1, msrmac-pool, w256
+        #run = 'siam207'  # l2, avg-pool, w256
+        run = 'siam208'  # l1, avg-pool, w256
+
         gen = True
+
         # model
-        data_augment_params = {'max_angle': 0, 'flip_ratio': 0.1, 'crop_stdev': 0.05, 'epoch': 0}
         generator = DataGeneratorSiam(configuration=config,
-                                      data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=64,
-                                      val_factor=1, balanced=True, objective="malignancy",
+                                      data_size=data_size, model_size=model_size, res=res, sample=sample, batch_size=128,
+                                      val_factor=0 if skip_validation else 3, balanced=True, objective="malignancy",
                                       do_augment=False, augment=data_augment_params,
                                       use_class_weight=False)
 
         model = siamArch(miniXception_loader, input_shape, output_size=out_size,
-                         distance='l2', normalize=normalize, pooling='max')
+                         distance='l1', normalize=normalize, pooling='avg')
         model.model.summary()
         model.compile(learning_rate=1e-3, decay=0)
         if gen:
@@ -246,10 +248,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
             imgs_val, lbl_val = generator.next_val().__next__()
             model.load_data(imgs_trn, lbl_trn, imgs_val, lbl_val)
 
-        model.train(label=run, n_epoch=epochs, gen=gen)
-
     if choose_model is "SIAM_RATING":
-
         #run = 'siamR001'  # mse-loss, rating-scaled
         #run = 'siamR002'  # mse-loss, rating-scaled, repeated-epochs
         #run = 'siamR003'  # mse-loss, 0.25*rating-scaled, repeated-epochs(3)
@@ -259,26 +258,27 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         #run = 'siamR007'  # rmac, logcosh-loss, 0.25*rating-scaled, repeated-epochs(1)
         #run = 'siamR008X'  # data-aug
         #run = 'siamR009'  # cosine
+        run = 'siamR_ZZ'  # cosine
 
         # model
-        data_augment_params = {'max_angle': 0, 'flip_ratio': 0.1, 'crop_stdev': 0.05, 'epoch': 0}
         generator = DataGeneratorSiam(configuration=config,
-                                      data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=32,
-                                      val_factor=3, balanced=False,
+                                      data_size=data_size, model_size=model_size, res=res, sample=sample, batch_size=32,
+                                      val_factor=0 if skip_validation else 3, balanced=False,
                                       objective="rating",
                                       do_augment=False, augment=data_augment_params,
                                       use_class_weight=False)
 
         model = siamArch(miniXception_loader, input_shape, output_size=out_size, objective="rating",
-                         distance='l2', normalize=normalize, pooling='rmac')
+                         distance='l2', normalize=normalize, pooling='max')
         model.model.summary()
         model.compile(learning_rate=1e-3, decay=0, loss='mean_squared_error') # mean_squared_error, logcosh
         model.load_generator(generator)
 
-        model.train(label=run, n_epoch=epochs, gen=True)
+    ## --------------------------------------- ##
+    ## ------- Prepare Triplet Architecture ------ ##
+    ## --------------------------------------- ##
 
     if choose_model is "TRIPLET":
-
         #run = 'trip011XXX'  # mrg-loss, decay(0.01), max-pool
         #run = 'trip012X'  # mrg-loss, decay(0.05), rmac-pool
         #run = 'trip013'  # cosine
@@ -298,22 +298,27 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         #run = 'trip026Z'  # class_weight='rating_distance', cat
 
         #run = 'trip027'  # obj:malig, rmac, categorize, no-decay
-        run = 'trip028'  # obj:malig, max, categorize, no-decay
+        #run = 'trip028'  # obj:malig, max, categorize, no-decay
+        run = '_ZZ'
+
+        objective = 'malignancy'
+        use_rank_loss = False
 
         gen = True
         preload_weight = None #'./Weights/w_dirR011X_50.h5'
 
         # model
-        model = tripArch(miniXception_loader, input_shape, output_size=out_size,
-                         distance='l2', normalize=True, pooling='max', categorize=True, binary=False)
+        model = tripArch(miniXception_loader, input_shape, objective=objective, output_size=out_size,
+                         distance='l2', normalize=True, pooling='max', categorize=use_rank_loss)
+
         if preload_weight is not None:
             model.load_core_weights(preload_weight)
         model.model.summary()
         model.compile(learning_rate=1e-3, decay=0) #0.05
-        data_augment_params = {'max_angle': 0, 'flip_ratio': 0.1, 'crop_stdev': 0.05, 'epoch': 0}
+
         generator = DataGeneratorTrip(configuration=config,
-                                      data_size=data_size, model_size=model_size, res=res, sample=sample, batch_sz=80,
-                                      val_factor=3, objective="malignancy",
+                                      data_size=data_size, model_size=model_size, res=res, sample=sample, batch_size=16,
+                                      val_factor=0 if skip_validation else 3, objective=objective,
                                       do_augment=False, augment=data_augment_params,
                                       use_class_weight=False, class_weight='rating_distance')
         if gen:
@@ -323,6 +328,14 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
             imgs_val, lbl_val = generator.next_val().__next__()
             model.load_data(imgs_trn, lbl_trn,imgs_val, lbl_val)
 
-        model.train(label=run, n_epoch=epochs, gen=gen)
+    ## --------------------------------------- ##
+    ## -------      RUN             ------ ##
+    ## --------------------------------------- ##
+
+    if no_training:
+        model.last_epoch = epochs
+        model.run='{}{}c{}'.format('', run, config)
+    else:
+        model.train(run='{}{}c{}'.format('', run, config), n_epoch=epochs, gen=use_gen, do_graph=False)
 
     return model

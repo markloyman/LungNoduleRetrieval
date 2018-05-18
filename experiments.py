@@ -114,20 +114,29 @@ def load_experiments(experiment):
     #   Siam
     # ===========================
     elif experiment == 'Siam':
-        runs = ['243b', '202b', '204', '207', '205', '206', '208']
-        run_net_types = ['dir'] + ['siam'] * 6
-        run_metrics = ['l2'] * 4 + ['l1'] * 3
+        runs = ['202b', '204', '207', '205', '206', '208']
+        run_net_types = ['siam'] * 6
+        run_metrics = ['l2'] * 3 + ['l1'] * 3
         run_epochs = [list(range(1, 51, 1))] * len(runs)
-        run_names = ['243b-dir', '202-siam-l2-max', '204-siam-l2-msrmac', '207-l2-avg', '205-siam-l1-max', '206-siam-l1-msrmac', '208-l1-avg']
+        run_names = ['202b-siam-l2-max', '204-siam-l2-msrmac', '207-l2-avg', '205-siam-l1-max', '206-siam-l1-msrmac', '208-l1-avg']
     # ===========================
     #   Dir-Rating
     # ===========================
     elif experiment == 'DirRating':
-        runs = ['200b', '201', '202']
+        runs = ['200b', '201', '202', '202c']
         run_net_types = ['dirR']*len(runs)
         run_metrics = ['l2']*len(runs)
-        run_epochs = [list(range(1, 56, 1))] * len(runs)
-        run_names = ['200b-max', '201-msrmac', '202-avg']
+        run_epochs = [list(range(1, 101, 1))] * len(runs)
+        run_names = ['200b-max', '201-msrmac', '202-avg', '202c-avg']
+    # ===========================
+    #   Debug
+    # ===========================
+    elif experiment == 'Debug':
+        runs = ['235', '252', '251']
+        run_net_types = ['dir'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [[40]]*len(runs)
+        run_names = ['235-max', '252-msrmac', '251-avg']
     else:
         print("No Such Experiment")
         assert(False)

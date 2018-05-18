@@ -27,24 +27,24 @@ def hubness(nbrs_indices, k=3):
 
 def concentration(distance_matrix):
     # Radovanovic, 2010
-    dist_std    = np.std( distance_matrix, axis=0)
-    dist_mean   = np.mean(distance_matrix, axis=0)
+    dist_std    = np.std( distance_matrix, axis=1)
+    dist_mean   = np.mean(distance_matrix, axis=1)
     ratio       = dist_std / dist_mean
     return np.mean(ratio), np.std(ratio), np.mean(dist_std), np.mean(dist_mean)
 
 
 def relative_contrast(distance_matrix):
     # Aggarwal, On the surprising behavior of distance metrics in high dimensional spaces
-    dist_max   = np.max( distance_matrix, axis=0)
-    dist_min   = np.min(distance_matrix, axis=0)
-    ratio       = (dist_max-dist_min + 1e-6) / (dist_min+1e-6)
+    dist_max   = np.max( distance_matrix, axis=1)
+    dist_min   = np.min(distance_matrix, axis=1)
+    ratio       = (dist_max-dist_min - 1e-6) / (dist_min+1e-6)
     return np.mean(ratio), np.std(ratio)
 
 
 def relative_contrast_imp(distance_matrix):
     # Aggarwal, On the surprising behavior of distance metrics in high dimensional spaces
-    dist_max    = np.max( distance_matrix, axis=0)
-    dist_mean   = np.mean(distance_matrix, axis=0)
+    dist_max    = np.max( distance_matrix, axis=1)
+    dist_mean   = np.mean(distance_matrix, axis=1)
     ratio       = (dist_max-dist_mean) / dist_mean
     return np.mean(ratio), np.std(ratio)
 
@@ -63,10 +63,11 @@ def symmetry(nbrs_indices, k=3):
 def lambda_p(nbrs_distances, res=0.1):
     lmbd = []
     sigma = np.mean(nbrs_distances[:, 0])
-    assert (res > 0)
+    assert sigma > 0
+    assert res > 0
     end_val = 1.01 * (np.max(nbrs_distances)/sigma - 1)
     range_  = np.arange(-1.0, end_val, res)
-    print("kumar resolution: {} - {} samples, sigma={:.2f}".format(res, range_.shape[0], sigma))
+    print("\tkumar resolution: {} - {} samples, sigma={:.2f}".format(res, range_.shape[0], sigma))
     for eps in range_:
         thresh = (eps+1)*sigma
         C = np.count_nonzero(nbrs_distances > thresh, axis=1)
@@ -79,6 +80,38 @@ def kumar(nbrs_distances, res=0.0025):
     l, e = lambda_p(nbrs_distances, res=res)
     tau = res*np.sum(l[np.bitwise_and(l > 0, l < 1)])
     return tau, (l, e)
+
+
+def calc_hubness(indices, K=[3, 5, 7, 11, 17], verbose=False):
+    if verbose:
+        plt.figure()
+    h = np.zeros(len(K))
+    for i in range(len(K)):
+        h_ = hubness(indices, K[i])
+        h[i] = h_[0]
+        if verbose:
+            #plt.subplot(1,len(K), i+1)
+            plt.plot(h_[1])
+    h_mean, h_std = np.mean(h), np.std(h)
+    if verbose:
+        plt.legend(['{}: {:.2f}'.format(k, ind) for k, ind in zip(K, h)])
+        plt.title('Hubness = {:.2f} ({:.2f})'.format(h_mean, h_std))
+    return h_mean, h_std
+
+
+def calc_symmetry(indices, K=[3, 5, 7, 11, 17]):
+    s = np.zeros(len(K))
+    for i in range(len(K)):
+        s[i] = symmetry(indices, K[i])
+    return np.mean(s), np.std(s)
+
+
+def distances_distribution(distances):
+    plt.figure()
+    for dist in distances:
+        hist, bins = np.histogram(dist, bins=20)
+        axis = bins[:-1] + 0.5*(bins[1:] - bins[:-1])
+        plt.plot(axis, hist, marker='*', alpha=0.2)
 
 
 if __name__ == "__main__":

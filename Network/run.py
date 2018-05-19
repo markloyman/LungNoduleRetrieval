@@ -25,7 +25,7 @@ if __name__ == '__main__':
         print("Perform Full Cross-Validation Run")
 
     # DIR / SIAM / DIR_RATING / SIAM_RATING / TRIPLET
-    net_type = 'DIR_RATING'
+    net_type = 'DIR'
 
     for config in config_list:
         model = run_training(net_type, epochs=epochs, config=config, skip_validation=True, no_training=test)

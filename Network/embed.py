@@ -3,17 +3,17 @@ import numpy as np
 
 try:
     from Network import FileManager
-    from Network.Direct.directArch import directArch
-    from Network.Siamese.siameseArch import siamArch
-    from Network.Triplet.tripletArch import tripArch
+    from Network.Direct.directArch import DirectArch
+    from Network.Siamese.siameseArch import SiamArch
+    from Network.Triplet.tripletArch import TripArch
     from Network.dataUtils import crop_center
     from Network.data_loader import load_nodule_dataset, prepare_data
     from Network.model import miniXception_loader
 except:
     import FileManager
-    from Direct.directArch import directArch
-    from Siamese.siameseArch import siamArch
-    from Triplet.tripletArch import tripArch
+    from Direct.directArch import DirectArch
+    from Siamese.siameseArch import SiamArch
+    from Triplet.tripletArch import TripArch
     from dataUtils import crop_center
     from data_loader import load_nodule_dataset, prepare_data
     from model import miniXception_loader
@@ -60,22 +60,22 @@ class Embeder:
     def prepare_network(self, run, epoch):
         if self.model is None:
             if self.network == 'dir':
-                model = directArch(miniXception_loader, self.net_input_shape, objective="malignancy", output_size=self.net_out_size,
+                model = DirectArch(miniXception_loader, self.net_input_shape, objective="malignancy", output_size=self.net_out_size,
                                    normalize=self.net_normalize, pooling=self.net_pool)
 
             elif self.network == 'siam':
-                model = siamArch(miniXception_loader, self.net_input_shape, distance='l2', output_size=self.net_out_size, normalize=self.net_normalize,
+                model = SiamArch(miniXception_loader, self.net_input_shape, distance='l2', output_size=self.net_out_size, normalize=self.net_normalize,
                                  pooling=self.net_pool)
 
             elif self.network == 'dirR':
-                model = directArch(miniXception_loader, self.net_input_shape, objective="rating", output_size=self.net_out_size,
+                model = DirectArch(miniXception_loader, self.net_input_shape, objective="rating", output_size=self.net_out_size,
                                    normalize=self.net_normalize, pooling=self.net_pool)
 
             elif self.network == 'siamR':
-                model = siamArch(miniXception_loader, self.net_input_shape, distance='l2', output_size=self.net_out_size, normalize=self.net_normalize,
+                model = SiamArch(miniXception_loader, self.net_input_shape, distance='l2', output_size=self.net_out_size, normalize=self.net_normalize,
                                  pooling=self.net_pool, objective="rating")
             elif self.network == 'trip':
-                model = tripArch(miniXception_loader, self.net_input_shape, distance='l2', output_size=self.net_out_size, normalize=self.net_normalize,
+                model = TripArch(miniXception_loader, self.net_input_shape, distance='l2', output_size=self.net_out_size, normalize=self.net_normalize,
                                  pooling=self.net_pool, categorize=self.categorize)
             else:
                 assert (False)

@@ -113,6 +113,11 @@ def crop_center(image, mask, size=None):
     return image[y0:(y0+size), x0:(x0+size)], mask[y0:(y0+size), x0:(x0+size)]
 
 
+def crop_center_all(images, masks, size=None):
+    images = [crop_center(image, mask, size)[0] for image, mask in zip(images, masks)]
+    return np.array(images)
+
+
 def crop(image, mask, fix_size=None, min_size=0, ratio=1.0, stdev=0.15):
     # Size:
     #   first sampled as Uniform(mask-size, full-patch-size)

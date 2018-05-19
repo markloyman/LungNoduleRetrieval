@@ -6,7 +6,7 @@ import numpy as np
 
 from Analysis.analysis import MalignancyConfusionMatrix, MalignancyBySize
 from LIDC.lidcUtils import getAnnotation
-from Network.Direct.directArch import directArch
+from Network.Direct.directArch import DirectArch
 from Network.data_loader import load_nodule_dataset, load_nodule_raw_dataset, prepare_data
 from Network.model import miniXception_loader
 
@@ -41,7 +41,7 @@ assert len(dataset) == images_test.shape[0]
 #model = miniXception(None, (size, size,1),'avg', weights='w_002_37-0.95-0.82.h5')
 #compile(model, learning_rate=0.01)
 
-model = directArch(miniXception_loader, input_shape, 2)
+model = DirectArch(miniXception_loader, input_shape, 2)
 #model.summary()
 #model.compile()
 model.load_weights('w_007_36-0.91-0.86.h5')

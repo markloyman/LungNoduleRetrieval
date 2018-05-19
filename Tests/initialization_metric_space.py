@@ -1,6 +1,6 @@
 from init import *
 from Network.model import miniXception_loader
-from Network.Direct.directArch import directArch
+from Network.Direct.directArch import DirectArch
 from Network.data_loader import load_nodule_dataset
 import Analysis.metric_space_indexes as index
 from sklearn.neighbors import NearestNeighbors
@@ -52,7 +52,7 @@ for p, pooling in enumerate(pooling_options):
         start = timer()
         for i in range(repeatitions):
             print('\tRep # {}'.format(i))
-            model = directArch(miniXception_loader, input_shape, objective="malignancy", pooling=pooling,
+            model = DirectArch(miniXception_loader, input_shape, objective="malignancy", pooling=pooling,
                                output_size=out_size, normalize=True)
             core = model.extract_core()
             embed = core.predict(np.expand_dims(images, axis=-1), batch_size=32)

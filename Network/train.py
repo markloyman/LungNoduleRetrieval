@@ -10,26 +10,29 @@ random.seed(1337)
 tf.set_random_seed(1234)
 K.set_session(tf.Session(graph=tf.get_default_graph()))
 try:
-    from Network.Direct.directArch import directArch
+    from Network.Direct.directArch import DirectArch
     from Network.Direct.DataGenDirect import DataGeneratorDir
-    from Network.Siamese.siameseArch import siamArch
+    from Network.Siamese.siameseArch import SiamArch
     from Network.Siamese.DataGenSiam import DataGeneratorSiam
-    from Network.Triplet.tripletArch import tripArch
+    from Network.Triplet.tripletArch import TripArch
     from Network.Triplet.DataGenTrip import DataGeneratorTrip
     from Network.model import miniXception_loader
     from Network.data_loader import load_nodule_dataset, prepare_data_direct
     from Network.dataUtils import crop_center
+    local = True
 except:
     # Paths for floyd cloud
-    from Direct.directArch import directArch
+    from Direct.directArch import DirectArch
     from Direct.DataGenDirect import DataGeneratorDir
-    from Siamese.siameseArch import siamArch
+    from Siamese.siameseArch import SiamArch
     from Siamese.DataGenSiam import DataGeneratorSiam
-    from Triplet.tripletArch import tripArch
+    from Triplet.tripletArch import TripArch
     from Triplet.DataGenTrip import DataGeneratorTrip
     from model import miniXception_loader
     from data_loader import load_nodule_dataset, prepare_data_direct
     from dataUtils import crop_center
+
+    local = False
 
     import os, errno
 
@@ -139,9 +142,9 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         #run = 'dir251'  # avg-pooling
         #run = 'dir252'  # msrmac-pooling
         #run = 'dir253'  # avg-pooling, aug
-        run = '254'  # msrmac-pooling, aug
+        run = '254b'  # msrmac-pooling, aug
 
-        model = directArch( miniXception_loader, input_shape, output_size=out_size,
+        model = DirectArch( miniXception_loader, input_shape, output_size=out_size,
                             normalize=normalize, pooling='msrmac')
         model.model.summary()
         model.compile(learning_rate=1e-3, decay=0)
@@ -181,12 +184,12 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         #run = 'ZZZ'  # max-pool
         #run = '200b'  # max-pool
         #run = '201'  # msrmac-pool
-        run = '202c'  # avg-pool
+        run = '202d'  # avg-pool
 
         rating_scale = 'none'
         obj = 'rating'
 
-        model = directArch(miniXception_loader, input_shape, output_size=out_size, objective=obj,
+        model = DirectArch(miniXception_loader, input_shape, output_size=out_size, objective=obj,
                            normalize=normalize, pooling='avg')
         model.model.summary()
         model.compile(learning_rate=1e-3, decay=0, loss='logcosh') # mean_squared_logarithmic_error, binary_crossentropy, logcosh
@@ -226,18 +229,19 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         #run = 'siam205'  # l1, max-pool, w256
         #run = 'siam206'  # l1, msrmac-pool, w256
         #run = 'siam207'  # l2, avg-pool, w256
-        run = 'siam208'  # l1, avg-pool, w256
+        run = '208c'  # l1, avg-pool, w256
 
         gen = True
+        batch_size = 64 if local else 128
 
         # model
         generator = DataGeneratorSiam(configuration=config,
-                                      data_size=data_size, model_size=model_size, res=res, sample=sample, batch_size=128,
+                                      data_size=data_size, model_size=model_size, res=res, sample=sample, batch_size=batch_size,
                                       val_factor=0 if skip_validation else 3, balanced=True, objective="malignancy",
                                       do_augment=False, augment=data_augment_params,
                                       use_class_weight=False)
 
-        model = siamArch(miniXception_loader, input_shape, output_size=out_size,
+        model = SiamArch(miniXception_loader, input_shape, output_size=out_size,
                          distance='l1', normalize=normalize, pooling='avg')
         model.model.summary()
         model.compile(learning_rate=1e-3, decay=0)
@@ -258,7 +262,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         #run = 'siamR007'  # rmac, logcosh-loss, 0.25*rating-scaled, repeated-epochs(1)
         #run = 'siamR008X'  # data-aug
         #run = 'siamR009'  # cosine
-        run = 'siamR_ZZ'  # cosine
+        run = '_ZZ'  # cosine
 
         # model
         generator = DataGeneratorSiam(configuration=config,
@@ -268,7 +272,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
                                       do_augment=False, augment=data_augment_params,
                                       use_class_weight=False)
 
-        model = siamArch(miniXception_loader, input_shape, output_size=out_size, objective="rating",
+        model = SiamArch(miniXception_loader, input_shape, output_size=out_size, objective="rating",
                          distance='l2', normalize=normalize, pooling='max')
         model.model.summary()
         model.compile(learning_rate=1e-3, decay=0, loss='mean_squared_error') # mean_squared_error, logcosh
@@ -308,7 +312,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         preload_weight = None #'./Weights/w_dirR011X_50.h5'
 
         # model
-        model = tripArch(miniXception_loader, input_shape, objective=objective, output_size=out_size,
+        model = TripArch(miniXception_loader, input_shape, objective=objective, output_size=out_size,
                          distance='l2', normalize=True, pooling='max', categorize=use_rank_loss)
 
         if preload_weight is not None:

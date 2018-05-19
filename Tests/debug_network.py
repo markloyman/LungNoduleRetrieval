@@ -9,13 +9,13 @@ sys.path.insert(0, 'G:\LungNoduleRetrieval')
 
 try:
     from Network.model import  miniXception_loader
-    from Network.Siamese.siameseArch import siamArch
+    from Network.Siamese.siameseArch import SiamArch
     from Network.data_loader import load_nodule_dataset, prepare_data
     from Network.dataUtils import crop_center
     from Analysis.analysis import calc_embedding_statistics
 except:
     from model import  miniXception_loader
-    from siameseArch import siamArch
+    from siameseArch import SiamArch
     from data import load_nodule_dataset, prepare_data
     from dataUtils import crop_center
 from Network import FileManager
@@ -59,7 +59,7 @@ images = np.array([crop_center(im, msk, size=net_size)[0] for im, msk in zip(ima
 # Run
 # =================
 
-siam_model = siamArch(miniXception_loader, input_shape, distance='l2', output_size=out_size, normalize=True)
+siam_model = SiamArch(miniXception_loader, input_shape, distance='l2', output_size=out_size, normalize=True)
 embed_model = siam_model.extract_core(weights=Weights(run=run, epoch=epoch))
 embed_model.layers[1].summary()
 

@@ -2,7 +2,7 @@ import pickle
 import numpy as np
 
 # from Network.metrics import siamese_margin
-from Network.Direct.directArch import directArch
+from Network.Direct.directArch import DirectArch
 from Network.data_loader import load_nodule_dataset, prepare_data_direct
 from Network.dataUtils import crop_center
 from Network.model import miniXception_loader
@@ -19,7 +19,7 @@ class Rating:
         input_shape = (self.in_size, self.in_size, 1)
 
         # prepare model
-        self.model = directArch(miniXception_loader, input_shape, objective="rating", pooling=self.pooling, output_size=self.out_size,
+        self.model = DirectArch(miniXception_loader, input_shape, objective="rating", pooling=self.pooling, output_size=self.out_size,
                            normalize=True)
 
     def load_dataset(self, data_subset_id, size=160, sample='Normal', res=0.5, rating_scale='none', configuration=None):
@@ -93,7 +93,7 @@ class Malignancy:
         input_shape = (self.model_size, self.model_size, 1)
 
         # prepare model
-        model = directArch(miniXception_loader, input_shape, objective="malignancy", pooling=self.pooling, output_size=self.out_size,
+        model = DirectArch(miniXception_loader, input_shape, objective="malignancy", pooling=self.pooling, output_size=self.out_size,
                            normalize=True)
         if weights_file is not None:
             model.load_weights(weights_file)

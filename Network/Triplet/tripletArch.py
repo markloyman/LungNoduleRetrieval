@@ -11,45 +11,13 @@ from keras.models import Model
 from keras.optimizers import Adam
 
 try:
+    from Network.Common.baseArch import BaseArch
+    from Network.Common.distances import euclidean_distance, l1_distance, cosine_distance, distance_output_shape
     from Network.Triplet.metrics import triplet_margin, rank_accuracy, kendall_correlation
     from Network import FileManager as File
-    input_dir = './output'
-    output_dir = './output'
 except:
     from Triplet.metrics import triplet_margin, rank_accuracy, kendall_correlation
     import FileManager as File
-    input_dir = '/input'
-    output_dir = '/output'
-
-
-def huber(a, d):
-    return K.square(d)*(K.sqrt(1+K.square(a/d)) - 1.0)
-
-
-def huber_inv(a, d=1.0):
-    return K.sqrt(d)*(K.square(1+K.sqrt(a/d)) - 1.0)
-
-
-def euclidean_distance(vects):
-    x, y = vects
-    return K.sqrt(K.maximum(K.sum(K.square(x - y), axis=1, keepdims=True), K.epsilon()))
-
-
-def l1_distance(vects):
-    x, y = vects
-    return K.sum(K.abs(x - y), axis=1, keepdims=True)
-
-
-def cosine_distance(vects):
-    x, y = vects
-    x = K.l2_normalize(x, axis=-1)
-    y = K.l2_normalize(y, axis=-1)
-    return 1.0 - K.batch_dot(x, y, axes=-1)
-
-
-def trip_dist_output_shape(shapes):
-    shape1, shape2 = shapes
-    return (shape1[0], 1)
 
 
 def contrastive_loss_p(y_true, y_pred):
@@ -75,25 +43,21 @@ def triplet_loss(_, y_pred):
     return loss
 
 
-class printbatch(Callback):
-    def on_batch_end(self, epoch, logs={}):
-        print('E#{}: {}'.format(epoch, logs))
+class TripArch(BaseArch):
 
-class tripArch:
+    def __init__(self, model_loader, input_shape, objective='malignancy',
+                 pooling='rmac', output_size=1024, distance='l2', normalize=False, categorize=False):
 
-    def __init__(self, model_loader, input_shape, objective='malignancy', pooling='rmac', output_size=1024, distance='l2', normalize=False, categorize=False):
-    #   input_shape of form: (size, size,1)
+        super().__init__(model_loader, input_shape, objective=objective,
+                         pooling=pooling, output_size=output_size, normalize=normalize, binary=False)
 
-        self.categorize = categorize
         self.net_type = 'tripR' if (objective == 'rating') else 'trip'
-        self.run = None
 
         img_input_ref  = Input(shape=input_shape)
         img_input_pos  = Input(shape=input_shape)
         img_input_neg  = Input(shape=input_shape)
-        self.input_shape = input_shape
 
-        self.base =  model_loader(input_tensor=None, input_shape=input_shape, return_model=True,
+        self.base =  self.model_loader(input_tensor=None, input_shape=input_shape, return_model=True,
                                   pooling=pooling, output_size=output_size, normalize=normalize)
         #self.base.summary()
         base_ref = self.base(img_input_ref)
@@ -107,23 +71,21 @@ class tripArch:
         elif distance == 'cosine':
             distance_layer = cosine_distance
         else:
-            assert(False)
+            assert False
 
         distance_layer_pos = Lambda(distance_layer,
-                                    output_shape=trip_dist_output_shape, name='pos_dist')([base_ref, base_pos])
+                                    output_shape=distance_output_shape, name='pos_dist')([base_ref, base_pos])
         distance_layer_neg = Lambda(distance_layer,
-                                    output_shape=trip_dist_output_shape, name='neg_dist')([base_ref, base_neg])
+                                    output_shape=distance_output_shape, name='neg_dist')([base_ref, base_neg])
 
         output_layer = Lambda(lambda vects: K.concatenate(vects, axis=1), name='output')([distance_layer_pos, distance_layer_neg])
+
         if categorize:
             output_layer = Activation('softmax')(output_layer)
 
         self.model =    Model(  inputs=[img_input_ref, img_input_pos, img_input_neg],
                                 outputs = output_layer,
                                 name='tripletArch')
-
-        self.data_ready  = False
-        self.model_ready = False
 
     def compile(self, learning_rate = 0.001, decay=0.1, loss = 'mean_squared_error'):
         rank_accuracy.__name__ = 'accuracy'
@@ -143,173 +105,24 @@ class tripArch:
         self.lr_decay   = decay
         self.model_ready = True
 
-    def load_data(self, images_train, labels_train, images_valid, labels_valid):
-        self.images_train = images_train
-        self.labels_train = labels_train
-        self.images_valid = images_valid
-        self.labels_valid = labels_valid
-
-        self.data_ready = True
-
-    def load_generator(self, data_gen):
-        self.data_gen = data_gen
-
-    def scheduler(self, epoch):
-        if epoch % 2 == 0 and epoch != 0:
-            lr = K.get_value(self.model.optimizer.lr)
-            K.set_value(self.model.optimizer.lr, lr * .9)
-            print("lr changed to {}".format(lr * .9))
-        return K.get_value(self.model.optimizer.lr)
-
-    def train(self, run='', epoch=0, n_epoch=100, gen = False, do_graph=False):
+    def set_callbacks(self, label='', gen=False, do_graph=False):
         assert do_graph is False
-        self.run = run
-        label = self.net_type + run
-        if self.lr_decay>0:
-            print("LR Decay: {}".format([round(self.lr / (1. + self.lr_decay * n), 5) for n in range(n_epoch)]))
-        check ='loss'
-        if self.data_gen.has_validation():
-            weight_file_pattern = '_{{epoch:02d}}-{{{}:.2f}}-{{val_{}:.2f}}'.format(check, check)
-        else:
-            weight_file_pattern = '_{{epoch:02d}}-{{{}:.2f}}-0'.format(check)
-        checkpoint      = ModelCheckpoint(output_dir + '/Weights/w_' + label + weight_file_pattern + '.h5',
-                                         monitor='loss', save_best_only=False)
-        #checkpoint_val  = ModelCheckpoint('./Weights/w_'+label+'_{epoch:02d}-{loss:.2f}-{val_loss:.2f}.h5',
-        #                                   monitor='val_loss', save_best_only=True)
+        check = 'loss'
+        weight_file_pattern = self.set_weight_file_pattern(check, label)
+        callbacks = []
+        callbacks += [ModelCheckpoint(weight_file_pattern, monitor='val_loss', save_best_only=False)]
         #on_plateau      = ReduceLROnPlateau(monitor='val_loss', factor=0.5, epsilon=1e-2, patience=5, min_lr=1e-6, verbose=1)
         #early_stop      = EarlyStopping(monitor='loss', min_delta=1e-3, patience=5)
         #lr_decay        = LearningRateScheduler(self.scheduler)
         if gen:
-            print("DataGen, so lightweight TensorBoard")
-            board = TensorBoard(log_dir=output_dir+'/logs', histogram_freq=0, write_graph=False)
+            callbacks += [TensorBoard(log_dir=self.output_dir+'/logs/'+label, histogram_freq=0, write_graph=False)]
         else:
-            print("Extended TensorBoard")
-            #board = TensorBoard(log_dir=output_dir+'/logs', histogram_freq=1, write_graph=True,
-            #                    write_images=True, batch_size=32, write_grads=True)
-            board = TensorBoard(log_dir=output_dir + '/logs', histogram_freq=1, write_graph=True, write_grads=True,
-                                                    write_images=True)
+            callbacks += [TensorBoard(log_dir=self.output_dir+'/logs'+label, histogram_freq=1, write_graph=True,
+                                write_images=False, write_grads=True)]
+        return callbacks
 
-        pb = printbatch()
-
-        start = timer()
-        total_time = None
-        try:
-            self.last_epoch = epoch + n_epoch
-            if gen:
-                #print("Train Steps: {}, Val Steps: {}".format(self.data_gen.train_N(), self.data_gen.val_N()))
-                history = self.model.fit_generator(
-                    generator =  self.data_gen.training_sequence(),
-                    #steps_per_epoch= self.data_gen.train_N(),
-                    #class_weight = class_weight,
-                    validation_data  = self.data_gen.validation_sequence(),
-                    #validation_steps = self.data_gen.val_N(),
-                    initial_epoch = epoch,
-                    epochs = epoch+n_epoch,
-                    max_queue_size=9,
-                    use_multiprocessing=True if os.name is not 'nt' else False,
-                    workers=6 if os.name is not 'nt' else 1,
-                    callbacks = [checkpoint, board ], # early_stop, on_plateau, early_stop, checkpoint_val, lr_decay, pb
-                    verbose = 2
-                )
-
-                #next_batch = self.data_gen.next_val().__next__()
-                #pred = self.model.evaluate(next_batch)
-                #pickle.dump( (next_batch,pred), open('tmp.p', 'bw') )
-
-            else:
-                history = self.model.fit(
-                    x = [self.images_train[0], self.images_train[1], self.images_train[2]],
-                    y =  self.labels_train,
-                    shuffle = True,
-                    #class_weight = class_weight,
-                    validation_data = ([self.images_valid[0], self.images_valid[1], self.images_valid[2]], self.labels_valid),
-                    batch_size = 32,
-                    initial_epoch = epoch,
-                    epochs = epoch+n_epoch,
-                    callbacks = [checkpoint, board], # on_plateau, early_stop,checkpoint_val
-                    verbose = 2
-                )
-
-            total_time = (timer() - start) / 60 / 60
-
-            #history_summarize(history, label)
-            pickle.dump(history.history, open(output_dir+'/history/history-{}.p'.format(label), 'bw'))
-
-        finally:
-            if total_time is None:
-                total_time = (timer() - start) / 60 / 60
-            print("Total training time is {:.1f} hours".format(total_time))
-
-    def embed(self, epoch0=1, delta_epoch=5):
-        # init file managers
-        Weights = File.Weights(self.net_type, output_dir=input_dir)
-        Embed = File.Embed(self.net_type, output_dir=output_dir)
-
-        # get data from generator
-        images, labels, classes, masks, meta, conf = self.data_gen.get_flat_valid_data()
-
-        start = timer()
-        epochs = list(range(epoch0, self.last_epoch+1, delta_epoch))
-        embedding = []
-        epochs_done = []
-        embed_model = self.extract_core()
-        for epch in epochs:
-            # load weights
-            try:
-                w = Weights(run=self.run, epoch=epch)
-                assert(w is not None)
-                embed_model.load_weights(w)
-                print("Loaded {}".format(w))
-            except:
-                print("Epoch {} failed (w={})".format(epch, w))
-                continue
-            # predict
-            pred = embed_model.predict(images)
-            embedding.append(np.expand_dims(pred, axis=0))
-            epochs_done.append(epch)
-
-        embedding = np.concatenate(embedding, axis=0)
-        total_time = (timer() - start) / 60
-        print("Total training time is {:.2f} minutes".format(total_time))
-
-        # dump to Embed file
-        out_filename = Embed(self.run, 'Valid')
-        pickle.dump((embedding, epochs_done, meta, images, classes, labels, masks), open(out_filename, 'bw'))
-        print("Saved embedding of shape {} to: {}".format(embedding.shape, out_filename))
-
-    def test(self, images, labels, N=0):
-        assert images.shape[0] == labels.shape[0]
-
-        if N == 0:
-            N = images.shape[0]
-
-        losses = self.model.evaluate(
-                                [images[0][:N],images[1][:N]],
-                                labels[:N],
-                                batch_size=32
-                            )
-        for l,n in zip(losses, self.model.metrics_names):
-            print('{}: {}'.format(n,l))
-
-    def predict(self, images, n=0, round = True):
-        if n == 0:
-            n = images[0].shape[0]
-        predication = \
-            self.model.predict([images[0][:n],images[1][:n]], batch_size=32)
-        if round:
-            predication = np.round(predication).astype('uint')
-
-        return predication
-
-    def load_weights(self, w):
-        self.model.load_weights(w)
-        return None
-
-    def load_core_weights(self, w):
-        self.base.load_weights(w, by_name=True)
-        return None
-
-    def extract_core(self, weights=None):
+    def extract_core(self, weights=None, repool=False):
+        assert repool is False
         if weights is not None:
             self.model.load_weights(weights)
 
@@ -317,5 +130,4 @@ class tripArch:
         model = Model(  inputs  = img_input,
                         outputs = self.base(img_input),
                         name    ='siameseEmbed')
-
         return model

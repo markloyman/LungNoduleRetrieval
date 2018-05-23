@@ -47,6 +47,7 @@ class Retriever:
                         images, embedding, meta_data, labels, masks = pickle.load(open(fn, 'br'))
                         epochs = None
                         embed_concat_axis = 0
+                        classes = labels
                     self.images.append(images)
                     self.embedding.append(embedding)
                     self.meta_data += meta_data
@@ -88,6 +89,7 @@ class Retriever:
 
         self.images, self.embedding, self.meta_data, self.labels, self.nod_ids = images, rating, meta, labels, nod_ids
         self.len = len(self.meta_data)
+        self.multi_epcch = False
 
         print("Loaded {} entries from dataset".format(self.len))
 

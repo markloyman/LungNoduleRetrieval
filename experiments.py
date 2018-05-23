@@ -1,5 +1,5 @@
 def load_experiments(experiment):
-    runs, run_net_types, run_metrics, run_epochs, run_names = [], [], [], [], []
+    runs, run_net_types, run_metrics, run_epochs, run_names, run_ep_perf, run_ep_comb = [], [], [], [], [], [], []
     # ===========================
     #   Malignancy Objective
     # ===========================
@@ -47,6 +47,8 @@ def load_experiments(experiment):
         run_metrics     = ['l2']*len(runs)
         run_epochs      = [list(range(1, 61, 1))]*len(runs)
         run_names       = ['235-max', '252-msrmac', '251-avg']  # '250-max2', '900-max', '901-avg', '999-rmac', '902-msrmac',
+        run_ep_perf      = [[65], [19], [45]]
+        run_ep_comb      = [[38], [33], [18]]
     # ===========================
     #   PoolingAug
     # ===========================
@@ -119,15 +121,19 @@ def load_experiments(experiment):
         run_metrics = ['l2'] * 3 + ['l1'] * 3
         run_epochs = [list(range(1, 51, 1))] * len(runs)
         run_names = ['202b-siam-l2-max', '204-siam-l2-msrmac', '207-l2-avg', '205-siam-l1-max', '206-siam-l1-msrmac', '208-l1-avg']
+        run_ep_perf = []
+        run_ep_comb = []
     # ===========================
     #   Dir-Rating
     # ===========================
     elif experiment == 'DirRating':
-        runs = ['200b', '201', '202', '202c']
+        runs = ['200b', '201', '202c']  # '202',
         run_net_types = ['dirR']*len(runs)
         run_metrics = ['l2']*len(runs)
         run_epochs = [list(range(1, 101, 1))] * len(runs)
-        run_names = ['200b-max', '201-msrmac', '202-avg', '202c-avg']
+        run_names = ['200b-max', '201-msrmac', '202c-avg']  # '202-avg',
+        run_ep_perf = [[35], [33], [100]]
+        run_ep_comb = [[17], [29], [55]]
     # ===========================
     #   Debug
     # ===========================
@@ -147,7 +153,7 @@ def load_experiments(experiment):
     assert len(run_epochs) == n
     assert len(run_names) == n
 
-    return runs, run_net_types, run_metrics, run_epochs, run_names
+    return runs, run_net_types, run_metrics, run_epochs, run_names, run_ep_perf, run_ep_comb
 
 
 '''

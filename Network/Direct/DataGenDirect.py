@@ -93,7 +93,7 @@ class DataSequenceDir(DataSequenceBase):
     def load_data(self):
 
         images, labels, classes, masks = \
-            prepare_data_direct(self.dataset, objective=self.objective, rating_scale=self.rating_scale, classes=2,
+            prepare_data_direct(self.dataset, objective=self.objective, rating_scale=self.rating_scale, num_of_classes=2,
                                 size=self.model_size, verbose=self.verbose)[:4]
 
         if self.use_class_weight:

@@ -3,9 +3,9 @@ import numpy as np
 from functools import reduce
 from scipy.misc import imresize
 try:
-    from Network.dataUtils import rating_normalize, crop_center
+    from Network.dataUtils import rating_normalize, crop_center, l2_distance, cluster_distance
 except:
-    from dataUtils import rating_normalize, crop_center
+    from dataUtils import rating_normalize, crop_center, l2_distance, cluster_distance
 
 
 # =========================
@@ -119,8 +119,7 @@ def reorder(a_list, order):
     return [a_list[order[i]] for i in range(len(order))]
 
 
-def prepare_data(data, objective='malignancy', new_size=None, do_augment=False, categorize=0, return_meta=False, rating_confidence=False, reshuffle=False, verbose = 0, scaling="none"):
-    from keras.utils.np_utils import to_categorical
+def prepare_data(data, rating_format='raw', new_size=None, do_augment=False, return_meta=False, rating_confidence=False, reshuffle=False, verbose = 0, scaling="none"):
     # Entry:
     # 0 'patch'
     # 1 'mask'
@@ -144,14 +143,13 @@ def prepare_data(data, objective='malignancy', new_size=None, do_augment=False, 
         print("\tImage Range = [{:.1f}, {:.1f}]".format(np.max(images[0]), np.min(images[0])))
         print("\tMasks Range = [{}, {}]".format(np.max(masks[0]), np.min(masks[0])))
 
-    if objective == 'malignancy':
-        labels = np.array([entry[2] for entry in data]).reshape(N, 1)
-        classes = np.copy(labels)
-    elif objective == 'rating':
-        labels  = np.array([rating_normalize(np.mean(entry[5], axis=0), scaling) for entry in data]).reshape(N, 9)
-        classes = np.array([entry[2] for entry in data]).reshape(N, 1)
+    classes = np.array([entry[2] for entry in data]).reshape(N, 1)
+    if rating_format == 'raw':
+        ratings = np.array([rating_normalize(entry[5], scaling) for entry in data])
+    elif rating_format == 'mean':
+        ratings  = np.array([rating_normalize(np.mean(entry[5], axis=0), scaling) for entry in data]).reshape(N, 9)
     else:
-        print("ERR: Illegual objective given ({})".format(objective))
+        print("ERR: Illegual rating_format given ({})".format(rating_format))
         assert (False)
 
     if do_augment:
@@ -165,13 +163,10 @@ def prepare_data(data, objective='malignancy', new_size=None, do_augment=False, 
     if reshuffle:
         new_order = np.random.permutation(N)
         images = images[new_order]
-        labels = labels[new_order]
+        ratings = ratings[new_order]
         classes = classes[new_order]
         masks  = masks[new_order]
         #print('permutation: {}'.format(new_order[:20]))
-
-    if categorize > 0:
-        labels = to_categorical(labels, categorize)
 
     conf = None
     if rating_confidence is not None:
@@ -185,7 +180,7 @@ def prepare_data(data, objective='malignancy', new_size=None, do_augment=False, 
         if reshuffle:
             meta = reorder(meta, new_order)
 
-    return images, labels, classes, masks, meta, conf
+    return images, ratings, classes, masks, meta, conf
 
 
 def select_balanced(self, some_set, labels, N, permutation):
@@ -196,10 +191,19 @@ def select_balanced(self, some_set, labels, N, permutation):
     return reshuff
 
 
-def prepare_data_direct(data, objective='malignancy', rating_scale = 'none', size=None, classes=2, balanced=False, return_meta=False, verbose= 0, reshuffle=True):
-    #scale = 'none' if (objective=='malignancy') else "none"
-    images, labels, classes, masks, meta, conf = \
-        prepare_data(data, objective=objective, categorize=(2 if (objective=='malignancy') else 0), verbose=verbose, reshuffle=reshuffle, return_meta=return_meta, scaling=rating_scale)
+def prepare_data_direct(data, objective='malignancy', rating_scale='none', size=None, num_of_classes=2, balanced=False, return_meta=False, verbose= 0, reshuffle=True):
+
+    images, ratings, classes, masks, meta, conf = \
+        prepare_data(data, rating_format='mean', scaling=rating_scale, verbose=verbose, reshuffle=reshuffle, return_meta=return_meta)
+
+    if objective == 'malignancy':
+        from keras.utils.np_utils import to_categorical
+        labels = to_categorical(classes, num_of_classes)
+    elif objective == 'rating':
+        labels = ratings
+    else:
+        assert False
+
     Nb = np.count_nonzero(1 - classes)
     Nm = np.count_nonzero(classes)
     N = np.minimum(Nb, Nm)
@@ -216,6 +220,7 @@ def prepare_data_direct(data, objective='malignancy', rating_scale = 'none', siz
             Nb = np.count_nonzero(1 - np.argmax(classes, axis=1))
             Nm = np.count_nonzero(np.argmax(classes, axis=1))
             print("Balanced - Benign: {}, Malignant: {}".format(Nb, Nm))
+
     return images, labels, classes, masks, meta
 
 
@@ -244,10 +249,15 @@ def select_triplets(elements):
     return triplets
 
 
+def check_triplet_order(ratings_triplet, rating_distance):
+    rank_status = [rating_distance(r0, r_pos) < rating_distance(r0, r_neg) for r0, r_pos, r_neg in ratings_triplet]
+    rank_status = np.array(rank_status)
+    return rank_status  # true if no need to flip
+
+
 def arrange_triplet(elements, labels):
-    l2 = lambda a, b: np.sqrt((a - b).dot(a - b))
-    trips = [(im[0], im[1], im[2]) if (l2(r[0], r[1]) < l2(r[0], r[2])) else (im[0], im[2], im[1])
-             for im, r in zip(elements, labels)]
+    trips = [(im[0], im[1], im[2]) if lbl else (im[0], im[2], im[1])
+             for im, lbl in zip(elements, labels)]
     return trips
 
 
@@ -255,11 +265,13 @@ def get_triplet_confidence(labels):
     conf = [(l[0]+l[1]+l[2])/3. for l in labels]
     return conf
 
+
 def calc_rating_distance_confidence(rating_trips):
     l2 = lambda a, b: np.sqrt((a - b).dot(a - b))
     factor = lambda dp, dn: np.exp(-dp/dn)
     confidence = [factor(l2(r[0], r[1]), l2(r[0], r[2])) for r in rating_trips]
     return confidence
+
 
 def select_same_pairs(class_A, class_B):
     same = [(a1, a2) for a1, a2 in zip(class_A[:-1], class_A[1:])] + [(class_A[-1], class_A[0])]
@@ -270,13 +282,14 @@ def select_same_pairs(class_A, class_B):
     return same, sa_size, sb_size
 
 
-def prepare_data_siamese(data, objective="malignancy", balanced=False, return_meta=False, verbose= 0):
-    if verbose: print('prepare_data_siamese:')
-    images, labels, classes, masks, meta, conf = \
-        prepare_data(data, categorize=0, objective=objective, return_meta=return_meta, reshuffle=True, verbose=verbose)
-    if verbose: print("benign:{}, malignant: {}".format(np.count_nonzero(classes == 0),
-                                                        np.count_nonzero(classes == 1)))
-
+def prepare_data_siamese(data, objective="malignancy", rating_distance='mean', balanced=False, return_meta=False, verbose= 0):
+    if verbose:
+        print('prepare_data_siamese:')
+    images, ratings, classes, masks, meta, conf = \
+        prepare_data(data, rating_format='raw', return_meta=return_meta, reshuffle=True, verbose=verbose)
+    if verbose:
+        print("benign:{}, malignant: {}".format(np.count_nonzero(classes == 0),
+                                                np.count_nonzero(classes == 1)))
     N = images.shape[0]
     benign_filter = np.where(classes == 0)[0]
     malign_filter = np.where(classes == 1)[0]
@@ -301,12 +314,17 @@ def prepare_data_siamese(data, objective="malignancy", balanced=False, return_me
         similarity_labels = np.concatenate([np.repeat(0, len(same)),
                                         np.repeat(1, len(different))])
     elif objective == "rating":
-        lbls_benign, lbls_malign = labels[benign_filter], labels[malign_filter]
+        lbls_benign, lbls_malign = ratings[benign_filter], ratings[malign_filter]
         diff_lbls, d_size = select_different_pair(lbls_benign, lbls_malign, n=M)
         same_lbls, sb_size, sm_size = select_same_pairs(lbls_benign, lbls_malign)
 
         label_pairs = same_lbls + diff_lbls
-        similarity_labels = np.array([np.sqrt((a-b).dot(a-b)) for a, b in label_pairs])
+        if rating_distance == 'mean':
+            similarity_labels = np.array([np.sqrt((a-b).dot(a-b)) for a, b in label_pairs])
+        elif rating_distance == 'clusters':
+            assert False
+        else:
+            assert False
     else:
         print("ERR: {} is not a valid objective".format(objective))
         assert(False)
@@ -349,7 +367,8 @@ def prepare_data_siamese(data, objective="malignancy", balanced=False, return_me
                                    np.repeat('D',  d_size)
                                 ])
 
-    if verbose: print("{} pairs of same / {} pairs of different. {} total number of pairs".format(len(same), len(different), size))
+    if verbose:
+        print("{} pairs of same / {} pairs of different. {} total number of pairs".format(len(same), len(different), size))
 
     new_order = np.random.permutation(size)
 
@@ -368,67 +387,47 @@ def prepare_data_siamese(data, objective="malignancy", balanced=False, return_me
                 )
 
 
-def prepare_data_siamese_simple(data, siamese_rating_factor, objective="malignancy", balanced=False, return_meta=False, verbose=0):
+def prepare_data_siamese_simple(data, siamese_rating_factor, objective="malignancy", rating_distance='mean', return_meta=False, verbose=0):
     if verbose:
         print('prepare_data_siamese_simple:')
-    images, labels, classes, masks, meta, conf = \
-        prepare_data(data, categorize=0, objective=objective, scaling="Scale", return_meta=return_meta, reshuffle=True, verbose=verbose)
+    images, ratings, classes, masks, meta, conf = \
+        prepare_data(data, rating_format='raw', scaling="Scale", return_meta=return_meta, reshuffle=True, verbose=verbose)
     if verbose:
         if return_meta:
             print('Loaded Meta-Data')
         print("benign:{}, malignant: {}".format(np.count_nonzero(classes == 0),
                                                 np.count_nonzero(classes == 1)))
 
-    labels *= siamese_rating_factor
-
     N = images.shape[0]
-    #benign_filter = np.where(classes == 0)[0]
-    #malign_filter = np.where(classes == 1)[0]
-    #M = min(benign_filter.shape[0], malign_filter.shape[0])
-
-    #if balanced:
-    #    malign_filter = malign_filter[:M]
-    #    benign_filter = benign_filter[:M]
 
     #   Handle Patches
     # =========================
 
-    #imgs_benign, imgs_malign = images[benign_filter], images[malign_filter]
-    #different, d_size = select_different_pair(imgs_benign, imgs_malign, n=M)
-    #same, sb_size, sm_size = select_same_pairs(imgs_benign, imgs_malign)
-
-    #image_pairs = same + different
     image_pairs = select_pairs(images)
-
     image_sub1 = np.array([pair[0] for pair in image_pairs])
     image_sub2 = np.array([pair[1] for pair in image_pairs])
 
-    if objective == "malignancy":
-        assert(False)
-        #similarity_labels = np.concatenate([np.repeat(0, len(same)),
-        #                                np.repeat(1, len(different))])
-    elif objective == "rating":
-        #lbls_benign, lbls_malign = labels[benign_filter], labels[malign_filter]
-        #diff_lbls, d_size = select_different_pair(lbls_benign, lbls_malign, n=M)
-        #same_lbls, sb_size, sm_size = select_same_pairs(lbls_benign, lbls_malign)
+    #   Handle Labels
+    # =========================
 
-        #label_pairs = same_lbls + diff_lbls
-        label_pairs = select_pairs(labels)
-        similarity_labels = np.array([np.sqrt((a-b).dot(a-b)) for a, b in label_pairs])
+    if objective == "malignancy":
+        assert False
+    elif objective == "rating":
+        rating_pairs = select_pairs(ratings)
+        if rating_distance == 'mean':
+            similarity_labels = np.array([np.sqrt((a-b).dot(a-b)) for a, b in rating_pairs])
+        elif rating_distance == 'clusters':
+            assert False
+        else:
+            assert False
+        similarity_labels *= siamese_rating_factor
     else:
         print("ERR: {} is not a valid objective".format(objective))
-        assert(False)
+        assert False
 
     #   Handle Masks
     # =========================
 
-    #mask_benign, mask_malign = masks[benign_filter], masks[malign_filter]
-    #different_mask, d = select_different_pair(mask_benign, mask_malign, n=M)
-    #same_mask, sb, sm = select_same_pairs(mask_benign, mask_malign)
-    #assert(d == d_size)
-    #assert ( (sb==sb_size) and (sm==sm_size) )
-
-    #mask_pairs = same_mask + different_mask
     mask_pairs = select_pairs(masks)
     mask_sub1 = np.array([pair[0] for pair in mask_pairs])
     mask_sub2 = np.array([pair[1] for pair in mask_pairs])
@@ -436,13 +435,6 @@ def prepare_data_siamese_simple(data, siamese_rating_factor, objective="malignan
     #   Handle Meta
     # =========================
     if return_meta:
-        #meta_benign, meta_malign = reorder(meta, benign_filter), reorder(meta, malign_filter)
-        #different_meta, d = select_different_pair(meta_benign, meta_malign, n=M)
-        #same_meta, sb, sm = select_same_pairs(meta_benign, meta_malign)
-        #assert (d == d_size)
-        #assert ((sb == sb_size) and (sm == sm_size))
-
-        #meta_pairs = same_meta + different_meta
         meta_pairs = select_pairs(meta)
         meta_sub1 = np.array([pair[0] for pair in meta_pairs])
         meta_sub2 = np.array([pair[1] for pair in meta_pairs])
@@ -460,8 +452,6 @@ def prepare_data_siamese_simple(data, siamese_rating_factor, objective="malignan
     #                               np.repeat('D',  d_size)
     #                            ])
     confidence = np.repeat('SB', N)
-
-    #if verbose: print("{} pairs of same / {} pairs of different. {} total number of pairs".format(len(same), len(different), size))
 
     new_order = np.random.permutation(size)
 
@@ -488,39 +478,44 @@ def make_balanced_trip(elements, c1_head, c1_tail, c2_head, c2_tail):
     return trips
 
 
-def prepare_data_triplet(data, objective="malignancy", balanced=False, return_confidence=False, return_meta=False, verbose= 0):
+def prepare_data_triplet(data, objective="malignancy", rating_distance="mean", balanced=False, return_confidence=False, return_meta=False, verbose= 0):
     if verbose:
         print('prepare_data_triplet:')
     images, ratings, classes, masks, meta, conf \
-        = prepare_data(data, categorize=0, objective="rating", scaling="Scale", rating_confidence=return_confidence,
+        = prepare_data(data, rating_format="raw", scaling="Scale", rating_confidence=return_confidence,
                        return_meta=return_meta, reshuffle=True, verbose=verbose)
     if verbose:
         print("benign:{}, malignant: {}".format(np.count_nonzero(classes == 0), np.count_nonzero(classes == 1)))
         if meta is not None: print('Loaded Meta-Data')
 
     N = images.shape[0]
+    assert balanced is False
 
-    if objective=="malignancy":
+    if objective == "malignancy":
         print('Create a balanced split')
         benign_filter = np.where(classes == 0)[0]
         malign_filter = np.where(classes == 1)[0]
         M = min(benign_filter.shape[0], malign_filter.shape[0])
         M12 = M // 2
-        M   = M12  *2
+        M   = M12 *2
         malign_filter_a = malign_filter[:M12]
         malign_filter_b = malign_filter[M12:]
         benign_filter_a = benign_filter[:M12]
         benign_filter_b = benign_filter[M12:]
 
+    if objective != "malignancy":
+        rating_trips = select_triplets(ratings)
+        distance = l2_distance if rating_distance == 'mean' else cluster_distance
+        trip_rank_status = check_triplet_order(rating_trips, rating_distance=distance)
+
     #   Handle Patches
     # =========================
 
-    if objective=="malignancy":
+    if objective == "malignancy":
         image_trips = make_balanced_trip(images, benign_filter_a, benign_filter_b, malign_filter_a, malign_filter_b)
     else:
         image_trips  = select_triplets(images)
-        rating_trips = select_triplets(ratings)
-        image_trips  = arrange_triplet(image_trips, rating_trips)
+        image_trips  = arrange_triplet(image_trips, trip_rank_status)
     image_sub1 = np.array([pair[0] for pair in image_trips])
     image_sub2 = np.array([pair[1] for pair in image_trips])
     image_sub3 = np.array([pair[2] for pair in image_trips])
@@ -530,11 +525,11 @@ def prepare_data_triplet(data, objective="malignancy", balanced=False, return_co
     #   Handle Masks
     # =========================
 
-    if objective=="malignancy":
+    if objective == "malignancy":
         mask_trips = make_balanced_trip(masks, benign_filter_a, benign_filter_b, malign_filter_a, malign_filter_b)
     else:
         mask_trips = select_triplets(masks)
-        mask_trips = arrange_triplet(mask_trips, rating_trips)
+        mask_trips = arrange_triplet(mask_trips, trip_rank_status)
     mask_sub1 = np.array([pair[0] for pair in mask_trips])
     mask_sub2 = np.array([pair[1] for pair in mask_trips])
     mask_sub3 = np.array([pair[2] for pair in mask_trips])
@@ -542,11 +537,11 @@ def prepare_data_triplet(data, objective="malignancy", balanced=False, return_co
     #   Handle Meta
     # =========================
     if return_meta:
-        if objective=="malignancy":
+        if objective == "malignancy":
             meta_trips = make_balanced_trip(meta, benign_filter_a, benign_filter_b, malign_filter_a, malign_filter_b)
         else:
             meta_trips = select_triplets(meta)
-            meta_trips = arrange_triplet(meta_trips, rating_trips)
+            meta_trips = arrange_triplet(meta_trips, trip_rank_status)
         meta_sub1 = np.array([pair[0] for pair in meta_trips])
         meta_sub2 = np.array([pair[1] for pair in meta_trips])
         meta_sub3 = np.array([pair[2] for pair in meta_trips])
@@ -561,11 +556,11 @@ def prepare_data_triplet(data, objective="malignancy", balanced=False, return_co
     if objective=='rating':
         if return_confidence == "rating":
             conf_trips = select_triplets(conf)
-            conf_trips = arrange_triplet(conf_trips, rating_trips)
+            conf_trips = arrange_triplet(conf_trips, trip_rank_status)
             confidence = get_triplet_confidence(conf_trips)
             confidence = np.array(confidence)
         elif return_confidence == "rating_distance":
-            confidence = calc_rating_distance_confidence(rating_trips)
+            confidence = calc_rating_distance_confidence(trip_rank_status)
             confidence = np.array(confidence)
 
     new_order = np.random.permutation(size)

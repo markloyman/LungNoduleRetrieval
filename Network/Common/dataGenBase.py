@@ -2,7 +2,7 @@ import numpy as np
 from keras import utils
 try:
     from Network.data_loader import load_nodule_dataset, prepare_data, prepare_data_direct
-    from Network.dataUtils import augment_all, crop_center_all, get_sample_weight, get_class_weight
+    from Network.dataUtils import augment_all, crop_center_all, crop_center, get_sample_weight, get_class_weight
 except:
     from data_loader import load_nodule_dataset, prepare_data, prepare_data_direct
     from dataUtils import augment_all, crop_center_all, get_sample_weight, get_class_weight
@@ -33,9 +33,8 @@ class DataGeneratorBase(utils.Sequence):
 
         dataset = load_nodule_dataset(size=data_size, res=res, sample=sample, configuration=configuration,
                                       apply_mask_to_patch=debug)
-        self.train_set = dataset[2]
-        self.valid_set = dataset[1]
-        self.test_set = None
+
+        self.test_set, self.valid_set, self.train_set = dataset
 
         self.batch_size = batch_size
         self.data_size  = data_size
@@ -80,10 +79,8 @@ class DataGeneratorBase(utils.Sequence):
         return self.get_data(self.test_set, is_training=False)
 
     def get_flat_data(self, dataset):
-        objective = 'malignancy'
         images, labels, classes, masks, meta, conf = \
-            prepare_data(dataset, objective=objective, categorize=(2 if (objective == 'malignancy') else 0),
-                         verbose=True, reshuffle=False, return_meta=True)
+            prepare_data(dataset, rating_format='raw', verbose=True, reshuffle=False, return_meta=True)
         if self.model_size != self.data_size:
             images = np.array([crop_center(im, msk, size=self.model_size)[0]
                                for im, msk in zip(images, masks)])
@@ -95,7 +92,7 @@ class DataGeneratorBase(utils.Sequence):
     def get_flat_valid_data(self):
         return self.get_flat_data(self.valid_set)
 
-    def get_flat_test_images(self):
+    def get_flat_test_data(self):
         return self.get_flat_data(self.test_set)
 
     def get_data(self, dataset, is_training):

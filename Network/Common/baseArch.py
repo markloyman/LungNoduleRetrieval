@@ -97,22 +97,23 @@ class BaseArch(object):
                 total_time = (timer() - start) / 60 / 60
             print("Total training time is {:.1f} hours".format(total_time))
 
-    def embed(self, epoch0=1, delta_epoch=5):
+    def embed(self, epochs, data='Valid'):
         # init file managers
         Weights = File.Weights(self.net_type, output_dir=input_dir)
         Embed = File.Embed(self.net_type, output_dir=output_dir)
 
         # get data from generator
-        images, labels, classes, masks, meta, conf = self.data_gen.get_flat_valid_data()
+        data_loader = self.data_gen.get_flat_valid_data if data=='valid' else self.data_gen.get_flat_test_data
+        images, labels, classes, masks, meta, conf = data_loader()
 
         start = timer()
-        epochs = list(range(epoch0, self.last_epoch+1, delta_epoch))
         embedding = []
         epochs_done = []
         embed_model = self.extract_core(repool=False)
         for epch in epochs:
             # load weights
             try:
+                w = None
                 w = Weights(run=self.run, epoch=epch)
                 assert(w is not None)
             except:
@@ -132,7 +133,7 @@ class BaseArch(object):
         print("Total training time is {:.1f} hours".format(total_time))
 
         # dump to Embed file
-        out_filename = Embed(self.run, 'Valid')
+        out_filename = Embed(self.run, data)
         pickle.dump((embedding, epochs_done, meta, images, classes, labels, masks), open(out_filename, 'bw'))
         print("Saved embedding of shape {} to: {}".format(embedding.shape, out_filename))
 

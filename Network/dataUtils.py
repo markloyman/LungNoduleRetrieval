@@ -2,6 +2,7 @@ import numpy as np
 from numpy.random import rand
 import matplotlib.pyplot as plt
 from scipy.ndimage.interpolation import rotate
+from scipy.spatial import distance_matrix
 from sklearn.utils import class_weight
 
 
@@ -31,6 +32,19 @@ def rating_normalize(rating, method):
 def uncategorize(hot_labels):
     labels = np.argmax(hot_labels, axis=1)
     return labels
+
+
+def l2_distance(a, b):
+    return np.sqrt((a - b).dot(a - b))
+
+
+def cluster_distance(a, b):
+    assert False  # need to validate first
+    distances = distance_matrix(a, b)
+    nns =  np.mean(np.min(distances, axis=0))
+    nns += np.mean(np.min(distances, axis=1))
+
+    return nns
 
 
 def get_class_weight(labels, method='balanced'):

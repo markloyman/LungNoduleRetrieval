@@ -71,11 +71,11 @@ def linear_regression(x, y):
 
 class RatingCorrelator:
 
-    def __init__(self, filename, title='', set=''):
+    def __init__(self, filename, title='', set='', multi_epoch=False):
         self.title  = title
         self.set    = set
 
-        self.images, self.embedding, self.meta_data, self.labels, self.masks = pickle.load(open(filename,'br'))
+        self.load_embedding(filename, multi_epcch=multi_epoch)
         self.len = len(self.meta_data)
 
         self.images = np.squeeze(self.images)
@@ -90,18 +90,66 @@ class RatingCorrelator:
         self.rating_metric          = ''
         self.embed_metric           = ''
 
+
+    def load_embedding(self, source, multi_epcch=False):
+        self.multi_epcch = multi_epcch
+        if type(source) is list:
+            self.images, self.embedding, self.meta_data, self.labels, self.classes, self.masks = [], [], [], [], [], []
+            for fn in source:
+                try:
+                    assert(type(fn) is str)
+                    if multi_epcch:
+                        embedding, epochs, meta_data, images, classes, labels, masks = pickle.load(open(fn, 'br'))
+                        epochs = np.array(epochs)
+                        embed_concat_axis = 1
+                    else:
+                        images, embedding, meta_data, labels, masks = pickle.load(open(fn, 'br'))
+                        classes = labels
+                        epochs = None
+                        embed_concat_axis = 0
+                    self.images.append(images)
+                    self.embedding.append(embedding)
+                    self.meta_data += meta_data
+                    self.classes.append(classes)
+                    self.labels.append(labels)
+                    self.masks.append(masks)
+                    self.epochs = epochs
+                except:
+                    print("failed to load " + fn)
+            assert len(self.images) > 0
+            self.images = np.concatenate(self.images)
+            self.embedding = np.concatenate(self.embedding, axis=embed_concat_axis)
+            self.labels = np.concatenate(self.labels)
+            self.masks = np.concatenate(self.masks)
+        else:
+            assert (type(source) is str)
+            self.images, self.embedding, self.meta_data, self.labels, self.masks = pickle.load(open(source, 'br'))
+
     def evaluate_rating_space(self, norm='none'):
-        self.rating = [rating_normalize(calc_rating(meta, method='mean'), method=norm) for meta in self.meta_data]
+        #self.rating = [rating_normalize(calc_rating(meta, method='mean'), method=norm) for meta in self.meta_data]
+        self.rating = [rating_normalize(lbl, method=norm) for lbl in self.labels]
         self.rating_distance_matrix = None # reset after recalculating the ratings
 
-    def evaluate_rating_distance_matrix(self, method='chebyshev'):
-        self.rating_distance_matrix = calc_distance_matrix(self.rating, method)
+    def evaluate_rating_distance_matrix(self, method='chebyshev', clustered_rating_distance=False):
+        assert clustered_rating_distance is False
+        if clustered_rating_distance:
+            rating = None
+        else:
+            rating = np.array([np.mean(rat, axis=0) for rat in self.rating])
+        self.rating_distance_matrix = calc_distance_matrix(rating, method)
         assert self.rating_distance_matrix.shape[0] == self.embed_distance_matrix.shape[0]
         self.rating_metric = method
         return self.rating_distance_matrix
 
-    def evaluate_embed_distance_matrix(self, method='euclidean', round=False):
-        embd = self.embedding if (round==False) else np.round(self.embedding)
+    def evaluate_embed_distance_matrix(self, method='euclidean', round=False, epoch=None):
+        if self.multi_epcch:
+            assert (epoch is not None)
+            assert (self.epochs is not None)
+            epoch_idx = np.argwhere(epoch == self.epochs)[0][0]
+            embd = self.embedding[epoch_idx]
+        else:
+            embd = self.embedding
+        embd = embd if (round==False) else np.round(embd)
         self.embed_distance_matrix = calc_distance_matrix(embd, method)
         self.embed_metric = method
 
@@ -143,8 +191,9 @@ class RatingCorrelator:
             xVec = self.rating_distance_matrix
             xMet = self.rating_metric
         elif name == 'malig':
-            malig_rating = [calc_rating(meta, method='malig') for meta in self.meta_data]
-            malig_rating = np.array(malig_rating).reshape(-1, 1).astype('float64')
+            #malig_rating = [calc_rating(meta, method='malig') for meta in self.meta_data]
+            #malig_rating = np.array(malig_rating).reshape(-1, 1).astype('float64')
+            malig_rating = np.array([[np.mean(rat[:, -1])] for rat in self.rating])
             xVec = calc_distance_matrix(malig_rating, method='euclidean')
             xMet = 'euclidean'
         else:
@@ -302,17 +351,17 @@ class RatingCorrelator:
         kend = []
         if round:
             x_dm, y_dm = np.round(x_dm), np.round(y_dm)
-        for x,y in zip(x_dm, y_dm):
+        for x, y in zip(x_dm, y_dm):
             pear  += [pearsonr(x, y)[0]]
             spear += [spearmanr(x, y)[0]]
             kend  += [kendalltau(x, y)[0]]
 
-        P = np.mean(pear)
-        S = np.mean(spear)
-        K = np.mean(kend)
-        print('\tPearson =\t {:.2f} ({:.2f})'.  format(P, np.std(pear)))
-        print('\tSpearman =\t {:.2f} ({:.2f})'. format(S, np.std(spear)))
-        print('\tKendall =\t {:.2f} ({:.2f})'.  format(K, np.std(kend)))
+        P = np.mean(pear), np.std(pear)
+        S = np.mean(spear), np.std(spear)
+        K = np.mean(kend), np.std(kend)
+        print('\tPearson =\t {:.2f} ({:.2f})'.  format(P[0], P[1]))
+        print('\tSpearman =\t {:.2f} ({:.2f})'. format(S[0], S[1]))
+        print('\tKendall =\t {:.2f} ({:.2f})'.  format(K[0], K[1]))
 
         return P, S, K
 

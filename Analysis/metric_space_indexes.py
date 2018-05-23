@@ -256,14 +256,14 @@ if __name__ == "__main__":
 
         # kumar index
         tau = 0
-        tau, l_e = kumar(distances, res=0.0001)
+        tau, l_e = kumar(distances, res=0.01)
         plt.figure()
         plt.plot(l_e[1], l_e[0])
         plt.title('Kummar Tau ({}) = {:.2f}'.format(metric, tau))
 
-        idx_hubness[m] = 1 / np.mean(np.abs(h))
-        idx_hubness_std_p[m] = 1 / (np.mean(np.abs(h)) + np.std(np.abs(h)))
-        idx_hubness_std_m[m] = 1 / (np.mean(np.abs(h)) - np.std(np.abs(h)))
+        idx_hubness[m] = np.mean(np.abs(h))
+        idx_hubness_std_p[m] = (np.mean(np.abs(h)) + np.std(np.abs(h)))
+        idx_hubness_std_m[m] = (np.mean(np.abs(h)) - np.std(np.abs(h)))
         idx_symmetry[m] = np.mean(s)
         idx_symmetry_std[m] = np.std(s)
         mean_ratio, std_ratio, std_dist, mean_dist = concentration(distance_matrix)

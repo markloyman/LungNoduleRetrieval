@@ -1,105 +1,73 @@
 from init import *
-from Analysis import RatingCorrelator
+from Analysis import RatingCorrelator, performance
+from Network import FileManager
+from experiments import load_experiments
 
 # ========================
 # Setup
 # ========================
 
+exp_name = 'Pooling'
 dset = 'Valid'
-X, Y = 'embed', 'rating' #'malig' 'rating'
+#X, Y = 'embed', 'rating' #'malig' 'rating'
 metrics = ['l2']  #['l2', 'l1', 'cosine']
 rating_norm = 'Normal'
+n_groups = 5
 
-'''
-# ===========================
-#   Malignancy Objective
-# ===========================
-runs            = ['103', '100', '011XXX']
-run_net_types   = ['dir', 'siam', 'trip']
-run_metrics     = ['l2']*len(runs)
-run_epochs      = [ [5, 10, 15, 20, 25, 30, 35, 40, 45],
-                    [5, 10, 15, 20, 25, 30, 35, 40, 45],
-                    [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
-                ]
-run_names       = run_net_types
-# ===========================
-'''
-
-'''
-# ===========================
-#   Triplet Compare to dirR reference
-# ===========================
-runs            = ['011X', '011XXX', '016XXXX', '023X']
-run_net_types   = ['dirR', 'trip', 'trip', 'trip']
-run_metrics     = ['l2']*len(runs)
-run_epochs      = [ [5, 15, 25, 35, 45, 55, 65, 75, 85],
-                    [5, 15, 25, 35, 45, 55],
-                    [20, 40, 100, 150, 180],
-                    [5, 15, 20, 25, 30, 35]
-                ]
-run_names       = ['dirR', 'malig-obj', 'trip', 'trip-finetuned']
-# ===========================
-'''
-
-#'''
-# ===========================
-#   Triplets
-# ===========================
-runs            = ['011XXX', '016XXXX', '027', '023X']
-run_net_types   = ['trip']*len(runs)
-run_metrics     = ['l2']*len(runs)
-run_epochs      = [ [5, 15, 25, 35, 45, 55],
-                    [20, 40, 100, 150, 180],
-                    [5, 15, 25, 35, 40, 45, 50, 55, 60],
-                    [5, 15, 20, 25, 30, 35]
-                ]
-run_names       = ['malig-obj', 'rating-obj', 'rating-obj', 'trip-finetuned']
-# ===========================
-#'''
-
-'''    
-#wRuns   = ['011X', '016XXXX', '021', '023X']  #['100', '101', '103', '103']
-#wRunNet = ['dirR', 'trip', 'trip', 'trip']   #['siam', 'siam', 'siam', 'dir']
-#wDist   = ['l2', 'l2', 'l2', 'l2']         #['l2', 'l1', 'cosine', 'l2']
-
-wRuns            = ['021', '022XX', '023X', '025']
-run_names       = ['max-pool', 'rmac', 'categ', 'confidence+cat' ]
-wRunNet   = ['trip']*len(wRuns)
-wDist     = ['l2']*len(wRuns)
-
-
-
-wEpchs = [ [5, 15, 25, 35],
-            [5, 15, 25, 35, 45, 55],
-            [5, 15, 25, 35],
-            [5, 15, 25, 35, 45, 55]
-        ]
-'''
+runs, run_net_types, run_metrics, run_epochs, run_names, _, _ = load_experiments(exp_name)
 
 plt.figure()
 plt_ = [None]*len(metrics)*2
 for i in range(2 * len(metrics)):
     plt_[i] = plt.subplot(len(metrics), 2, i + 1)
 
-for m, metric in enumerate(metrics):
-    for run, net_type, dist, epochs in zip(runs, run_net_types, run_metrics, run_epochs):
-        Embed = FileManager.Embed(net_type)
-        WW = [Embed(run, E, dset) for E in epochs]
+for m, metric_ in enumerate(metrics):
 
-        # correlation plot
-        P, S, K = [], [], []
-        for W in WW:
+    Valid_epochs, Idx_malig_pearson, Idx_malig_kendall, Idx_rating_pearson, Idx_rating_kendall = [], [], [], [], []
+
+    for run, net_type, dist, epochs, metric in zip(runs, run_net_types, run_metrics, run_epochs, run_metrics):
+        plot_data_filename = './Plots/Data/correlation_{}{}.p'.format(net_type, run)
+        try:
+            valid_epochs, idx_malig_pearson, idx_malig_kendall, idx_rating_pearson, idx_rating_kendall = \
+                pickle.load(open(plot_data_filename, 'br'))
+            print("Loaded results for {}{}".format(net_type, run))
+        except:
+            print("Evaluating classification accuracy for {}{} using {}".format(net_type, run, metric))
+
+            Pm, PmStd, Km, KmStd, Pr, PrStd, Kr, KrStd, valid_epochs = \
+                performance.eval_correlation(run, net_type, metric, epochs, dset, rating_norm, cross_validation=True)
+            idx_malig_pearson = Pm, PmStd
+            idx_malig_kendall = Km, KmStd
+            idx_rating_pearson= Pr, PrStd
+            idx_rating_kendall= Kr, KrStd
+            pickle.dump((valid_epochs, idx_malig_pearson, idx_malig_kendall, idx_rating_pearson, idx_rating_kendall),
+                        open(plot_data_filename, 'bw'))
+
+            '''
+            Embed = FileManager.Embed(net_type)
+            embed_source = [Embed(run + 'c{}'.format(c), dset) for c in range(n_groups)]
+            idx_malig_pearson, idx_malig_kendall, idx_rating_pearson, idx_rating_kendall \
+                = [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)], \
+                  [[] for i in range(n_groups)]
+            valid_epochs = [[] for i in range(n_groups)]
+            
+            for source in embed_source:
             Reg = RatingCorrelator(W)
             Reg.evaluate_embed_distance_matrix(method=dist)
             Reg.evaluate_rating_space(norm=rating_norm)
             Reg.evaluate_rating_distance_matrix(method=metric)
 
-            p, s, k = Reg.correlate_retrieval(X, Y)
-            #p, s, k = Reg.correlate(X, Y)
+            p, _, k = Reg.correlate_retrieval(X, Y)
+            #p, _, k = Reg.correlate(X, Y)
             P.append(p)
-            S.append(s)
             K.append(k)
         P, S, K = np.array(P), np.array(S), np.array(K)
+            '''
+        Idx_malig_pearson += [idx_malig_pearson]
+        Idx_malig_kendall += [idx_malig_kendall]
+        Idx_rating_pearson += [idx_rating_pearson]
+        Idx_rating_kendall += [idx_rating_kendall]
+        Valid_epochs += [valid_epochs]
 
         # correlation distribution
         #for W in WW[-1:]:
@@ -109,15 +77,16 @@ for m, metric in enumerate(metrics):
         #    Reg.evaluate_rating_distance_matrix(method=metric)
         #    K_hist_x, K_hist_y = Reg.kendall_histogram(X, Y)
 
-
+    for valid_epochs, idx_malig_pearson, idx_malig_kendall, idx_rating_pearson, idx_rating_kendall \
+            in zip(Valid_epochs, Idx_malig_pearson, Idx_malig_kendall, Idx_rating_pearson, Idx_rating_kendall):
         #plt.plot(wEpchs, P)
         #plt_[2 * m + 0].plot(K_hist_x, K_hist_y)
-        plt_[2 * m + 0].plot(epochs, P)
+        plt_[2 * m + 0].plot(epochs, idx_malig_pearson[0])
         plt_[2 * m + 0].grid(which='major', axis='y')
-        plt_[2 * m + 1].plot(epochs, K)
+        plt_[2 * m + 1].plot(epochs, idx_malig_kendall[0])
         plt_[2 * m + 1].grid(which='major', axis='y')
         #labels
-        plt_[2 * m + 0].axes.yaxis.label.set_text(metric)
+        #plt_[2 * m + 0].axes.yaxis.label.set_text(metric)
         if m == 0: # first row
             plt_[0].axes.title.set_text('Pearson')
             plt_[1].axes.title.set_text('Kendall')

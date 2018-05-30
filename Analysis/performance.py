@@ -168,16 +168,16 @@ def eval_correlation(run, net_type, metric, epochs, dset, rating_norm='none', cr
             # Calc
             try:
                 Reg.evaluate_embed_distance_matrix(method=metric, epoch=E)
-                Reg.evaluate_rating_space(norm=rating_norm)
-                Reg.evaluate_rating_distance_matrix(method=metric, clustered_rating_distance=False)
-
-                pm, _, km = Reg.correlate_retrieval('embed', 'malig')
-                pr, _, kr = Reg.correlate_retrieval('embed', 'rating')
-
-                valid_epochs.append(E)
             except:
                 print("Epoch {} - no calculated embedding".format(E))
                 continue
+            Reg.evaluate_rating_space(norm=rating_norm)
+            Reg.evaluate_rating_distance_matrix(method=metric, clustered_rating_distance=False)
+
+            pm, _, km = Reg.correlate_retrieval('embed', 'malig')
+            pr, _, kr = Reg.correlate_retrieval('embed', 'rating')
+            valid_epochs.append(E)
+
             Pm.append(pm[0])
             Km.append(km[0])
             Pr.append(pr[0])

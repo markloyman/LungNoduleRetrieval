@@ -126,9 +126,11 @@ class RatingCorrelator:
             self.images, self.embedding, self.meta_data, self.labels, self.masks = pickle.load(open(source, 'br'))
 
     def evaluate_rating_space(self, norm='none'):
-        #self.rating = [rating_normalize(calc_rating(meta, method='mean'), method=norm) for meta in self.meta_data]
-        self.rating = [rating_normalize(lbl, method=norm) for lbl in self.labels]
-        self.rating_distance_matrix = None # reset after recalculating the ratings
+        if np.concatenate(self.labels).ndim == 1:
+            self.rating = [rating_normalize(calc_rating(meta, method='raw'), method=norm) for meta in self.meta_data]
+        else:
+            self.rating = [rating_normalize(lbl, method=norm) for lbl in self.labels]
+        self.rating_distance_matrix = None  # reset after recalculating the ratings
 
     def evaluate_rating_distance_matrix(self, method='chebyshev', clustered_rating_distance=False):
         assert clustered_rating_distance is False

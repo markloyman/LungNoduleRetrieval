@@ -8,14 +8,15 @@ if __name__ == "__main__":
 
     # Setup
 
+    experiment_name = 'DirRating'
     dset = 'Valid'
     start = timer()
 
-    runs, run_net_types, run_metrics, run_epochs, run_names, _, _ = load_experiments('DirRating')
+    runs, run_net_types, run_metrics, run_epochs, run_names, _, _ = load_experiments(experiment_name)
 
     # Initialize Figures
 
-    plt.figure('Performance - ' + dset)
+    plt.figure(experiment_name + ' Performance: ' + dset)
     col_titles = ['Classification', 'Retrieval', 'Retrieval']
     col_labels = ['Accuracy', 'Precision', 'Ret-Index']
     legend = []
@@ -39,7 +40,7 @@ if __name__ == "__main__":
 
     Acc, Acc_std, Prec, Prec_std, Index, Index_std, Valid_epochs = [], [], [], [], [], [], []
     for run, net_type, _, metric, epochs in zip(runs, run_net_types, range(len(runs)), run_metrics, run_epochs):
-        plot_data_filename = './Plots/performance_{}{}.p'.format(net_type, run)
+        plot_data_filename = './Plots/Data/performance_{}{}.p'.format(net_type, run)
         try:
             acc, acc_std, prec, prec_std, index, index_std, valid_epochs = pickle.load(open(plot_data_filename, 'br'))
             print("Loaded results for {}{}".format(net_type, run))

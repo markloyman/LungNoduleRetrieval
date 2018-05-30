@@ -9,7 +9,7 @@ dset = 'Valid'
 metrics = ['l2']
 n_groups = 5
 
-runs, run_net_types, run_metrics, run_epochs, run_names = load_experiments('Repeat160')
+runs, run_net_types, run_metrics, run_epochs, run_names, _, _ = load_experiments('Pooling')
 
 
 for run, net_type, r, epochs in zip(runs, run_net_types, range(len(runs)), run_epochs):

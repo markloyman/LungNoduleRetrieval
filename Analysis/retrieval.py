@@ -34,37 +34,35 @@ class Retriever:
 
     def load_embedding(self, filename, multi_epcch=False):
         self.multi_epcch = multi_epcch
-        if type(filename) is list:
-            self.images, self.embedding, self.meta_data, self.labels, self.masks = [], [], [], [], []
-            for fn in filename:
-                try:
-                    assert(type(fn) is str)
-                    if multi_epcch:
-                        embedding, epochs, meta_data, images, classes, labels, masks = pickle.load(open(fn, 'br'))
-                        epochs = np.array(epochs)
-                        embed_concat_axis = 1
-                    else:
-                        images, embedding, meta_data, labels, masks = pickle.load(open(fn, 'br'))
-                        epochs = None
-                        embed_concat_axis = 0
-                        classes = labels
-                    self.images.append(images)
-                    self.embedding.append(embedding)
-                    self.meta_data += meta_data
-                    self.labels.append(classes)
-                    self.masks.append(masks)
-                    self.epochs = epochs
-                except:
-                    print("failed to load " + fn)
-            assert len(self.images) > 0
-            self.images = np.concatenate(self.images)
-            self.embedding = np.concatenate(self.embedding, axis=embed_concat_axis)
-            self.labels = np.concatenate(self.labels)
-            self.masks = np.concatenate(self.masks)
-        else:
-            assert (type(filename) is str)
-            self.images, self.embedding, self.meta_data, self.labels, self.masks \
-                = pickle.load(open(filename, 'br'))
+        if type(filename) is not list:
+            filename = [filename]
+        self.images, self.embedding, self.meta_data, self.labels, self.masks = [], [], [], [], []
+        for fn in filename:
+            try:
+                assert(type(fn) is str)
+                if multi_epcch:
+                    embedding, epochs, meta_data, images, classes, labels, masks = pickle.load(open(fn, 'br'))
+                    epochs = np.array(epochs)
+                    embed_concat_axis = 1
+                else:
+                    images, embedding, meta_data, labels, masks = pickle.load(open(fn, 'br'))
+                    epochs = None
+                    embed_concat_axis = 0
+                    classes = labels
+                self.images.append(images)
+                self.embedding.append(embedding)
+                self.meta_data += meta_data
+                self.labels.append(classes)
+                self.masks.append(masks)
+                self.epochs = epochs
+            except:
+                print("failed to load " + fn)
+        assert len(self.images) > 0
+        self.images = np.concatenate(self.images)
+        self.embedding = np.concatenate(self.embedding, axis=embed_concat_axis)
+        self.labels = np.concatenate(self.labels)
+        self.masks = np.concatenate(self.masks)
+
         if self.labels.shape[1] > 1:
             self.labels = np.argmax(self.labels, axis=1)
 

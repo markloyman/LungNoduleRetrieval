@@ -132,20 +132,21 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         #run = 'dir232'  # no rotation, drop.1
         #run = 'dir233'  # no rotation, drop.1
         #run = 'dir234'  # 30 deg rotation, drop.1
-        #run = 'dir235g'  # baseline with Dataset160
+        run = '235'  # baseline with Dataset160
         #run = 'dir236'  # baseline with Dataset128
         #run = 'dir240b'  # data-aug-no-rot
         #run = 'dir241'  # data-aug-rot20
         #run = 'dir242'  # data-aug-rot40
         #run = 'dir243b'  # data-aug-rot60
         #run = 'dir250'  # max2-pooling
-        #run = 'dir251'  # avg-pooling
-        #run = 'dir252'  # msrmac-pooling
+        #run = '251'  # avg-pooling
+        #run = '252'  # msrmac-pooling
         #run = 'dir253'  # avg-pooling, aug
-        run = '254b'  # msrmac-pooling, aug
+        #run = '254b'  # msrmac-pooling, aug
+        #run = '_zz'
 
         model = DirectArch( miniXception_loader, input_shape, output_size=out_size,
-                            normalize=normalize, pooling='msrmac')
+                            normalize=normalize, pooling='max')
         model.model.summary()
         model.compile(learning_rate=1e-3, decay=0)
         if use_gen:
@@ -157,8 +158,8 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
             model.load_generator(generator)
         else:
             dataset = load_nodule_dataset(size=data_size, res=res, sample=sample)
-            images_train, labels_train, class_train, masks_train, _ = prepare_data_direct(dataset[2], classes=2, size=model_size)
-            images_valid, labels_valid, class_valid, masks_valid, _ = prepare_data_direct(dataset[1], classes=2, size=model_size)
+            images_train, labels_train, class_train, masks_train, _ = prepare_data_direct(dataset[2], num_of_classes=2, size=model_size)
+            images_valid, labels_valid, class_valid, masks_valid, _ = prepare_data_direct(dataset[1], num_of_classes=2, size=model_size)
             images_train = np.array([crop_center(im, msk, size=model_size)[0]
                                for im, msk in zip(images_train, masks_train)])
             images_valid = np.array([crop_center(im, msk, size=model_size)[0]
@@ -184,7 +185,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         #run = 'ZZZ'  # max-pool
         #run = '200b'  # max-pool
         #run = '201'  # msrmac-pool
-        run = '202d'  # avg-pool
+        run = '202c'  # avg-pool
 
         rating_scale = 'none'
         obj = 'rating'

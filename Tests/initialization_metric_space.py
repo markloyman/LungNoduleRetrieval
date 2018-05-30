@@ -44,7 +44,7 @@ H_lim, S_lim, Tau_lim, Conc_lim, Crst_lim = (1e6, 0), (1e6, 0), (1e6, 0), (1e6, 
 for p, pooling in enumerate(pooling_options):
     print('Evaluating {} pooling'.format(pooling))
     h, s, tau, conc, crst = [], [], [], [], []
-    plot_data_filename = './Plots/init_{}.p'.format(pooling)
+    plot_data_filename = './Plots//Data/init_{}.p'.format(pooling)
     try:
         h, s, tau, conc, crst = pickle.load(open(plot_data_filename, 'br'))
         print('loaded cached data for ' + pooling)

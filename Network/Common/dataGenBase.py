@@ -25,13 +25,14 @@ class DataGeneratorBase(utils.Sequence):
                         objective='malignancy', rating_scale='none', categorize=False,
                         do_augment=False, augment=None,
                         use_class_weight=False, use_confidence=False,
-                        val_factor = 0, balanced=False, configuration=None,
-                        debug=False,):
+                        val_factor = 0, balanced=False, configuration=None, train_factor=1,
+                        debug=False, full=False, include_unknown=False):
 
         self.objective = objective
         self.rating_scale = rating_scale
 
         dataset = load_nodule_dataset(size=data_size, res=res, sample=sample, configuration=configuration,
+                                      full=full, include_unknown=include_unknown,
                                       apply_mask_to_patch=debug)
 
         self.test_set, self.valid_set, self.train_set = dataset
@@ -46,10 +47,10 @@ class DataGeneratorBase(utils.Sequence):
                                              is_training=True, objective=objective, rating_scale=rating_scale,
                                              categorize=categorize, do_augment=do_augment, augment=augment,
                                              use_class_weight=use_class_weight, use_confidence=use_confidence,
-                                             balanced=balanced)
+                                             balanced=balanced, data_factor=train_factor)
 
         if val_factor > 1:
-            self.val_seq = self.get_sequence()(self.train_set,
+            self.val_seq = self.get_sequence()(self.valid_set,
                                                model_size=model_size, batch_size=batch_size,
                                                is_training=False, objective=objective, rating_scale=rating_scale,
                                                categorize=categorize, do_augment=do_augment, augment=augment,
@@ -108,7 +109,7 @@ class DataSequenceBase(utils.Sequence):
                  objective='malignancy', rating_scale='none', categorize=False,
                  do_augment=False, augment=None,
                  use_class_weight=False, use_confidence=False,
-                 balanced=False, val_factor=1):
+                 balanced=False, data_factor=1):
 
         self.objective = objective
         self.rating_scale = rating_scale
@@ -130,15 +131,22 @@ class DataSequenceBase(utils.Sequence):
         if objective not in ['malignancy', 'rating']:
             print("ERR: Illegual objective given ({})".format(self.objective))
             assert False
-
-        self.N = self.calc_N(val_factor)
+        self.data_factor = data_factor
+        self.N = self.calc_N(data_factor)
+        print("DataSequence N = {}".format(self.N))
 
         self.on_epoch_end()
 
     def on_epoch_end(self):
         print('Run Gen {}: {}'.format(self.epoch, np.where(self.is_training, 'Training', 'Validation')))
 
-        images, labels, classes, masks, sample_weights = self.load_data()
+        images, labels, classes, masks, sample_weights = zip(*[self.load_data() for i in range(self.data_factor)])
+
+        images = np.vstack([pair[0] for pair in images]), np.vstack([pair[1] for pair in images])
+        masks = np.vstack([pair[0] for pair in masks]), np.vstack([pair[1] for pair in masks])
+        labels = np.hstack(labels)
+        classes = np.hstack(classes)
+        sample_weights = np.hstack(sample_weights)
 
         # split into batches
         num_of_images = images[0].shape[0]
@@ -166,8 +174,8 @@ class DataSequenceBase(utils.Sequence):
             if self.verbose == 1:
                 print("discard last unfull batch -> sets:{}".format(number_of_batches))
 
-        if self.epoch == 0:
-            assert number_of_batches == self.N  # len(self.dataset)//self.batch_size
+        #if self.epoch == 0:
+        #    assert number_of_batches == self.N  # len(self.dataset)//self.batch_size
 
         self.images = images
         self.labels = labels
@@ -203,5 +211,5 @@ class DataSequenceBase(utils.Sequence):
     def load_data(self):
         raise NotImplementedError("images, labels, masks, confidence = load_data() is an abstract method")
 
-    def calc_N(self, val_factor):
+    def calc_N(self, data_factor):
         raise NotImplementedError("get_N() is an abstract method")

@@ -14,14 +14,16 @@ class DataGeneratorTrip(DataGeneratorBase):
 
     def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_size=32,
                         categorize=False, rating_scale='none',
+                        full=False, include_unknown=False,
                         do_augment=False, augment=None, use_class_weight=False, use_confidence=False,
-                        debug=False, val_factor=1, objective="malignancy", configuration=None):
+                        debug=False, val_factor=1, train_factor=1, objective="malignancy", configuration=None):
 
         super().__init__(data_size=data_size, model_size=model_size, res=res, sample=sample, batch_size=batch_size,
                          objective=objective, rating_scale=rating_scale, categorize=categorize,
+                         full=full, include_unknown=include_unknown,
                          do_augment=do_augment, augment=augment,
                          use_class_weight=use_class_weight, use_confidence=use_confidence,
-                         val_factor=val_factor, balanced=True, configuration=configuration,
+                         val_factor=val_factor, train_factor=train_factor, balanced=True, configuration=configuration,
                          debug=debug)
 
     def get_sequence(self):
@@ -37,7 +39,7 @@ class DataSequenceTrip(DataSequenceBase):
     def __init__(self, dataset, is_training=True, model_size=128, batch_size=32,
                  objective="malignancy", rating_scale='none', categorize=False,
                  do_augment=False, augment=None, use_class_weight=False, use_confidence=False, debug=False,
-                 val_factor=1, balanced=False):
+                 data_factor=1, balanced=False):
 
         assert use_class_weight is False
         assert use_confidence is False
@@ -48,13 +50,18 @@ class DataSequenceTrip(DataSequenceBase):
                          objective=objective, rating_scale=rating_scale, categorize=categorize,
                          do_augment=do_augment, augment=augment,
                          use_class_weight=use_class_weight, use_confidence=use_confidence,
-                         balanced=balanced, val_factor=val_factor)
+                         balanced=balanced, data_factor=data_factor)
 
-    def calc_N(self, val_factor):
+    def calc_N(self, data_factor):
         if self.is_training:
-            N = 672 // self.batch_size  # len(self.dataset)
+            # make sure N is correct
+            N = len(self.dataset) // self.batch_size
+            assert False
         else:
-            N = val_factor * (len(self.dataset) // self.batch_size)
+            N = len(self.dataset) // self.batch_size
+
+        N *= data_factor
+
         return N
 
     def load_data(self):

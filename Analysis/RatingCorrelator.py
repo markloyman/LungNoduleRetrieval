@@ -9,6 +9,7 @@ from sklearn.metrics import mean_squared_error, r2_score
 from Analysis.analysis import calc_distance_matrix, calc_cross_distance_matrix
 from LIDC.lidcUtils import calc_rating
 from Network.dataUtils import rating_normalize
+from scipy.spatial.distance import pdist, cdist, squareform
 
 '''
 def calc_distance_matrix(X, method):
@@ -93,53 +94,90 @@ class RatingCorrelator:
 
     def load_embedding(self, source, multi_epcch=False):
         self.multi_epcch = multi_epcch
-        if type(source) is list:
-            self.images, self.embedding, self.meta_data, self.labels, self.classes, self.masks = [], [], [], [], [], []
-            for fn in source:
-                try:
-                    assert(type(fn) is str)
-                    if multi_epcch:
-                        embedding, epochs, meta_data, images, classes, labels, masks = pickle.load(open(fn, 'br'))
-                        epochs = np.array(epochs)
-                        embed_concat_axis = 1
-                    else:
-                        images, embedding, meta_data, labels, masks = pickle.load(open(fn, 'br'))
-                        classes = labels
-                        epochs = None
-                        embed_concat_axis = 0
-                    self.images.append(images)
-                    self.embedding.append(embedding)
-                    self.meta_data += meta_data
-                    self.classes.append(classes)
-                    self.labels.append(labels)
-                    self.masks.append(masks)
-                    self.epochs = epochs
-                except:
-                    print("failed to load " + fn)
-            assert len(self.images) > 0
-            self.images = np.concatenate(self.images)
-            self.embedding = np.concatenate(self.embedding, axis=embed_concat_axis)
-            self.labels = np.concatenate(self.labels)
-            self.masks = np.concatenate(self.masks)
-        else:
-            assert (type(source) is str)
-            self.images, self.embedding, self.meta_data, self.labels, self.masks = pickle.load(open(source, 'br'))
+        if type(source) is not list:
+            source = [source]
+        self.images, self.embedding, self.meta_data, self.labels, self.classes, self.masks = [], [], [], [], [], []
+        for fn in source:
+            try:
+                assert(type(fn) is str)
+                if multi_epcch:
+                    embedding, epochs, meta_data, images, classes, labels, masks = pickle.load(open(fn, 'br'))
+                    if type(meta_data) is np.ndarray:
+                        m = meta_data
+                        meta_data = images
+                        images = m
+                    epochs = np.array(epochs)
+                    embed_concat_axis = 1
+                else:
+                    images, embedding, meta_data, labels, masks = pickle.load(open(fn, 'br'))
+                    classes = labels
+                    epochs = None
+                    embed_concat_axis = 0
+                self.images.append(images)
+                self.embedding.append(embedding)
+                self.meta_data += meta_data
+                self.classes.append(classes)
+                self.labels.append(labels)
+                self.masks.append(masks)
+                self.epochs = epochs
+            except:
+                print("failed to load " + fn)
+        assert len(self.images) > 0
+        self.images = np.concatenate(self.images)
+        self.embedding = np.concatenate(self.embedding, axis=embed_concat_axis)
+        self.labels = np.concatenate(self.labels)
+        self.masks = np.concatenate(self.masks)
 
-    def evaluate_rating_space(self, norm='none'):
-        if np.concatenate(self.labels).ndim == 1:
+    def load_cached_rating_distance(self, filename='output/cache_ratings.p'):
+        #return False
+        try:
+            rating, dm, metric  = pickle.load(open(filename, 'br'))
+            self.rating = rating
+            self.rating_distance_matrix = dm
+            self.rating_metric = metric
+            print('loaded cached ratings data from: ' + filename)
+            return True
+        except:
+            return False
+
+    def dump_rating_distance_to_cache(self, filename='output/cache_ratings.p'):
+        try:
+            file = open(filename, 'bw')
+        except:
+            print('failed to dump rating data')
+            return False
+
+        pickle.dump((self.rating, self.rating_distance_matrix, self.rating_metric), file)
+        return True
+
+    def evaluate_rating_space(self, norm='none', ignore_labels=False):
+        if np.concatenate(self.labels).ndim == 1 or ignore_labels:
+            print('calc_from_meta')
             self.rating = [rating_normalize(calc_rating(meta, method='raw'), method=norm) for meta in self.meta_data]
         else:
+            print('calc_from_labels')
             self.rating = [rating_normalize(lbl, method=norm) for lbl in self.labels]
         self.rating_distance_matrix = None  # reset after recalculating the ratings
 
-    def evaluate_rating_distance_matrix(self, method='chebyshev', clustered_rating_distance=False):
-        assert clustered_rating_distance is False
+    def evaluate_rating_distance_matrix(self, method='chebyshev', clustered_rating_distance=False, weighted=False):
+        assert weighted is False
         if clustered_rating_distance:
-            rating = None
+            n = len(self.rating)
+            self.rating_distance_matrix = np.zeros((n, n))
+            for i in range(n):
+                for j in range(n):
+                    if i <= j:
+                        continue
+                    dm = cdist(self.rating[i], self.rating[j], method)
+                    d0 = np.min(dm, axis=0)
+                    d1 = np.min(dm, axis=1)
+                    distance = 0.5*np.mean(d0) + 0.5*np.mean(d1)
+                    self.rating_distance_matrix[i, j] = distance
+                    self.rating_distance_matrix[j, i] = distance
         else:
             rating = np.array([np.mean(rat, axis=0) for rat in self.rating])
-        self.rating_distance_matrix = calc_distance_matrix(rating, method)
-        assert self.rating_distance_matrix.shape[0] == self.embed_distance_matrix.shape[0]
+            self.rating_distance_matrix = calc_distance_matrix(rating, method)
+        #assert self.rating_distance_matrix.shape[0] == self.embed_distance_matrix.shape[0]
         self.rating_metric = method
         return self.rating_distance_matrix
 
@@ -149,11 +187,36 @@ class RatingCorrelator:
             assert (self.epochs is not None)
             epoch_idx = np.argwhere(epoch == self.epochs)[0][0]
             embd = self.embedding[epoch_idx]
+            assert np.all(np.isfinite(embd))
         else:
             embd = self.embedding
         embd = embd if (round==False) else np.round(embd)
         self.embed_distance_matrix = calc_distance_matrix(embd, method)
         self.embed_metric = method
+        assert np.all(np.isfinite(self.embed_distance_matrix))
+
+    def correlate_to_ratings(self, method='euclidean', round=False, epoch=None, epsilon=1e-9):
+        if self.multi_epcch:
+            assert (epoch is not None)
+            assert (self.epochs is not None)
+            epoch_idx = np.argwhere(epoch == self.epochs)[0][0]
+            embd = self.embedding[epoch_idx]
+            assert np.all(np.isfinite(embd))
+        else:
+            embd = self.embedding
+        embd = embd if (round==False) else np.round(embd)
+        assert np.all(np.isfinite(embd))
+
+        rating = np.array([np.mean(r, axis=0) for r in self.rating])
+        rating = rating if (round == False) else np.round(rating)
+
+        params = rating.shape[1]
+        assert params == embd.shape[1]
+        corr = np.zeros(params)
+        for p in range(params):
+            corr[p] = pearsonr(embd[:, p] + epsilon, rating[:, p])[0]
+
+        return corr
 
     def linear_regression(self):
         embed_dist = flatten_dm(self.embed_distance_matrix)
@@ -342,11 +405,12 @@ class RatingCorrelator:
 
         return pear, spear, kend
 
-    def correlate_retrieval(self, X, Y, round=False):
+    def correlate_retrieval(self, X, Y, round=False, verbose=True):
         x_dm, x_dist = self.load_distance_matrix(X, flat=False)
         y_dm, y_dist = self.load_distance_matrix(Y, flat=False)
 
-        print('{}[{}]-{}[{}]:'. format(X, x_dist, Y, y_dist))
+        if verbose:
+            print('{}[{}]-{}[{}]:'. format(X, x_dist, Y, y_dist))
 
         pear = []
         spear = []
@@ -355,15 +419,16 @@ class RatingCorrelator:
             x_dm, y_dm = np.round(x_dm), np.round(y_dm)
         for x, y in zip(x_dm, y_dm):
             pear  += [pearsonr(x, y)[0]]
-            spear += [spearmanr(x, y)[0]]
+            #spear += [spearmanr(x, y)[0]]
             kend  += [kendalltau(x, y)[0]]
 
         P = np.mean(pear), np.std(pear)
-        S = np.mean(spear), np.std(spear)
+        S = None, None  # np.mean(spear), np.std(spear)
         K = np.mean(kend), np.std(kend)
-        print('\tPearson =\t {:.2f} ({:.2f})'.  format(P[0], P[1]))
-        print('\tSpearman =\t {:.2f} ({:.2f})'. format(S[0], S[1]))
-        print('\tKendall =\t {:.2f} ({:.2f})'.  format(K[0], K[1]))
+        if verbose:
+            print('\tPearson =\t {:.2f} ({:.2f})'.  format(P[0], P[1]))
+            #print('\tSpearman =\t {:.2f} ({:.2f})'. format(S[0], S[1]))
+            print('\tKendall =\t {:.2f} ({:.2f})'.  format(K[0], K[1]))
 
         return P, S, K
 

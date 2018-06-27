@@ -16,6 +16,8 @@ try:
     from Network.Triplet.metrics import triplet_margin, rank_accuracy, kendall_correlation
     from Network import FileManager as File
 except:
+    from Common.baseArch import BaseArch
+    from Common.distances import euclidean_distance, l1_distance, cosine_distance, distance_output_shape
     from Triplet.metrics import triplet_margin, rank_accuracy, kendall_correlation
     import FileManager as File
 

@@ -1,14 +1,13 @@
 from init import *
-from scipy.signal import savgol_filter
 from experiments import load_experiments
 from Analysis.performance import eval_retrieval, eval_classification
-
+from Analysis.analysis import smooth
 
 if __name__ == "__main__":
 
     # Setup
 
-    experiment_name = 'DirRating'
+    experiment_name = 'SiamRating'
     dset = 'Valid'
     start = timer()
 
@@ -38,6 +37,8 @@ if __name__ == "__main__":
 
     # Evaluate
 
+    NN = [1, 3, 5, 7, 9, 11, 13, 15]
+
     Acc, Acc_std, Prec, Prec_std, Index, Index_std, Valid_epochs = [], [], [], [], [], [], []
     for run, net_type, _, metric, epochs in zip(runs, run_net_types, range(len(runs)), run_metrics, run_epochs):
         plot_data_filename = './Plots/Data/performance_{}{}.p'.format(net_type, run)
@@ -49,12 +50,12 @@ if __name__ == "__main__":
             acc, acc_std, valid_epochs = eval_classification(
                                     run=run, net_type=net_type, dset=dset,
                                     metric=metric, epochs=epochs,
-                                    cross_validation=True)
+                                    cross_validation=True, NN=NN)
             print("Evaluating retrieval precision for {}{}".format(net_type, run))
             prec, prec_std, index, index_std, _ = eval_retrieval(
                                     run=run, net_type=net_type, dset=dset,
                                     metric=metric, epochs=valid_epochs,
-                                    cross_validation=True)
+                                    cross_validation=True, NN=NN)
 
             pickle.dump((acc, acc_std, prec, prec_std, index, index_std, valid_epochs), open(plot_data_filename, 'bw'))
 
@@ -71,9 +72,6 @@ if __name__ == "__main__":
     # Display
 
     alpha = 0.2
-
-    def smooth(signal):
-        return savgol_filter(signal, window_length=7, polyorder=1, mode='nearest')
 
     for acc, acc_std, prec, prec_std, index, index_std, epochs in zip(Acc, Acc_std, Prec, Prec_std, Index, Index_std, Valid_epochs):
         '''

@@ -25,7 +25,7 @@ def plot_row(i, distances, label=None):
     p[i + 2].axes.title.set_text('Kumari (tau = {:.2f}'.format(tau))
 
 
-runs, run_net_types, run_metrics, run_epochs, run_names = load_experiments('Debug')
+runs, run_net_types, run_metrics, run_epochs, run_names, _, _ = load_experiments('SiamRating')
 
 
 # evaluate
@@ -48,7 +48,7 @@ for m, metric in enumerate(metrics):
         # calculate
         Ret = Retriever(title='{}'.format(run), dset=dset)
         embd, epoch_mask = Ret.load_embedding(embed_source, multi_epcch=True)
-        for e in epochs:
+        for e in [60]: # epochs:
             # full
             Ret.fit(metric=metric, epoch=e)
             _, distances = Ret.ret_nbrs()

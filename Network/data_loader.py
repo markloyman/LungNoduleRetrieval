@@ -2,6 +2,7 @@ import pickle
 import numpy as np
 from functools import reduce
 from scipy.misc import imresize
+from scipy.spatial.distance import cdist
 try:
     from Network.dataUtils import rating_normalize, crop_center, l2_distance, cluster_distance
 except:
@@ -46,17 +47,17 @@ def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='No
     if apply_mask_to_patch:
         print('WRN: apply_mask_to_patch is for debug only')
         testData = [(entry['patch'] * (0.3 + 0.7 * entry['mask']), entry['mask'], entry['label'], entry['info'],
-                     entry['size'], entry['rating']) for entry in testData]
+                     entry['size'], entry['rating'], entry['weights']) for entry in testData]
         validData = [(entry['patch'] * (0.3 + 0.7 * entry['mask']), entry['mask'], entry['label'], entry['info'],
-                      entry['size'], entry['rating']) for entry in validData]
+                      entry['size'], entry['rating'], entry['weights']) for entry in validData]
         trainData = [(entry['patch'] * (0.3 + 0.7 * entry['mask']), entry['mask'], entry['label'], entry['info'],
-                      entry['size'], entry['rating']) for entry in trainData]
+                      entry['size'], entry['rating'], entry['weights']) for entry in trainData]
     else:
-        testData = [(entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size'], entry['rating'])
+        testData = [(entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size'], entry['rating'], entry['weights'])
                     for entry in testData]
-        validData = [(entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size'], entry['rating'])
+        validData = [(entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size'], entry['rating'], entry['weights'])
                      for entry in validData]
-        trainData = [(entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size'], entry['rating'])
+        trainData = [(entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size'], entry['rating'], entry['weights'])
                      for entry in trainData]
 
     image_ = np.concatenate([e[0] for e in trainData])
@@ -148,6 +149,9 @@ def prepare_data(data, rating_format='raw', new_size=None, do_augment=False, ret
         ratings = np.array([rating_normalize(entry[5], scaling) for entry in data])
     elif rating_format == 'mean':
         ratings  = np.array([rating_normalize(np.mean(entry[5], axis=0), scaling) for entry in data]).reshape(N, 9)
+    elif rating_format == 'w_mean':
+        w_mean = lambda R, W: np.sum(np.diag(W).dot(R) / np.sum(W), axis=0)
+        ratings = np.array([rating_normalize(w_mean(entry[5], entry[6]), scaling) for entry in data]).reshape(N, 9)
     else:
         print("ERR: Illegual rating_format given ({})".format(rating_format))
         assert (False)
@@ -170,7 +174,11 @@ def prepare_data(data, rating_format='raw', new_size=None, do_augment=False, ret
 
     conf = None
     if rating_confidence is not None:
-        conf = np.array([2. + entry[5].shape[0] - np.max(np.max(entry[5], axis=0) - np.min(entry[5], axis=0)) for entry in data]) / 6.
+        # confidence is only relevant for full dataset
+        # and should first be reconsidered
+        conf = np.array([np.sum(entry[6]) for entry in data])
+        conf = 2 - 2 / (1 + conf/np.mean(conf))
+        #conf = np.array([2. + entry[5].shape[0] - np.max(np.max(entry[5], axis=0) - np.min(entry[5], axis=0)) for entry in data]) / 6.
         if reshuffle:
             conf = conf[new_order]
 
@@ -194,7 +202,7 @@ def select_balanced(self, some_set, labels, N, permutation):
 def prepare_data_direct(data, objective='malignancy', rating_scale='none', size=None, num_of_classes=2, balanced=False, return_meta=False, verbose= 0, reshuffle=True):
 
     images, ratings, classes, masks, meta, conf = \
-        prepare_data(data, rating_format='mean', scaling=rating_scale, verbose=verbose, reshuffle=reshuffle, return_meta=return_meta)
+        prepare_data(data, rating_format='w_mean', scaling=rating_scale, verbose=verbose, reshuffle=reshuffle, return_meta=return_meta)
 
     if objective == 'malignancy':
         from keras.utils.np_utils import to_categorical
@@ -221,7 +229,7 @@ def prepare_data_direct(data, objective='malignancy', rating_scale='none', size=
             Nm = np.count_nonzero(np.argmax(classes, axis=1))
             print("Balanced - Benign: {}, Malignant: {}".format(Nb, Nm))
 
-    return images, labels, classes, masks, meta
+    return images, labels, classes, masks, meta, conf
 
 
 def select_different_pair(class_A, class_B, n):
@@ -391,7 +399,7 @@ def prepare_data_siamese_simple(data, siamese_rating_factor, objective="malignan
     if verbose:
         print('prepare_data_siamese_simple:')
     images, ratings, classes, masks, meta, conf = \
-        prepare_data(data, rating_format='raw', scaling="Scale", return_meta=return_meta, reshuffle=True, verbose=verbose)
+        prepare_data(data, rating_format='raw', scaling="none", return_meta=return_meta, reshuffle=True, verbose=verbose)
     if verbose:
         if return_meta:
             print('Loaded Meta-Data')
@@ -417,7 +425,15 @@ def prepare_data_siamese_simple(data, siamese_rating_factor, objective="malignan
         if rating_distance == 'mean':
             similarity_labels = np.array([np.sqrt((a-b).dot(a-b)) for a, b in rating_pairs])
         elif rating_distance == 'clusters':
-            assert False
+            similarity_labels = []
+            for r1, r2 in rating_pairs:
+                # TODO : refactor needed. distance is also implemented in RatingCorrelator
+                dm = cdist(r1, r2, 'euclidean')
+                d0 = np.min(dm, axis=0)
+                d1 = np.min(dm, axis=1)
+                distance = 0.5 * np.mean(d0) + 0.5 * np.mean(d1)
+                similarity_labels += [distance]
+            similarity_labels = np.array(similarity_labels)
         else:
             assert False
         similarity_labels *= siamese_rating_factor

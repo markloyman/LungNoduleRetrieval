@@ -22,10 +22,10 @@ class Rating:
         self.model = DirectArch(miniXception_loader, input_shape, objective="rating", pooling=self.pooling, output_size=self.out_size,
                            normalize=True)
 
-    def load_dataset(self, data_subset_id, size=160, sample='Normal', res=0.5, rating_scale='none', configuration=None):
+    def load_dataset(self, data_subset_id, size=160, sample='Normal', res=0.5, rating_scale='none', configuration=None, full=False, include_unknown=False):
         # prepare test data
-        self.images_test, self.labels_test, self.classes_test, self.masks_test, self.meta_test = \
-            prepare_data_direct(load_nodule_dataset(configuration=configuration, size=size, res=res, sample=sample)[data_subset_id],
+        self.images_test, self.labels_test, self.classes_test, self.masks_test, self.meta_test, _ = \
+            prepare_data_direct(load_nodule_dataset(configuration=configuration, size=size, res=res, sample=sample, full=full, include_unknown=include_unknown)[data_subset_id],
                                 size=size,
                                 return_meta=True, objective="rating", rating_scale=rating_scale, verbose=1,
                                 balanced=False)

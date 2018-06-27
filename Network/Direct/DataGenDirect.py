@@ -22,27 +22,28 @@ class DataGeneratorDir(DataGeneratorBase):
 
     def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_size=32,
                         objective='malignancy', rating_scale='none', categorize=False,
+                        full=False, include_unknown=False,
                         do_augment=False, augment=None,
                         use_class_weight=False, use_confidence=False,
-                        val_factor = 0, balanced=False, configuration=None,
+                        val_factor = 0, train_factor=1, balanced=False, configuration=None,
                         debug=False):
 
         assert categorize is False
-        assert use_confidence is False
 
         super().__init__(data_size= data_size, model_size=model_size, res=res, sample=sample, batch_size=batch_size,
                         objective=objective, rating_scale=rating_scale, categorize=categorize,
+                         full=full, include_unknown=include_unknown,
                         do_augment=do_augment, augment=augment,
                         use_class_weight=use_class_weight, use_confidence=use_confidence,
-                        val_factor = val_factor, balanced=balanced, configuration=configuration,
-                        debug=debug)
+                        val_factor = val_factor, balanced=balanced, train_factor=train_factor,
+                         configuration=configuration, debug=debug)
 
     def get_sequence(self):
         return DataSequenceDir
 
     def get_data(self, dataset, is_training):
         return prepare_data_direct(dataset, objective=self.objective, reshuffle=False,
-                                   rating_scale=self.rating_scale, classes=2, size=self.model_size,
+                                   rating_scale=self.rating_scale, num_of_classes=2, size=self.model_size,
                                    verbose=True, return_meta=True)
 
 
@@ -52,10 +53,9 @@ class DataSequenceDir(DataSequenceBase):
                  objective='malignancy', rating_scale='none', categorize=False,
                  do_augment=False, augment=None,
                  use_class_weight=False, use_confidence=False,
-                 balanced=False, val_factor=1):
+                 balanced=False, data_factor=1):
 
         assert (categorize is False)
-        assert (use_confidence is False)
 
         if objective == 'rating':
             assert balanced is False
@@ -64,9 +64,9 @@ class DataSequenceDir(DataSequenceBase):
                          objective=objective, rating_scale=rating_scale, categorize=categorize,
                          do_augment=do_augment, augment=augment,
                          use_class_weight=use_class_weight, use_confidence=use_confidence,
-                         balanced=balanced, val_factor=val_factor)
+                         balanced=balanced, data_factor=data_factor)
 
-    def calc_N(self, val_factor):
+    def calc_N(self, data_factor):
 
         if self.objective == 'malignancy':
             labels = np.array([entry[2] for entry in self.dataset])
@@ -79,29 +79,39 @@ class DataSequenceDir(DataSequenceBase):
                 else:
                     N = (Nb + Nm) // self.batch_size
             else:
-                N = val_factor * (len(self.dataset) // self.batch_size)
+                N = len(self.dataset) // self.batch_size
 
         elif self.objective == 'rating':
             N = len(self.dataset) // self.batch_size
             if self.balanced:
                 print("WRN: objective rating does not support balanced")
+                assert False
             self.balanced = False
             self.use_class_weight = self.use_class_weight
+
+        N *= data_factor
 
         return N
 
     def load_data(self):
 
-        images, labels, classes, masks = \
+        images, labels, classes, masks, meta, weights = \
             prepare_data_direct(self.dataset, objective=self.objective, rating_scale=self.rating_scale, num_of_classes=2,
-                                size=self.model_size, verbose=self.verbose)[:4]
+                                size=self.model_size, verbose=self.verbose)
 
+        sample_weights = np.ones(len(labels))
         if self.use_class_weight:
             class_weights = get_class_weight(np.squeeze(classes), 'balanced')
-            print("Class Weight -> Benign: {:.2f}, Malignant: {:.2f}".format(class_weights[0], class_weights[1]))
-            sample_weights = get_sample_weight(classes, class_weights)
-        else:
-            sample_weights = np.ones(len(labels))
+            if len(class_weights) == 2:
+                print("Class Weight -> Benign: {:.2f}, Malignant: {:.2f}".format(class_weights[0], class_weights[1]))
+            elif len(class_weights) == 3:
+                class_weights[2] = (class_weights[0] + class_weights[1]) / 6
+                print("Class Weight -> Benign: {:.2f}, Malignant: {:.2f}, Unknown: {:.2f}".format(class_weights[0], class_weights[1], class_weights[2]))
+            sample_weights *= get_sample_weight(classes, class_weights)
+        if self.use_confidence:
+            print('use confidence')
+            sample_weights *= weights
+
 
         Nb = np.count_nonzero(1 - classes)
         Nm = np.count_nonzero(classes)

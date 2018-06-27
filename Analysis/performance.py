@@ -23,6 +23,20 @@ def merge_epochs(valid_epochs, min_element=4):
 
 
 def mean_cross_validated_index(index, valid_epochs, combined_epochs):
+    merged = np.zeros((index[0].shape[0], len(combined_epochs)))
+    for ep_id, epoch in enumerate(combined_epochs):
+        #collect = [[idx[:, i] for i, e in enumerate(ve) if e == epoch] for idx, ve in zip(index, valid_epochs) if epoch in ve]
+        collect = []
+        for idx, ve in zip(index, valid_epochs):
+            if epoch in ve:
+                for i, e in enumerate(ve):
+                    if e == epoch:
+                        collect += [idx[:, i]]
+        merged[:, ep_id] = np.mean(collect, axis=0)
+    return merged
+
+
+def mean_cross_validated_index_with_std(index, valid_epochs, combined_epochs):
     merged = np.zeros((len(combined_epochs)))
     merged_std = np.zeros((len(combined_epochs)))
     for ep_id, epoch in enumerate(combined_epochs):
@@ -62,8 +76,8 @@ def eval_classification(run, net_type, metric, epochs, dset, NN=[7, 11, 17], cro
             Pred_L1O[i] = np.array(Pred_L1O[i])
             valid_epochs[i] = np.array(valid_epochs[i])
 
-        combined_epochs = merge_epochs(valid_epochs)
-        P, P_std = mean_cross_validated_index(Pred_L1O, valid_epochs, combined_epochs)
+        combined_epochs = merge_epochs(valid_epochs, min_element=max(n_groups-1, 1))
+        P, P_std = mean_cross_validated_index_with_std(Pred_L1O, valid_epochs, combined_epochs)
 
     else:
         for E in epochs:
@@ -115,11 +129,11 @@ def eval_retrieval(run, net_type, metric, epochs, dset, NN=[7, 11, 17], cross_va
             valid_epochs[i] = np.array(valid_epochs[i])
 
         combined_epochs = epochs  # merge_epochs(valid_epochs)
-        P, P_std = mean_cross_validated_index(Prec, valid_epochs, combined_epochs)
+        P, P_std = mean_cross_validated_index_with_std(Prec, valid_epochs, combined_epochs)
         #P, P_std = np.mean(np.mean(Prec, axis=-1), axis=0), np.mean(np.std(Prec, axis=-1), axis=0)
         combined = 2 * np.array(Prec_b) * np.array(Prec_m) / (np.array(Prec_b) + np.array(Prec_m))
         #F1, F1_std = np.mean(np.mean(combined, axis=-1), axis=0), np.mean(np.std(combined, axis=-1), axis=0)
-        F1, F1_std = mean_cross_validated_index(combined, valid_epochs, combined_epochs)
+        F1, F1_std = mean_cross_validated_index_with_std(combined, valid_epochs, combined_epochs)
 
     else:
         for E in epochs:
@@ -151,41 +165,59 @@ def eval_retrieval(run, net_type, metric, epochs, dset, NN=[7, 11, 17], cross_va
     return P, P_std, F1, F1_std, valid_epochs
 
 
-def eval_correlation(run, net_type, metric, epochs, dset, rating_norm='none', cross_validation=False, n_groups=5):
+def eval_correlation(run, net_type, metric, rating_metric, epochs, dset, rating_norm='none', cross_validation=False, n_groups=5):
 
     Embed = FileManager.Embed(net_type)
 
     if cross_validation:
         # Load
-        embed_source= [Embed(run + 'c{}'.format(c), dset) for c in range(n_groups)]
+        embed_source = [Embed(run + 'c{}'.format(c), dset) for c in range(n_groups)]
 
-        Reg = RatingCorrelator(embed_source, multi_epoch=True)
+        valid_epochs = [[] for i in range(n_groups)]
+        Pm, Km, Pr, Kr = [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)]
+        PmStd, KmStd, PrStd, KrStd = [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)]
 
-        valid_epochs = []
-        Pm, Km, Pr, Kr = [], [], [], []
-        PmStd, KmStd, PrStd, KrStd = [], [], [], []
-        for E in epochs:
-            # Calc
-            try:
-                Reg.evaluate_embed_distance_matrix(method=metric, epoch=E)
-            except:
-                print("Epoch {} - no calculated embedding".format(E))
-                continue
-            Reg.evaluate_rating_space(norm=rating_norm)
-            Reg.evaluate_rating_distance_matrix(method=metric, clustered_rating_distance=False)
+        for c_idx, source in enumerate(embed_source):
+            Reg = RatingCorrelator(source, multi_epoch=True)
 
-            pm, _, km = Reg.correlate_retrieval('embed', 'malig')
-            pr, _, kr = Reg.correlate_retrieval('embed', 'rating')
-            valid_epochs.append(E)
+            # load rating data
+            cache_filename = 'output/cached_rating_{}_{}.p'.format(source.split('/')[-1][6:-2], c_idx)
+            if not Reg.load_cached_rating_distance(cache_filename):
+                print('evaluating rating distance matrix...')
+                Reg.evaluate_rating_space(norm=rating_norm, ignore_labels=False)
+                Reg.evaluate_rating_distance_matrix(method=rating_metric, clustered_rating_distance=True)
+                Reg.dump_rating_distance_to_cache(cache_filename)
 
-            Pm.append(pm[0])
-            Km.append(km[0])
-            Pr.append(pr[0])
-            Kr.append(kr[0])
-            PmStd.append(pm[1])
-            KmStd.append(km[1])
-            PrStd.append(pr[1])
-            KrStd.append(kr[1])
+            for E in epochs:
+                # Calc
+                try:
+                    Reg.evaluate_embed_distance_matrix(method=metric, epoch=E)
+                except:
+                    #print("Epoch {} - no calculated embedding".format(E))
+                    continue
+
+                pm, _, km = Reg.correlate_retrieval('embed', 'malig', verbose=False)
+                pr, _, kr = Reg.correlate_retrieval('embed', 'rating', verbose=False)
+                valid_epochs[c_idx].append(E)
+
+                Pm[c_idx].append(pm[0])
+                Km[c_idx].append(km[0])
+                Pr[c_idx].append(pr[0])
+                Kr[c_idx].append(kr[0])
+                PmStd[c_idx].append(pm[1])
+                KmStd[c_idx].append(km[1])
+                PrStd[c_idx].append(pr[1])
+                KrStd[c_idx].append(kr[1])
+
+            Pm[c_idx] = np.expand_dims(Pm[c_idx], axis=0)
+            Km[c_idx] = np.expand_dims(Km[c_idx], axis=0)
+            Pr[c_idx] = np.expand_dims(Pr[c_idx], axis=0)
+            Kr[c_idx] = np.expand_dims(Kr[c_idx], axis=0)
+            PmStd[c_idx] = np.expand_dims(PmStd[c_idx], axis=0)
+            KmStd[c_idx] = np.expand_dims(KmStd[c_idx], axis=0)
+            PrStd[c_idx] = np.expand_dims(PrStd[c_idx], axis=0)
+            KrStd[c_idx] = np.expand_dims(KrStd[c_idx], axis=0)
+
     else:
         assert False
         for E in epochs:
@@ -207,7 +239,14 @@ def eval_correlation(run, net_type, metric, epochs, dset, rating_norm='none', cr
             Prec_b.append(np.array(prec_b))
             Prec_m.append(np.array(prec_m))
 
-    Pm, Km, Pr, Kr = np.array(Pm), np.array(Km), np.array(Pr), np.array(Kr)
-    PmStd, KmStd, PrStd, KrStd = np.array(PmStd), np.array(KmStd), np.array(PrStd), np.array(KrStd)
+    merged_epochs = merge_epochs(valid_epochs, min_element=max(n_groups - 1, 1))
+    Pm = mean_cross_validated_index(Pm, valid_epochs, merged_epochs)
+    Km = mean_cross_validated_index(Km, valid_epochs, merged_epochs)
+    Pr = mean_cross_validated_index(Pr, valid_epochs, merged_epochs)
+    Kr = mean_cross_validated_index(Kr, valid_epochs, merged_epochs)
+    PmStd = mean_cross_validated_index(PmStd, valid_epochs, merged_epochs)
+    KmStd = mean_cross_validated_index(KmStd, valid_epochs, merged_epochs)
+    PrStd = mean_cross_validated_index(PrStd, valid_epochs, merged_epochs)
+    KrStd = mean_cross_validated_index(KrStd, valid_epochs, merged_epochs)
 
-    return Pm, PmStd, Km, KmStd, Pr, PrStd, Kr, KrStd, valid_epochs
+    return np.squeeze(Pm), np.squeeze(PmStd), np.squeeze(Km), np.squeeze(KmStd), np.squeeze(Pr), np.squeeze(PrStd), np.squeeze(Kr), np.squeeze(KrStd), np.array(merged_epochs)

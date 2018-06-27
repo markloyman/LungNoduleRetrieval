@@ -2,16 +2,17 @@ from init import *
 from Analysis import metric_space_indexes as index
 from Analysis.RatingCorrelator import calc_distance_matrix
 from Analysis.retrieval import Retriever
+from Analysis.performance import mean_cross_validated_index
 from Network import FileManager
 from experiments import load_experiments
-from scipy.signal import savgol_filter
+from Analysis.analysis import smooth
 
 # Setup
 
-experiment_name = 'Pooling'
+experiment_name = 'Siam'
 dset = 'Valid'
 rating_normalizaion = 'Scale' # 'None', 'Normal', 'Scale'
-metrics = ['l2']
+ratiing_metrics = ['euclidean']
 n_groups = 5
 
 
@@ -20,38 +21,25 @@ runs, run_net_types, run_metrics, run_epochs, run_names, _, _ = load_experiments
 # initialize figures
 
 plt.figure("{} Metric Space: {}".format(experiment_name, dset))
-p = [None] * len(metrics) * 5
-for i in range(5 * len(metrics)):
-    p[i] = plt.subplot(len(metrics), 5, i + 1)
+p = [None] * len(ratiing_metrics) * 5
+for i in range(5 * len(ratiing_metrics)):
+    p[i] = plt.subplot(len(ratiing_metrics), 5, i + 1)
 
 # evaluate
 
 
-def mean_cross_validated_index(index, valid_epochs, combined_epochs):
-    merged = np.zeros((index[0].shape[0], len(combined_epochs)))
-    for ep_id, epoch in enumerate(combined_epochs):
-        #collect = [[idx[:, i] for i, e in enumerate(ve) if e == epoch] for idx, ve in zip(index, valid_epochs) if epoch in ve]
-        collect = []
-        for idx, ve in zip(index, valid_epochs):
-            if epoch in ve:
-                for i, e in enumerate(ve):
-                    if e == epoch:
-                        collect += [idx[:, i]]
-        merged[:, ep_id] = np.mean(collect, axis=0)
-    return merged
-
-
 Epochs, Idx_hubness, Idx_symmetry, Idx_concentration, Idx_contrast, Idx_kummar = [], [], [], [], [], []
 
-for m, metric_ in enumerate(metrics):
-    print("Begin: {} metric".format(metric))
+for m, metric_ in enumerate(ratiing_metrics):
+    #print("Begin: {} metric".format(metric))
     for run, net_type, r, epochs, metric in zip(runs, run_net_types, range(len(runs)), run_epochs, run_metrics):
         plot_data_filename = './Plots/Data/metric-space_{}{}.p'.format(net_type, run)
         try:
-            valid_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar = pickle.load(open(plot_data_filename, 'br'))
+            combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar = pickle.load(open(plot_data_filename, 'br'))
+            idx_kummar = np.reshape(idx_kummar, (1, np.max(idx_kummar.shape)))
             print("Loaded results for {}{}".format(net_type, run))
         except:
-            print("Evaluating classification accuracy for {}{}".format(net_type, run))
+            print("Evaluating classification accuracy for {}{} using {}".format(net_type, run, metric))
             # init
             Embed = FileManager.Embed(net_type)
             embed_source = [Embed(run + 'c{}'.format(c), dset) for c in range(n_groups)]
@@ -102,7 +90,7 @@ for m, metric_ in enumerate(metrics):
             #idx_kummar = np.mean(idx_kummar, axis=0)
             pickle.dump( (combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar),
                          open(plot_data_filename, 'bw'))
-        Epochs += [valid_epochs]
+        Epochs += [combined_epochs]
         Idx_hubness += [idx_hubness]
         Idx_symmetry += [idx_symmetry]
         Idx_concentration += [idx_concentration]
@@ -112,10 +100,6 @@ for m, metric_ in enumerate(metrics):
 # plot
 
 alpha = 0.2
-
-
-def smooth(signal):
-    return savgol_filter(signal, window_length=7, polyorder=1, mode='nearest')
 
 for epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar \
         in zip(Epochs, Idx_hubness, Idx_symmetry, Idx_concentration, Idx_contrast, Idx_kummar):
@@ -147,7 +131,7 @@ for epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kumm
             p[5 * m + 2].axes.title.set_text('contrast')
             p[5 * m + 3].axes.title.set_text('concentration')
             p[5 * m + 4].axes.title.set_text('kumari')
-        if m == len(metrics) - 1:  # last row
+        if m == len(ratiing_metrics) - 1:  # last row
             p[5 * m + 2].axes.xaxis.label.set_text('epochs')
 p[-1].legend(run_names)
 print('Done doMetricSpaceIndexes')

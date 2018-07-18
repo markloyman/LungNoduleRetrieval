@@ -14,7 +14,7 @@ class DataGeneratorTrip(DataGeneratorBase):
 
     def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_size=32,
                         categorize=False, rating_scale='none',
-                        full=False, include_unknown=False,
+                        full=False, include_unknown=False, balanced=False,
                         do_augment=False, augment=None, use_class_weight=False, use_confidence=False,
                         debug=False, val_factor=1, train_factor=1, objective="malignancy", configuration=None):
 
@@ -23,7 +23,7 @@ class DataGeneratorTrip(DataGeneratorBase):
                          full=full, include_unknown=include_unknown,
                          do_augment=do_augment, augment=augment,
                          use_class_weight=use_class_weight, use_confidence=use_confidence,
-                         val_factor=val_factor, train_factor=train_factor, balanced=True, configuration=configuration,
+                         val_factor=val_factor, train_factor=train_factor, balanced=balanced, configuration=configuration,
                          debug=debug)
 
     def get_sequence(self):
@@ -43,8 +43,9 @@ class DataSequenceTrip(DataSequenceBase):
 
         assert use_class_weight is False
         assert use_confidence is False
-        assert balanced is False
-        assert categorize is False
+
+        if objective == 'malignancy':
+            assert categorize is True
 
         super().__init__(dataset, is_training=is_training, model_size=model_size, batch_size=batch_size,
                          objective=objective, rating_scale=rating_scale, categorize=categorize,
@@ -55,8 +56,16 @@ class DataSequenceTrip(DataSequenceBase):
     def calc_N(self, data_factor):
         if self.is_training:
             # make sure N is correct
-            N = len(self.dataset) // self.batch_size
-            assert False
+            if self.balanced:
+                classes = np.array([entry[2] for entry in self.dataset])
+                Nb = np.count_nonzero(1 - classes)
+                Nm = np.count_nonzero(classes)
+                M = min(Nb, Nm)
+                N = 2 * M // self.batch_size
+                print("VERIFY N IS CORRECT!!!")
+            else:
+                N = len(self.dataset) // self.batch_size
+                assert False
         else:
             N = len(self.dataset) // self.batch_size
 
@@ -65,10 +74,11 @@ class DataSequenceTrip(DataSequenceBase):
         return N
 
     def load_data(self):
-
+        assert self.use_class_weight is False
         ret_conf = self.class_weight_method if self.use_class_weight else None
         images, labels, masks, confidence = \
-            prepare_data_triplet(self.dataset, verbose=self.verbose, objective=self.objective, return_confidence=ret_conf)
+            prepare_data_triplet(self.dataset, objective=self.objective, balanced=self.balanced,
+                                 return_confidence=ret_conf, verbose=self.verbose)
 
         if self.use_class_weight:
             class_weight = get_class_weight(confidence, method='balanced')

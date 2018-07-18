@@ -103,9 +103,12 @@ def load_nodule_raw_dataset(size=128, res='Legacy', sample='Normal'):
     else:
         filename = '/Dataset/Dataset{:.0f}-{:.1f}-{}.p'.format(size, res, sample)
 
+    print('Loading {}'.format(filename))
+
     try:
         testData, validData, trainData = pickle.load(open(filename, 'br'))
     except:
+        print('...Failed')
         testData, validData, trainData = pickle.load(open('.'+filename, 'br'))
 
     return testData, validData, trainData
@@ -467,7 +470,16 @@ def prepare_data_siamese_simple(data, siamese_rating_factor, objective="malignan
     #                               np.repeat('SM', sm_size),
     #                               np.repeat('D',  d_size)
     #                            ])
-    confidence = np.repeat('SB', N)
+
+    #confidence = np.repeat('SB', N)
+    confidence = []
+    for r1, r2 in rating_pairs:
+        dm = cdist(r1, r2, 'euclidean')
+        d0 = np.max(dm, axis=0)
+        d1 = np.max(dm, axis=1)
+        distance = 0.5 * np.mean(d0) + 0.5 * np.mean(d1)
+        confidence += [distance]
+    confidence = 1.0 - np.array(confidence)/(8.0 + 0.25*np.array(confidence))
 
     new_order = np.random.permutation(size)
 
@@ -498,16 +510,15 @@ def prepare_data_triplet(data, objective="malignancy", rating_distance="mean", b
     if verbose:
         print('prepare_data_triplet:')
     images, ratings, classes, masks, meta, conf \
-        = prepare_data(data, rating_format="raw", scaling="Scale", rating_confidence=return_confidence,
+        = prepare_data(data, rating_format="raw", scaling="none", rating_confidence=return_confidence,
                        return_meta=return_meta, reshuffle=True, verbose=verbose)
     if verbose:
         print("benign:{}, malignant: {}".format(np.count_nonzero(classes == 0), np.count_nonzero(classes == 1)))
         if meta is not None: print('Loaded Meta-Data')
 
     N = images.shape[0]
-    assert balanced is False
 
-    if objective == "malignancy":
+    if balanced:
         print('Create a balanced split')
         benign_filter = np.where(classes == 0)[0]
         malign_filter = np.where(classes == 1)[0]
@@ -518,8 +529,7 @@ def prepare_data_triplet(data, objective="malignancy", rating_distance="mean", b
         malign_filter_b = malign_filter[M12:]
         benign_filter_a = benign_filter[:M12]
         benign_filter_b = benign_filter[M12:]
-
-    if objective != "malignancy":
+    else:
         rating_trips = select_triplets(ratings)
         distance = l2_distance if rating_distance == 'mean' else cluster_distance
         trip_rank_status = check_triplet_order(rating_trips, rating_distance=distance)
@@ -527,7 +537,7 @@ def prepare_data_triplet(data, objective="malignancy", rating_distance="mean", b
     #   Handle Patches
     # =========================
 
-    if objective == "malignancy":
+    if balanced:
         image_trips = make_balanced_trip(images, benign_filter_a, benign_filter_b, malign_filter_a, malign_filter_b)
     else:
         image_trips  = select_triplets(images)
@@ -541,7 +551,7 @@ def prepare_data_triplet(data, objective="malignancy", rating_distance="mean", b
     #   Handle Masks
     # =========================
 
-    if objective == "malignancy":
+    if balanced:
         mask_trips = make_balanced_trip(masks, benign_filter_a, benign_filter_b, malign_filter_a, malign_filter_b)
     else:
         mask_trips = select_triplets(masks)
@@ -553,7 +563,7 @@ def prepare_data_triplet(data, objective="malignancy", rating_distance="mean", b
     #   Handle Meta
     # =========================
     if return_meta:
-        if objective == "malignancy":
+        if balanced:
             meta_trips = make_balanced_trip(meta, benign_filter_a, benign_filter_b, malign_filter_a, malign_filter_b)
         else:
             meta_trips = select_triplets(meta)
@@ -566,9 +576,9 @@ def prepare_data_triplet(data, objective="malignancy", rating_distance="mean", b
     # =========================
 
     size = image_sub1.shape[0]
-    assert size == mask_sub1.shape[0]
+    assert M*2 == size
 
-    confidence = np.repeat('SB', N)
+    confidence = np.repeat('SB', size)
     if objective=='rating':
         if return_confidence == "rating":
             conf_trips = select_triplets(conf)

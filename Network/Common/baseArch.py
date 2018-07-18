@@ -19,6 +19,7 @@ class BaseArch(object):
 
     def __init__(self, model_loader, input_shape, objective='malignancy', pooling='rmac', output_size=1024, normalize=False, binary=False):
 
+        self.model = None
         self.objective = objective
         self.net_type = None
         self.run = None
@@ -97,19 +98,36 @@ class BaseArch(object):
                 total_time = (timer() - start) / 60 / 60
             print("Total training time is {:.1f} hours".format(total_time))
 
-    def embed(self, epochs, data='Valid'):
+    def embed(self, epochs, data='Valid', use_core=True):
         # init file managers
         Weights = File.Weights(self.net_type, output_dir=input_dir)
-        Embed = File.Embed(self.net_type, output_dir=output_dir)
+        if use_core:
+            Embed = File.Embed(self.net_type, output_dir=output_dir)
+        else:
+            Embed = File.Pred(type='rating', pre='dirR', output_dir=output_dir)
 
         # get data from generator
-        data_loader = self.data_gen.get_flat_valid_data if data=='valid' else self.data_gen.get_flat_test_data
+        data_loader = None
+        # valid and test got reversed somewhere along the way
+        # so i'm forced to keep consistancy
+        if data == 'Valid':
+            data_loader = self.data_gen.get_flat_test_data
+        elif data == 'Test':
+            data_loader = self.data_gen.get_flat_valid_data
+        elif data == 'Train':
+            data_loader = self.data_gen.get_flat_train_data
+        else:
+            print('{} is not a supperted dataset identification'.format(data))
         images, labels, classes, masks, meta, conf = data_loader()
 
         start = timer()
         embedding = []
         epochs_done = []
-        embed_model = self.extract_core(repool=False)
+        if use_core:
+            embed_model = self.extract_core(repool=False)
+        else:
+            embed_model = self.model
+
         for epch in epochs:
             # load weights
             try:

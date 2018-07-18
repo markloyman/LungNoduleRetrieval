@@ -88,12 +88,15 @@ class DataGeneratorBase(utils.Sequence):
         return images, labels, classes, masks, meta, conf
 
     def get_flat_train_data(self):
+        print('Loaded flat training data')
         return self.get_flat_data(self.train_set)
 
     def get_flat_valid_data(self):
+        print('Loaded flat validation data')
         return self.get_flat_data(self.valid_set)
 
     def get_flat_test_data(self):
+        print('Loaded flat test data')
         return self.get_flat_data(self.test_set)
 
     def get_data(self, dataset, is_training):
@@ -142,8 +145,15 @@ class DataSequenceBase(utils.Sequence):
 
         images, labels, classes, masks, sample_weights = zip(*[self.load_data() for i in range(self.data_factor)])
 
-        images = np.vstack([pair[0] for pair in images]), np.vstack([pair[1] for pair in images])
-        masks = np.vstack([pair[0] for pair in masks]), np.vstack([pair[1] for pair in masks])
+        #images = np.vstack([pair[0] for pair in images]), np.vstack([pair[1] for pair in images])
+        #masks = np.vstack([pair[0] for pair in masks]), np.vstack([pair[1] for pair in masks])
+        #images = tuple([np.array(set) for set in images[0]])
+        #masks  = tuple([np.array(set) for set in masks[0]])
+
+        tupple_size = len(images[0])
+        images = [np.vstack([pair[i] for pair in images]) for i in range(tupple_size)]
+        masks  = [np.vstack([pair[i] for pair in masks])  for i in range(tupple_size)]
+
         labels = np.hstack(labels)
         classes = np.hstack(classes)
         sample_weights = np.hstack(sample_weights)
@@ -202,6 +212,7 @@ class DataSequenceBase(utils.Sequence):
         if index == 0:
             batch_size = images_batch[0].shape if type(images_batch) is list else images_batch.shape
             print("Batch #{} of size {}".format(index, batch_size ))
+            print("\tWeights: {}".format(weights_batch[:10]))
 
         return images_batch, labels_batch, weights_batch
 

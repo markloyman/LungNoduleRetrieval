@@ -23,8 +23,8 @@ def contrastive_loss(y_true, y_pred, marginal=False):
     '''
     margin = siamese_margin
     if marginal:
-        return (1 - y_true) * K.square(K.maximum(y_pred - 0.25 * margin, 0)) \
-               + y_true * K.square(K.maximum(margin - y_pred, 0))
+        return (1 - y_true) * K.square(K.maximum(y_pred - (3.0/5) * margin, 0)) \
+               + y_true * K.square(K.maximum( (4.0/5)*margin - y_pred, 0))
     else:
         return (1 - y_true) * K.square(y_pred) + y_true * K.square(K.maximum(margin - y_pred, 0))
 

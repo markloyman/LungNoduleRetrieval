@@ -82,6 +82,7 @@ class TripArch(BaseArch):
 
         output_layer = Lambda(lambda vects: K.concatenate(vects, axis=1), name='output')([distance_layer_pos, distance_layer_neg])
 
+        self.categorize = categorize
         if categorize:
             output_layer = Activation('softmax')(output_layer)
 
@@ -89,7 +90,7 @@ class TripArch(BaseArch):
                                 outputs = output_layer,
                                 name='tripletArch')
 
-    def compile(self, learning_rate = 0.001, decay=0.1, loss = 'mean_squared_error'):
+    def compile(self, learning_rate = 0.001, decay=0.0, loss = 'mean_squared_error'):
         rank_accuracy.__name__ = 'accuracy'
         kendall_correlation.__name__  = 'corr'
 

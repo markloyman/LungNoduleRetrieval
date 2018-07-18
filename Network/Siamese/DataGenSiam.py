@@ -47,7 +47,7 @@ class DataSequenceSiam(DataSequenceBase):
                  do_augment=False, augment=None, use_class_weight=False, use_confidence=False, debug=False,
                  data_factor=1, balanced=False):
 
-        assert use_confidence is False
+        #assert use_confidence is False
         assert categorize is False
 
         if objective == 'rating':
@@ -85,17 +85,23 @@ class DataSequenceSiam(DataSequenceBase):
             images, labels, masks, confidence = \
                 prepare_data_siamese(self.dataset, balanced=(self.balanced and self.is_training),
                                      objective=self.objective, verbose=self.verbose)
+            if self.use_class_weight:
+                class_weight = get_class_weight(confidence, method='balanced')
+                sample_weight = get_sample_weight_for_similarity(confidence, wD=class_weight['D'], wSB=class_weight['SB'],
+                                                   wSM=class_weight['SM'])
+            else:
+                sample_weight = np.ones(labels.shape)
         elif self.objective == "rating":
             images, labels, masks, confidence = \
                 prepare_data_siamese_simple(self.dataset, rating_distance='clusters',
                                             objective=self.objective, verbose=self.verbose, siamese_rating_factor=siamese_rating_factor)
 
-        if self.use_class_weight:
-            class_weight = get_class_weight(confidence, method='balanced')
-            sample_weight = get_sample_weight_for_similarity(confidence, wD=class_weight['D'], wSB=class_weight['SB'],
-                                               wSM=class_weight['SM'])
-        else:
-            sample_weight = np.ones(labels.shape)
+            if self.use_confidence:
+                sample_weight = confidence
+            else:
+                sample_weight = np.ones(labels.shape)
+
+        print('sample weights: {}'.format(sample_weight[:10]))
 
         return images, labels, [None]*len(labels), masks, sample_weight
 

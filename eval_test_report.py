@@ -1,7 +1,7 @@
 from init import *
 from experiments import load_experiments
 from Analysis.performance import eval_retrieval, eval_classification, eval_correlation
-
+from Analysis.metric_space_indexes import eval_embed_space
 
 def autolabel(rects, xpos='center'):
     """
@@ -24,7 +24,7 @@ def autolabel(rects, xpos='center'):
 if __name__ == "__main__":
 
     # Setup
-    exp_name = 'DirRating'
+    exp_name = 'SummaryAlt'
     dset = 'Test'
     rating_norm = 'none'
     start = timer()
@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     # evaluate
     run_id = 0
-    for run, net_type, _, metric, epochs in zip(runs, run_net_types, range(len(runs)), run_metrics, run_ep_comb):
+    for run, net_type, _, metric, epochs in zip(runs, run_net_types, range(len(runs)), run_metrics, run_ep_perf):
         print("Evaluating classification accuracy for {}{}".format(net_type, run))
         acc, acc_std, _ = eval_classification(
             run=run, net_type=net_type, dset=dset,
@@ -59,18 +59,29 @@ if __name__ == "__main__":
 
         pm, pm_std, km, km_std, pr, pr_std, kr, kr_std, _ = eval_correlation(
             run=run, net_type=net_type, dset=dset, rating_norm=rating_norm,
-            metric=metric, epochs=epochs,
+            metric=metric, rating_metric='euclidean', epochs=epochs,
             cross_validation=True)
 
         data[run_id, 3] = pm
         data[run_id, 4] = pr
-        data[run_id, 5] = km
-        data[run_id, 6] = kr
+        #data[run_id, 5] = km
+        #data[run_id, 6] = kr
 
         dataStd[run_id, 3] = pm_std
         dataStd[run_id, 4] = pr_std
-        dataStd[run_id, 5] = km_std
-        dataStd[run_id, 6] = kr_std
+        #dataStd[run_id, 5] = km_std
+        #dataStd[run_id, 6] = kr_std
+
+        print("Evaluating metric space for {}{}".format(net_type, run))
+        combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar = \
+            eval_embed_space(run, net_type, metric, 'euclidean', epochs, dset, rating_norm='none',
+                             cross_validation=True)
+
+        data[run_id, 5] = idx_hubness[0]
+        data[run_id, 6] = idx_symmetry[0]
+
+        dataStd[run_id, 5] = idx_hubness[1]
+        dataStd[run_id, 6] = idx_symmetry[1]
 
         run_id += 1
 
@@ -91,7 +102,7 @@ if __name__ == "__main__":
     ax.set_title('Test Report: ' + exp_name)
     ax.set_xticks(ind)
     ax.grid(which='both', axis='y')
-    ax.set_xticklabels(('Acc', 'Prec', 'RetIdx', 'P-malig', 'P-rating', 'K-malig', 'K-rating'))
+    ax.set_xticklabels(('Acc', 'Prec', 'Ret-Idx', 'P-malig', 'P-rating', 'Hubness', 'Symmetry'))
     ax.legend()
 
     plt.show()

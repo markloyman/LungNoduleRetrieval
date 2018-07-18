@@ -4,12 +4,13 @@ from Analysis.RatingCorrelator import calc_distance_matrix
 from Analysis.retrieval import Retriever
 from Analysis.performance import mean_cross_validated_index
 from Network import FileManager
+from Analysis.metric_space_indexes import eval_embed_space
 from experiments import load_experiments
 from Analysis.analysis import smooth
 
 # Setup
 
-experiment_name = 'Siam'
+experiment_name = 'SummaryAlt'
 dset = 'Valid'
 rating_normalizaion = 'Scale' # 'None', 'Normal', 'Scale'
 ratiing_metrics = ['euclidean']
@@ -18,15 +19,26 @@ n_groups = 5
 
 runs, run_net_types, run_metrics, run_epochs, run_names, _, _ = load_experiments(experiment_name)
 
+alpha = 0.2
+
+#indexes = ['Hubness', 'Symmetry', 'Contrast', 'Concentration', 'Kumari']
+indexes = ['Hubness', 'Symmetry']
+M = len(indexes)
+
 # initialize figures
 
 plt.figure("{} Metric Space: {}".format(experiment_name, dset))
-p = [None] * len(ratiing_metrics) * 5
-for i in range(5 * len(ratiing_metrics)):
-    p[i] = plt.subplot(len(ratiing_metrics), 5, i + 1)
+p = [None] * len(ratiing_metrics) * M
+for i in range(M * len(ratiing_metrics)):
+    p[i] = plt.subplot(len(ratiing_metrics), M, i + 1)
+
+legend = []
+for n in run_names:
+    legend += [n]
+    legend += ['']
+    legend += ['']
 
 # evaluate
-
 
 Epochs, Idx_hubness, Idx_symmetry, Idx_concentration, Idx_contrast, Idx_kummar = [], [], [], [], [], []
 
@@ -35,11 +47,17 @@ for m, metric_ in enumerate(ratiing_metrics):
     for run, net_type, r, epochs, metric in zip(runs, run_net_types, range(len(runs)), run_epochs, run_metrics):
         plot_data_filename = './Plots/Data/metric-space_{}{}.p'.format(net_type, run)
         try:
+            print('WARNINING - SKIIPING TO CALCULATION')
+            assert False
             combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar = pickle.load(open(plot_data_filename, 'br'))
             idx_kummar = np.reshape(idx_kummar, (1, np.max(idx_kummar.shape)))
             print("Loaded results for {}{}".format(net_type, run))
         except:
             print("Evaluating classification accuracy for {}{} using {}".format(net_type, run, metric))
+            combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar = \
+                eval_embed_space(run, net_type, metric, 'euclidean', epochs, dset, rating_norm='none', cross_validation=True)
+
+            '''
             # init
             Embed = FileManager.Embed(net_type)
             embed_source = [Embed(run + 'c{}'.format(c), dset) for c in range(n_groups)]
@@ -88,8 +106,10 @@ for m, metric_ in enumerate(ratiing_metrics):
             #idx_concentration = np.mean(idx_concentration, axis=0)
             #idx_contrast = np.mean(idx_contrast, axis=0)
             #idx_kummar = np.mean(idx_kummar, axis=0)
-            pickle.dump( (combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar),
-                         open(plot_data_filename, 'bw'))
+            '''
+            print('NO DUMP')
+            #pickle.dump( (combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar),
+            #             open(plot_data_filename, 'bw'))
         Epochs += [combined_epochs]
         Idx_hubness += [idx_hubness]
         Idx_symmetry += [idx_symmetry]
@@ -99,41 +119,60 @@ for m, metric_ in enumerate(ratiing_metrics):
 
 # plot
 
-alpha = 0.2
-
 for epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar \
         in zip(Epochs, Idx_hubness, Idx_symmetry, Idx_concentration, Idx_contrast, Idx_kummar):
 
         #   hubness
-        q = p[5 * m + 0].plot(epochs, smooth(idx_hubness[0]))
-        p[5 * m + 0].plot(epochs, smooth(idx_hubness[0] + idx_hubness[1]), color=q[0].get_color(), ls='--', alpha=alpha)
-        p[5 * m + 0].plot(epochs, smooth(idx_hubness[0] - idx_hubness[1]), color=q[0].get_color(), ls='--', alpha=alpha)
+        next_plot = 0
+        if 'Hubness' in indexes:
+            q = p[M * m + next_plot].plot(epochs, smooth(idx_hubness[0]))
+            p[M * m + next_plot].plot(epochs, smooth(idx_hubness[0] + idx_hubness[1]), color=q[0].get_color(), ls='--', alpha=alpha)
+            p[M * m + next_plot].plot(epochs, smooth(idx_hubness[0] - idx_hubness[1]), color=q[0].get_color(), ls='--', alpha=alpha)
+            next_plot += 1
+
         #   symmetry
-        q = p[5 * m + 1].plot(epochs, idx_symmetry[0])
-        p[5 * m + 1].plot(epochs, smooth(idx_symmetry[0] + idx_symmetry[1]), color=q[0].get_color(), ls='--', alpha=alpha)
-        p[5 * m + 1].plot(epochs, smooth(idx_symmetry[0] - idx_symmetry[1]), color=q[0].get_color(), ls='--', alpha=alpha)
+        if 'Symmetry' in indexes:
+            q = p[M * m + next_plot].plot(epochs, smooth(idx_symmetry[0]))
+            p[M * m + next_plot].plot(epochs, smooth(idx_symmetry[0] + idx_symmetry[1]), color=q[0].get_color(), ls='--', alpha=alpha)
+            p[M * m + next_plot].plot(epochs, smooth(idx_symmetry[0] - idx_symmetry[1]), color=q[0].get_color(), ls='--', alpha=alpha)
+            next_plot += 1
+
         #   contrast
-        q = p[5 * m + 2].plot(epochs, smooth(idx_contrast[0]))
-        p[5 * m + 2].plot(epochs, smooth(idx_contrast[0] + idx_contrast[1]), color=q[0].get_color(), ls='--', alpha=alpha)
-        p[5 * m + 2].plot(epochs, smooth(idx_contrast[0] - idx_contrast[1]), color=q[0].get_color(), ls='--', alpha=alpha)
+        if 'Contrast' in indexes:
+            q = p[M * m + next_plot].plot(epochs, smooth(idx_contrast[0]))
+            p[M * m + next_plot].plot(epochs, smooth(idx_contrast[0] + idx_contrast[1]), color=q[0].get_color(), ls='--', alpha=alpha)
+            p[M * m + next_plot].plot(epochs, smooth(idx_contrast[0] - idx_contrast[1]), color=q[0].get_color(), ls='--', alpha=alpha)
+            next_plot += 1
+
         #   concentration
-        q = p[5 * m + 3].plot(epochs, smooth(idx_concentration[0]))
-        p[5 * m + 3].plot(epochs, smooth(idx_concentration[0] + idx_concentration[1]), color=q[0].get_color(), ls='--', alpha=alpha)
-        p[5 * m + 3].plot(epochs, smooth(idx_concentration[0] - idx_concentration[1]), color=q[0].get_color(), ls='--', alpha=alpha)
+        if 'Concentration' in indexes:
+            q = p[M * m + next_plot].plot(epochs, smooth(idx_concentration[0]))
+            p[M * m + next_plot].plot(epochs, smooth(idx_concentration[0] + idx_concentration[1]), color=q[0].get_color(), ls='--', alpha=alpha)
+            p[M * m + next_plot].plot(epochs, smooth(idx_concentration[0] - idx_concentration[1]), color=q[0].get_color(), ls='--', alpha=alpha)
+            next_plot += 1
+
         #   kumar
-        p[5 * m + 4].plot(epochs, smooth(idx_kummar[0]))
+        if 'Kumari' in indexes:
+            p[M * m + next_plot].plot(epochs, smooth(idx_kummar[0]))
+
         # labels
-        if r == 0:  # first column
-            p[5 * m + 0].axes.yaxis.label.set_text(metric)
+        #if r == 0:  # first column
+        #    p[M * m + 0].axes.yaxis.label.set_text(metric)
         if m == 0:  # first row
-            p[5 * m + 0].axes.title.set_text('hubness')
-            p[5 * m + 1].axes.title.set_text('symmetry')
-            p[5 * m + 2].axes.title.set_text('contrast')
-            p[5 * m + 3].axes.title.set_text('concentration')
-            p[5 * m + 4].axes.title.set_text('kumari')
+            for i, label in enumerate(indexes):
+                p[M * m + i].axes.title.set_text(label)
+            #p[M * m + 0].axes.title.set_text('Hubness')
+            #p[M * m + 1].axes.title.set_text('Symmetry')
+            #p[M * m + 2].axes.title.set_text('Contrast')
+            #p[M * m + 3].axes.title.set_text('Concentration')
+            #p[M * m + 4].axes.title.set_text('Kumari')
         if m == len(ratiing_metrics) - 1:  # last row
-            p[5 * m + 2].axes.xaxis.label.set_text('epochs')
-p[-1].legend(run_names)
+            p[M * m + M//2].axes.xaxis.label.set_text('Epochs')
+p[-1].legend(legend if indexes[-1] is not 'Kumari' else run_names)
+
+for i in range(M * len(ratiing_metrics)):
+    p[i].grid(which='both', axis='y')
+
 print('Done doMetricSpaceIndexes')
 
 plt.show()

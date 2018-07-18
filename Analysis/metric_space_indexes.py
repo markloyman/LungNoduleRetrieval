@@ -1,5 +1,10 @@
 import numpy as np
 from scipy.stats import skew
+from Analysis.performance import mean_cross_validated_index
+from Analysis.retrieval import Retriever
+from Network import FileManager
+
+
 
 def k_occurrences(nbrs_indices, k=3):
     nbrs_indices_ = nbrs_indices[:, :k]
@@ -114,9 +119,57 @@ def distances_distribution(distances):
         plt.plot(axis, hist, marker='*', alpha=0.2)
 
 
+def eval_embed_space(run, net_type, metric, rating_metric, epochs, dset, rating_norm='none', cross_validation=False, n_groups=5):
+    # init
+    Embed = FileManager.Embed(net_type)
+    embed_source = [Embed(run + 'c{}'.format(c), dset) for c in range(n_groups)]
+    idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar \
+        = [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)], \
+          [[] for i in range(n_groups)], [[] for i in range(n_groups)]
+    valid_epochs = [[] for i in range(n_groups)]
+    # calculate
+    Ret = Retriever(title='{}'.format(run), dset=dset)
+    for i, source in enumerate(embed_source):
+        embd, epoch_mask = Ret.load_embedding(source, multi_epcch=True)
+
+        for e in epochs:
+            try:
+                Ret.fit(metric=metric, epoch=e)
+                indices, distances = Ret.ret_nbrs()
+                # hubness
+                idx_hubness[i].append(calc_hubness(indices))
+                #   symmetry
+                idx_symmetry[i].append(calc_symmetry(indices))
+                # kumar index
+                tau, l_e = kumar(distances, res=0.01)
+                idx_kummar[i].append(tau)
+                # concentration & contrast
+                idx_concentration[i].append(concentration(distances))
+                idx_contrast[i].append(relative_contrast_imp(distances))
+                valid_epochs[i].append(e)
+            except:
+                print("Epoch {} - no calculated embedding".format(e))
+        valid_epochs[i] = np.array(valid_epochs[i])
+        idx_hubness[i] = np.array(list(zip(*idx_hubness[i])))
+        idx_symmetry[i] = np.array(list(zip(*idx_symmetry[i])))
+        idx_concentration[i] = np.array(list(zip(*idx_concentration[i])))
+        idx_contrast[i] = np.array(list(zip(*idx_contrast[i])))
+        idx_kummar[i] = np.array([idx_kummar[i]])
+
+    combined_epochs = [i for i, c in enumerate(np.bincount(np.concatenate(valid_epochs))) if c > 3]
+
+    idx_hubness = mean_cross_validated_index(idx_hubness, valid_epochs, combined_epochs)
+    idx_symmetry = mean_cross_validated_index(idx_symmetry, valid_epochs, combined_epochs)
+    idx_concentration = mean_cross_validated_index(idx_concentration, valid_epochs, combined_epochs)
+    idx_contrast = mean_cross_validated_index(idx_contrast, valid_epochs, combined_epochs)
+    idx_kummar = mean_cross_validated_index(idx_kummar, valid_epochs, combined_epochs)
+
+    return combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar
+
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    from Network.data_loader import load_nodule_raw_dataset
+    from Network.data_loader import load_nodule_dataset
     from Analysis.retrieval import Retriever
     from Analysis.RatingCorrelator import calc_distance_matrix
     from Network.dataUtils import rating_normalize
@@ -128,7 +181,7 @@ if __name__ == "__main__":
     # =======================
     DataSubSet = -1
     #metrics = ['l1_Scale', 'l1_Norm', 'l2_Scale', 'l2_Norm', 'cosine_Scale', 'cosine_Norm', 'correlation_Scale', 'correlation_Norm']
-    metrics = ['l2', 'l2_Scale', 'l2_Norm']
+    metrics = ['l2']  # ['l2', 'l2_Scale', 'l2_Norm']
     #
 
     do_hubness = False
@@ -148,10 +201,10 @@ if __name__ == "__main__":
     print('=' * 15)
 
     if DataSubSet == -1:
-        data = load_nodule_raw_dataset(size=144)
+        data = load_nodule_dataset(size=160, sample='Normal', res=0.5, configuration=0)
         data = data[0] + data[1] + data[2]
     else:
-        data = load_nodule_raw_dataset(size=144)[DataSubSet]
+        data = load_nodule_dataset(size=160)[DataSubSet]
 
     Ret = Retriever(title='Rating', dset=post)
     Ret.load_rating(data)
@@ -167,29 +220,29 @@ if __name__ == "__main__":
     idx_contrast_std = np.zeros(len(metrics))
     idx_kummar = np.zeros(len(metrics))
 
-    rating = []
-    for entry in data:
-        rating.append(np.mean(entry['rating'], axis=0))
-    rating = np.vstack(rating)
+    #rating = []
+    #for entry in data:
+    #    rating.append(np.mean(entry['rating'], axis=0))
+    #rating = np.vstack(rating)
 
-    plt.figure()
-    plt.subplot(311)
-    plt.hist(calc_distance_matrix(rating_normalize(rating, 'none'), method='l2').flatten(), bins=500)
-    plt.title('L2')
-    plt.ylabel('none')
-    plt.subplot(312)
-    plt.hist(calc_distance_matrix(rating_normalize(rating, 'Scale'), method='l2').flatten(), bins=500)
+    #plt.figure()
+    #plt.subplot(311)
+    #plt.hist(calc_distance_matrix(rating_normalize(rating, 'none'), method='l2').flatten(), bins=500)
+    #plt.title('L2')
+    #plt.ylabel('none')
+    #plt.subplot(312)
+    #plt.hist(calc_distance_matrix(rating_normalize(rating, 'Scale'), method='l2').flatten(), bins=500)
     #plt.title('l2-norm')
-    plt.ylabel('Scale')
-    plt.subplot(313)
-    plt.hist(calc_distance_matrix(rating_normalize(rating, 'Norm'), method='l2').flatten(), bins=500)
+    #plt.ylabel('Scale')
+    #plt.subplot(313)
+    #plt.hist(calc_distance_matrix(rating_normalize(rating, 'Norm'), method='l2').flatten(), bins=500)
     # plt.title('l2-norm')
-    plt.ylabel('Normalized')
+    #plt.ylabel('Normalized')
 
-    plt.show()
+    #plt.show()
 
     for metric, m, in zip(metrics, range(len(metrics))):
-        plt.figure()
+
         norm = 'None'
         if len(metric) > 5 and metric[-4:] == 'Norm':
             metric = metric[:-5]
@@ -198,9 +251,15 @@ if __name__ == "__main__":
             metric = metric[:-6]
             norm = 'Scale'
 
-        distance_matrix = calc_distance_matrix(rating_normalize(rating, norm), method=metric)
+        #distance_matrix = calc_distance_matrix(rating_normalize(rating, norm), method=metric)
         Ret.fit(len(data)-1, metric=metric, normalization=norm)
         indices, distances = Ret.ret_nbrs()
+
+        plt.figure()
+        plt.hist(distances.flatten(), bins=500)
+        plt.title('distance distribution')
+
+        plt.figure()
 
         #   Hubness
         K = [3, 5, 7, 11, 17]
@@ -266,11 +325,11 @@ if __name__ == "__main__":
         idx_hubness_std_m[m] = (np.mean(np.abs(h)) - np.std(np.abs(h)))
         idx_symmetry[m] = np.mean(s)
         idx_symmetry_std[m] = np.std(s)
-        mean_ratio, std_ratio, std_dist, mean_dist = concentration(distance_matrix)
+        mean_ratio, std_ratio, std_dist, mean_dist = concentration(distances)
         idx_concentration[m] = mean_ratio
         idx_concentration_std[m] = std_ratio
-        idx_contrast[m] = relative_contrast_imp(distance_matrix)[0]
-        idx_contrast_std[m] = relative_contrast_imp(distance_matrix)[1]
+        idx_contrast[m] = relative_contrast_imp(distances)[0]
+        idx_contrast_std[m] = relative_contrast_imp(distances)[1]
         idx_kummar[m] = tau
 
         print("\n{} Metric:".format(metric))

@@ -154,6 +154,7 @@ class RatingCorrelator:
         if np.concatenate(self.labels).ndim == 1 or ignore_labels:
             print('calc_from_meta')
             self.rating = [rating_normalize(calc_rating(meta, method='raw'), method=norm) for meta in self.meta_data]
+
         else:
             print('calc_from_labels')
             self.rating = [rating_normalize(lbl, method=norm) for lbl in self.labels]

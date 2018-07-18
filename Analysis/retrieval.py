@@ -77,15 +77,16 @@ class Retriever:
         return self.embedding, self.epochs
 
     def load_rating(self, dataset):
-        images, mask, rating, meta, labels, nod_ids = \
-            zip(*[ (e['patch'], e['mask'], e['rating'], e['info'], e['label'], e['nod_ids'] ) for e in dataset])
+        #images, mask, rating, meta, labels, nod_ids = \
+        #   zip(*[ (e['patch'], e['mask'], e['rating'], e['info'], e['label'], e['nod_ids'] ) for e in dataset])
+        images, mask, labels, meta, size, rating, weights = zip(*dataset)
 
         images = [im*(1.0-0.5*ms) for im, ms in zip(images, mask)]
         images = np.squeeze(images)
         labels = np.squeeze(labels)
         rating = [ np.mean(r, axis=(0)) for r in rating]
 
-        self.images, self.embedding, self.meta_data, self.labels, self.nod_ids = images, rating, meta, labels, nod_ids
+        self.images, self.embedding, self.meta_data, self.labels, self.nod_ids = images, rating, meta, labels, meta
         self.len = len(self.meta_data)
         self.multi_epcch = False
 

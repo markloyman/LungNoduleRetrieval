@@ -2,12 +2,14 @@ import numpy as np
 from keras import backend as K
 
 from Network.Triplet.tripletArch import triplet_loss
+from Network.Common.losses import dispersion_loss
 
 _EPSILON = K.epsilon()
 
 
 def _loss_tensor(y_true, y_pred):
-    return triplet_loss(y_true, y_pred)
+    return dispersion_loss(y_true, y_pred)
+    #return triplet_loss(y_true, y_pred)
     #return contrastive_loss(y_true, y_pred)
     #return pearson_correlation(y_true, y_pred)
     #y_pred = K.clip(y_pred, _EPSILON, 1.0-_EPSILON)
@@ -15,11 +17,18 @@ def _loss_tensor(y_true, y_pred):
     #return K.mean(out, axis=-1)
 
 def _loss_np(y_true, y_pred):
-    # triplet loss
-    y2 = np.square(y_pred)
-    loss = np.expand_dims(y2.dot(np.array([1, -1])), axis=-1)
-    loss = np.log1p(np.exp(loss))
+    #dispersion_loss
+    y_pred = y_pred - np.mean(y_pred, axis=0, keepdims=True)
+    cov = np.transpose(y_pred).dot(y_pred)
+    loss = -1 * np.linalg.det(cov)
     return loss
+    #
+    # triplet loss
+    #y2 = np.square(y_pred)
+    #loss = np.expand_dims(y2.dot(np.array([1, -1])), axis=-1)
+    #loss = np.log1p(np.exp(loss))
+    #return loss
+    #
     # contrastive_loss
     #margin = 1
     #return (1 - y_true) * np.square(y_pred) + y_true * np.square(np.maximum(margin - y_pred, 0))
@@ -30,7 +39,7 @@ def _loss_np(y_true, y_pred):
 
 def check_loss(_shape):
     if _shape == '2d':
-        shape = (69, 2)
+        shape = (64, 8)
     elif _shape == '3d':
         shape = (5, 6, 7)
     elif _shape == '4d':

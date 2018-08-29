@@ -127,8 +127,11 @@ def prepare_data(data, rating_format='raw', new_size=None, do_augment=False, ret
     # Entry:
     # 0 'patch'
     # 1 'mask'
-    # 2 'label'
+    # 2 'class'
     # 3 'info'
+    # 4 'size
+    # 5 'rating'
+    # 6 'rating_weights'
 
     N = len(data)
     old_size = data[0][0].shape
@@ -159,6 +162,15 @@ def prepare_data(data, rating_format='raw', new_size=None, do_augment=False, ret
         print("ERR: Illegual rating_format given ({})".format(rating_format))
         assert (False)
 
+    #nodule_size = np.array([entry[4] for entry in data]).reshape(N, 1)
+    nodule_size = np.array([np.count_nonzero(q) for q in masks]).reshape(N, 1) * 0.5 * 0.5
+    #sorted_size = np.sort(nodule_size, axis=0).flatten()
+    #L = len(sorted_size)
+    #tresh = sorted_size[range(0, L, L//5)]
+    tresh = [0, 15, 30, 60, 120]
+    NS = np.digitize(nodule_size, tresh)
+    nodule_size = NS
+
     if do_augment:
         assert(False)
         #aug_images = []
@@ -173,6 +185,7 @@ def prepare_data(data, rating_format='raw', new_size=None, do_augment=False, ret
         ratings = ratings[new_order]
         classes = classes[new_order]
         masks  = masks[new_order]
+        nodule_size = nodule_size[new_order]
         #print('permutation: {}'.format(new_order[:20]))
 
     conf = None
@@ -191,7 +204,7 @@ def prepare_data(data, rating_format='raw', new_size=None, do_augment=False, ret
         if reshuffle:
             meta = reorder(meta, new_order)
 
-    return images, ratings, classes, masks, meta, conf
+    return images, ratings, classes, masks, meta, conf, nodule_size
 
 
 def select_balanced(self, some_set, labels, N, permutation):
@@ -204,13 +217,19 @@ def select_balanced(self, some_set, labels, N, permutation):
 
 def prepare_data_direct(data, objective='malignancy', rating_scale='none', size=None, num_of_classes=2, balanced=False, return_meta=False, verbose= 0, reshuffle=True):
 
-    images, ratings, classes, masks, meta, conf = \
+    images, ratings, classes, masks, meta, conf, nod_size = \
         prepare_data(data, rating_format='w_mean', scaling=rating_scale, verbose=verbose, reshuffle=reshuffle, return_meta=return_meta)
 
     if objective == 'malignancy':
         from keras.utils.np_utils import to_categorical
         labels = to_categorical(classes, num_of_classes)
     elif objective == 'rating':
+        labels = ratings
+    elif objective == 'size':
+        labels = nod_size
+    elif objective == 'rating_size':
+        labels = ratings, nod_size
+    elif objective == 'distance-matrix':
         labels = ratings
     else:
         assert False
@@ -296,7 +315,7 @@ def select_same_pairs(class_A, class_B):
 def prepare_data_siamese(data, objective="malignancy", rating_distance='mean', balanced=False, return_meta=False, verbose= 0):
     if verbose:
         print('prepare_data_siamese:')
-    images, ratings, classes, masks, meta, conf = \
+    images, ratings, classes, masks, meta, conf, nod_size = \
         prepare_data(data, rating_format='raw', return_meta=return_meta, reshuffle=True, verbose=verbose)
     if verbose:
         print("benign:{}, malignant: {}".format(np.count_nonzero(classes == 0),
@@ -401,7 +420,7 @@ def prepare_data_siamese(data, objective="malignancy", rating_distance='mean', b
 def prepare_data_siamese_simple(data, siamese_rating_factor, objective="malignancy", rating_distance='mean', return_meta=False, verbose=0):
     if verbose:
         print('prepare_data_siamese_simple:')
-    images, ratings, classes, masks, meta, conf = \
+    images, ratings, classes, masks, meta, conf, nod_size = \
         prepare_data(data, rating_format='raw', scaling="none", return_meta=return_meta, reshuffle=True, verbose=verbose)
     if verbose:
         if return_meta:
@@ -509,7 +528,7 @@ def make_balanced_trip(elements, c1_head, c1_tail, c2_head, c2_tail):
 def prepare_data_triplet(data, objective="malignancy", rating_distance="mean", balanced=False, return_confidence=False, return_meta=False, verbose= 0):
     if verbose:
         print('prepare_data_triplet:')
-    images, ratings, classes, masks, meta, conf \
+    images, ratings, classes, masks, meta, conf, nod_size \
         = prepare_data(data, rating_format="raw", scaling="none", rating_confidence=return_confidence,
                        return_meta=return_meta, reshuffle=True, verbose=verbose)
     if verbose:

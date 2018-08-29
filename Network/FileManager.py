@@ -86,6 +86,8 @@ class Pred(object):
             self.manager.weightsTemplate = output_dir + '/embed/predR_{}{{}}_{{}}.p'.format(pre)
         elif type == 'malig':
             self.manager.weightsTemplate = output_dir + '/embed/pred_{}{{}}_{{}}.p'.format(pre)
+        elif type == 'size':
+            self.manager.weightsTemplate = output_dir + '/embed/predS_{}{{}}_{{}}.p'.format(pre)
         else:
             print("{} - illegal pred type".format(type))
             assert(False)

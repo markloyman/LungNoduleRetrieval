@@ -23,6 +23,7 @@ from keras.layers import MaxPooling2D
 from keras.layers import SeparableConv2D
 from keras.layers import Lambda
 from keras.layers import Flatten
+from keras.layers import ActivityRegularization
 from keras.models import Model
 
 
@@ -34,7 +35,7 @@ from keras.models import Model
 
 
 def miniXception_loader(input_tensor=None, input_shape=None, weights=None, output_size=1024, return_model=False,
-                        pooling=None, normalize=False, binary=False):
+                        pooling=None, normalize=False, binary=False, regularize=None):
     """
     Instantiates either a Tensor or a Model for the Core Embedding Network
     Optionally loads weights pre-trained
@@ -193,6 +194,7 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
     x =  Conv2D(output_size, (1, 1), strides=(1, 1), use_bias=False, name='block13_conv')(x)
     x = BatchNormalization(name='pre_embed')(x)
 
+
     '''
     x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='block13_pool')(x)
     x = layers.add([x, residual])
@@ -233,6 +235,9 @@ def miniXception_loader(input_tensor=None, input_shape=None, weights=None, outpu
     if normalize:
         x = Lambda(lambda q: K.l2_normalize(q, axis=-1), name='n_embedding')(x)
 
+    if regularize is not None:
+        #x = Activation('relu', name='prereg_act')(x)
+        x = ActivityRegularization(l1=regularize)(x)
 
     # load weights
     if weights is not None:

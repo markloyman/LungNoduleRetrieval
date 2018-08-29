@@ -14,12 +14,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Train Lung Nodule Retrieval NN")
     parser.add_argument("-e", "--epochs", type=int, help="epochs", default=0)
     parser.add_argument("-c", "--config", type=int, help="configuration", default=-1)
-    parser.add_argument("-t", "--test", action="store_true", default=False, help="generate embeddings")
+    parser.add_argument("-m", "--embed", action="store_true", default=False, help="generate embeddings")
+    parser.add_argument("-p", "--predict", action="store_true", default=False, help="generate predictions")
     args = parser.parse_args()
 
     epochs = args.epochs if (args.epochs != 0) else 81
     config_list = [args.config] if (args.config != -1) else list(range(5))
-    test = args.test
+    test = args.embed or args.predict
 
     if len(config_list) > 1:
         print("Perform Full Cross-Validation Run")
@@ -34,7 +35,7 @@ if __name__ == '__main__':
             delta_epoch = 1
             epochs_ = list(range(epoch0, model.last_epoch + 1, delta_epoch)) if delta_epoch > 0 else [epoch0]
             #epochs_ = [30, 70, 100]
-            model.embed(epochs=epochs_, data='Test', use_core=False)
+            model.embed(epochs=epochs_, data='Valid', use_core=True is args.embed)
 
     #K.clear_session()
     gc.collect()

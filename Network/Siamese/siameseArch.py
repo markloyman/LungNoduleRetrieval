@@ -32,19 +32,23 @@ def contrastive_loss(y_true, y_pred, marginal=False):
 
 class SiamArch(BaseArch):
 
-    def __init__(self, model_loader, input_shape, objective="malignancy",
-                 pooling='rmac', output_size=1024, distance='l2', normalize=False):
+    def __init__(self, model_loader, input_shape, objective="malignancy", batch_size=64,
+                 pooling='rmac', output_size=1024, distance='l2', normalize=False, l1_regularization=None, regularization_loss={}):
 
         super().__init__(model_loader, input_shape, objective=objective,
-                         pooling=pooling, output_size=output_size, normalize=normalize, binary=False)
+                         pooling=pooling, output_size=output_size, normalize=normalize)
 
         self.net_type = 'siam' if objective == 'malignancy' else 'siamR'
+        self.batch_size = batch_size
+        self.embed_size = 2 * batch_size
 
         img_input1 = Input(shape=input_shape)
         img_input2 = Input(shape=input_shape)
 
+        self.regularization_loss = regularization_loss
+
         self.base = self.model_loader(input_tensor=None, input_shape=input_shape, return_model=True,
-                                  pooling=pooling, output_size=output_size, normalize=normalize)
+                                  pooling=pooling, output_size=output_size, normalize=normalize, regularize=l1_regularization)
         #self.base.summary()
         base1 = self.base(img_input1)
         base2 = self.base(img_input2)
@@ -61,11 +65,16 @@ class SiamArch(BaseArch):
         else:
             assert(False)
 
+        prediction = Lambda(lambda x: x, name='predictions')(distance_layer)
+        embed = Lambda(lambda x: K.concatenate([x[0], x[1]], axis=0), name='embed_output')([base1, base2])
+
+        outputs = [prediction, embed] if regularization_loss else prediction
+
         self.model =    Model(  inputs=[img_input1,img_input2],
-                                outputs = distance_layer,
+                                outputs = outputs,
                                 name='siameseArch')
 
-    def compile(self, learning_rate = 0.001, decay=0.1, loss = 'mean_squared_error'):
+    def compile(self, learning_rate = 0.001, decay=0.1, loss = 'mean_squared_error', scheduale=[]):
         binary_accuracy.__name__      = 'accuracy'
         binary_precision_inv.__name__ = 'precision'
         binary_recall_inv.__name__    = 'recall'
@@ -82,9 +91,10 @@ class SiamArch(BaseArch):
             print("ERR: {} is not a valid objective".format(self.objective))
             assert (False)
 
-        self.model.compile( optimizer   = Adam(lr=learning_rate, decay=decay), #, decay=0.01*learning_rate),
+        self.compile_model( lr=learning_rate, lr_decay=decay,
                             loss        = loss,
-                            metrics     = metrics)
+                            metric     = metrics,
+                            scheduale=scheduale)
         # lr = self.lr * (1. / (1. + self.decay * self.iterations))
         self.lr         = learning_rate
         self.lr_decay   = decay
@@ -101,7 +111,7 @@ class SiamArch(BaseArch):
         assert do_graph is False
         check = 'loss'
         weight_file_pattern = self.set_weight_file_pattern(check, label)
-        callbacks = []
+        callbacks = self.callbacks
         callbacks += [ModelCheckpoint(weight_file_pattern, monitor='val_loss', save_best_only=False)]
         #on_plateau      = ReduceLROnPlateau(monitor='val_loss', factor=0.5, epsilon=1e-2, patience=5, min_lr=1e-6, verbose=1)
         #early_stop      = EarlyStopping(monitor='loss', min_delta=1e-3, patience=5)

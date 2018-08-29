@@ -51,7 +51,7 @@ class TripArch(BaseArch):
                  pooling='rmac', output_size=1024, distance='l2', normalize=False, categorize=False):
 
         super().__init__(model_loader, input_shape, objective=objective,
-                         pooling=pooling, output_size=output_size, normalize=normalize, binary=False)
+                         pooling=pooling, output_size=output_size, normalize=normalize)
 
         self.net_type = 'tripR' if (objective == 'rating') else 'trip'
 
@@ -90,7 +90,7 @@ class TripArch(BaseArch):
                                 outputs = output_layer,
                                 name='tripletArch')
 
-    def compile(self, learning_rate = 0.001, decay=0.0, loss = 'mean_squared_error'):
+    def compile(self, learning_rate = 0.001, decay=0.0, loss = 'mean_squared_error', scheduale=[]):
         rank_accuracy.__name__ = 'accuracy'
         kendall_correlation.__name__  = 'corr'
 
@@ -102,7 +102,8 @@ class TripArch(BaseArch):
 
         self.model.compile( optimizer   = Adam(lr=learning_rate, decay=decay), #, decay=0.01*learning_rate),
                             loss        = loss,
-                            metrics     = metrics)
+                            metrics     = metrics,
+                            scheduale   = scheduale)
         # lr = self.lr * (1. / (1. + self.decay * self.iterations))
         self.lr         = learning_rate
         self.lr_decay   = decay
@@ -112,7 +113,7 @@ class TripArch(BaseArch):
         assert do_graph is False
         check = 'loss'
         weight_file_pattern = self.set_weight_file_pattern(check, label)
-        callbacks = []
+        callbacks = self.callbacks
         callbacks += [ModelCheckpoint(weight_file_pattern, monitor='val_loss', save_best_only=False)]
         #on_plateau      = ReduceLROnPlateau(monitor='val_loss', factor=0.5, epsilon=1e-2, patience=5, min_lr=1e-6, verbose=1)
         #early_stop      = EarlyStopping(monitor='loss', min_delta=1e-3, patience=5)

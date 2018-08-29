@@ -80,12 +80,12 @@ class DataGeneratorBase(utils.Sequence):
         return self.get_data(self.test_set, is_training=False)
 
     def get_flat_data(self, dataset):
-        images, labels, classes, masks, meta, conf = \
+        images, labels, classes, masks, meta, conf, nodule_size = \
             prepare_data(dataset, rating_format='raw', verbose=True, reshuffle=False, return_meta=True)
         if self.model_size != self.data_size:
             images = np.array([crop_center(im, msk, size=self.model_size)[0]
                                for im, msk in zip(images, masks)])
-        return images, labels, classes, masks, meta, conf
+        return images, labels, classes, masks, meta, conf, nodule_size
 
     def get_flat_train_data(self):
         print('Loaded flat training data')
@@ -104,6 +104,9 @@ class DataGeneratorBase(utils.Sequence):
 
     def get_sequence(self):
         raise NotImplementedError("get_sequences() is an abstract method")
+
+    def set_regularizer(self, enable):
+        self.train_seq.enable_regularization = enable
 
 
 class DataSequenceBase(utils.Sequence):
@@ -131,12 +134,14 @@ class DataSequenceBase(utils.Sequence):
         self.verbose = 1
         self.epoch = 0
 
-        if objective not in ['malignancy', 'rating']:
+        if objective not in ['malignancy', 'rating', 'size', 'rating_size', 'distance-matrix']:
             print("ERR: Illegual objective given ({})".format(self.objective))
             assert False
         self.data_factor = data_factor
         self.N = self.calc_N(data_factor)
         print("DataSequence N = {}".format(self.N))
+
+        self.enable_regularization = False
 
         self.on_epoch_end()
 
@@ -144,17 +149,15 @@ class DataSequenceBase(utils.Sequence):
         print('Run Gen {}: {}'.format(self.epoch, np.where(self.is_training, 'Training', 'Validation')))
 
         images, labels, classes, masks, sample_weights = zip(*[self.load_data() for i in range(self.data_factor)])
+        assert len(images) == self.data_factor
 
-        #images = np.vstack([pair[0] for pair in images]), np.vstack([pair[1] for pair in images])
-        #masks = np.vstack([pair[0] for pair in masks]), np.vstack([pair[1] for pair in masks])
-        #images = tuple([np.array(set) for set in images[0]])
-        #masks  = tuple([np.array(set) for set in masks[0]])
+        num_of_streams = len(images[0])
+        images = [np.vstack([pair[i] for pair in images]) for i in range(num_of_streams)]
+        masks  = [np.vstack([pair[i] for pair in masks])  for i in range(num_of_streams)]
 
-        tupple_size = len(images[0])
-        images = [np.vstack([pair[i] for pair in images]) for i in range(tupple_size)]
-        masks  = [np.vstack([pair[i] for pair in masks])  for i in range(tupple_size)]
+        num_of_losses = len(labels[0])
+        labels = [np.vstack([label[i] for label in labels]) for i in range(num_of_losses)]
 
-        labels = np.hstack(labels)
         classes = np.hstack(classes)
         sample_weights = np.hstack(sample_weights)
 
@@ -162,7 +165,8 @@ class DataSequenceBase(utils.Sequence):
         num_of_images = images[0].shape[0]
         split_idx = [b for b in range(self.batch_size, num_of_images, self.batch_size)]
         images = tuple([np.array_split(image, split_idx) for image in images])
-        labels = np.array_split(labels, split_idx)
+        #labels = np.array_split(labels, split_idx)
+        labels = tuple([np.array_split(lbl, split_idx) for lbl in labels])
         classes = np.array_split(classes, split_idx)
         masks = tuple([np.array_split(mask, split_idx) for mask in masks])
         sample_weights = np.array_split(sample_weights, split_idx)
@@ -171,12 +175,13 @@ class DataSequenceBase(utils.Sequence):
         number_of_batches = len(images[0])
         if self.verbose == 1:
             print("batch size:{}, sets:{}".format(batch_size, number_of_batches))
+        assert batch_size == self.batch_size
 
         # if last batch smaller than batch_size, discard it
         last_batch = images[0][-1].shape[0]
         if last_batch < self.batch_size:
             images = tuple([im[:-1] for im in images])
-            labels = labels[:-1]
+            labels = tuple([lbl[:-1] for lbl in labels])
             classes = classes[:-1]
             masks = tuple([im[:-1] for im in masks])
             sample_weights = sample_weights[:-1]
@@ -206,15 +211,22 @@ class DataSequenceBase(utils.Sequence):
         else:
             images_batch = [crop_center_all(images[index], masks[index], size=self.model_size)
                                 for images, masks in zip(self.images, self.masks)]
-        labels_batch = self.labels[index]
-        weights_batch = self.sample_weights[index]
+
+        labels_batch = [lbl[index] for lbl in self.labels]
+        if self.enable_regularization:
+            labels_batch.append(np.zeros(self.batch_size))
+
+        # use same weights for all losses
+        weights_batch = [self.sample_weights[index] for i in range(len(labels_batch))]
 
         if index == 0:
             batch_size = images_batch[0].shape if type(images_batch) is list else images_batch.shape
             print("Batch #{} of size {}".format(index, batch_size ))
             print("\tWeights: {}".format(weights_batch[:10]))
 
-        return images_batch, labels_batch, weights_batch
+        return images_batch, \
+               labels_batch if len(labels_batch) > 1 else labels_batch[0], \
+               weights_batch if len(weights_batch)>1 else weights_batch[0]
 
     def __len__(self):
         return self.N

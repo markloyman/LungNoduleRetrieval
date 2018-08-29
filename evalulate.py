@@ -102,19 +102,19 @@ def dir_rating_correlate(run, post, epochs, rating_norm='none',  clustered_ratin
     plt.legend(['pearson', '', '', 'kendall', '', ''])
 
 
-def dir_rating_rmse(run, post, epochs, dist='RMSE', weighted=False, n_groups=5):
+def dir_rating_rmse(run, post, epochs, net_type, dist='RMSE', weighted=False, n_groups=5):
     #images, predict, meta_data, labels, masks = pred_loader.load(run, epochs[-1], post)
     rating_property = ['Subtlety', 'Internalstructure', 'Calcification', 'Sphericity', 'Margin',
                        'Lobulation', 'Spiculation', 'Texture', 'Malignancy']
 
-    plot_data_filename = './Plots/Data/{}_{}{}.p'.format(dist, 'dirR', run)
+    plot_data_filename = './Plots/Data/{}_{}{}.p'.format(dist, net_type, run)
     try:
         assert False
         R = pickle.load(open(plot_data_filename, 'br'))
         print("Loaded results for {}".format(run))
     except:
         print("Evaluating RMSE for {}".format(run))
-        PredFile = FileManager.Pred(type='rating', pre='dirR')
+        PredFile = FileManager.Pred(type='rating', pre=net_type)
         R = np.zeros([len(epochs), 10, n_groups])
 
         for c, run_config in enumerate([run + 'c{}'.format(config) for config in range(n_groups)]):
@@ -249,6 +249,63 @@ def dir_rating_accuracy(run, post, epochs, n_groups=5):
     return acc
 
 
+def dir_size_rmse(run, post, epochs, net_type, dist='RMSE', weighted=False, n_groups=5):
+
+    plot_data_filename = './Plots/Data/size{}_{}{}.p'.format(dist, net_type, run)
+    try:
+        assert False
+        R = pickle.load(open(plot_data_filename, 'br'))
+        print("Loaded results for {}".format(run))
+    except:
+        print("Evaluating Size RMSE for {}".format(run))
+        PredFile = FileManager.Pred(type='size', pre=net_type)
+        R = np.zeros([len(epochs), n_groups])
+
+        for c, run_config in enumerate([run + 'c{}'.format(config) for config in range(n_groups)]):
+            predict, valid_epochs, images, meta_data, classes, labels, masks = PredFile.load(run=run_config, dset=post)
+            labels = np.array(labels)
+            for i, e in enumerate(epochs):
+                print(" Epoch {}:".format(e))
+                try:
+                    idx = int(np.argwhere(valid_epochs == e))
+                except:
+                    print('skip epoch {}'.format(e))
+                    continue
+                pred = predict[idx]
+                '''
+                W = np.ones(labels.shape[0])
+                if weighted:
+                    assert False
+                    w = np.histogram(labels[:, r], bins=np.array(range(64))+0.5)[0]
+                    w = 1 - w / np.sum(w)
+                    pred_w = np.minimum(np.maximum(pred[:, r], 1.0), max_val)
+                    W = w[np.round(pred_w - 1).astype('int')]
+                if dist=='RMSE':
+                    err = W.dot((pred - labels)**2)
+                    err = np.sqrt(err/np.sum(W))
+                elif dist=='ABS':
+                    err = W.dot(np.abs(pred - labels)) / np.sum(W)
+                else:
+                    print('{} unrecognized distance'.format(dist))
+                    assert False
+                '''
+                rmse = np.sqrt(np.mean(np.sum((pred - labels) ** 2, axis=1)))
+                R[i, c] = rmse
+        R = np.mean(R, axis=1)
+        pickle.dump(R, open(plot_data_filename, 'bw'))
+
+    # smooth
+    R = smooth(R)
+
+    plt.figure(dist + ' ' + net_type + run + '-' + post)
+    plt.title('Size ' + dist)
+    plt.plot(epochs, R)
+    #plt.legend(rating_property+['Overall'])
+    plt.grid(True, axis='y')
+
+    return R
+
+
 def l2(a, b):
     return np.sqrt(np.sum((a - b) ** 2))
 
@@ -278,13 +335,15 @@ def dir_rating_view(run, post, epochs, factor=1.0):
 
 
 if __name__ == "__main__":
-    run = '251'
+    #run = '251', '300'
+    run = '503'  # '412'
+    net_type = 'dirRS'
     epochs = np.arange(1, 101)  # [1, 10, 20, 30]
 
     # 0     Test
     # 1     Validation
     # 2     Training
-    DataSubSet = 0
+    DataSubSet = 1
 
     if DataSubSet == 0:
         post = "Test"
@@ -303,11 +362,13 @@ if __name__ == "__main__":
         #dir_rating_correlate(run, post, epochs, rating_norm='none', clustered_rating_distance=True)
         #embed_correlate('dirR', run, post, epochs, rating_norm='Round')
         #dir_rating_accuracy(run+'c{}'.format(config), post, epochs)
-        dir_rating_params_correlate(run, post, epochs, rating_norm='none')  # rating_norm='Round'
-        #dir_rating_rmse(run, post, epochs, weighted=True)
+        #dir_rating_params_correlate(run, post, epochs, rating_norm='none')  # rating_norm='Round'
+        dir_rating_rmse(run, post, epochs, net_type=net_type, weighted=False)
         #dir_rating_rmse(run, post, epochs, dist='ABS', weighted=True)
-
         #dir_rating_view(run, post, epochs, factor=1)
+
+
+        dir_size_rmse(run, post, epochs, net_type=net_type, weighted=False)
 
         print('=' * 15)
         print('Plots Ready...')

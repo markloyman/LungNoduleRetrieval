@@ -1,3 +1,4 @@
+#from eval_metric_space import idx
 from init import *
 from Analysis import metric_space_indexes as index
 from Analysis.RatingCorrelator import calc_distance_matrix
@@ -10,7 +11,7 @@ from Analysis.analysis import smooth
 
 # Setup
 
-experiment_name = 'SummaryAlt'
+experiment_name = 'DirObj'
 dset = 'Valid'
 rating_normalizaion = 'Scale' # 'None', 'Normal', 'Scale'
 ratiing_metrics = ['euclidean']
@@ -22,7 +23,7 @@ runs, run_net_types, run_metrics, run_epochs, run_names, _, _ = load_experiments
 alpha = 0.2
 
 #indexes = ['Hubness', 'Symmetry', 'Contrast', 'Concentration', 'Kumari']
-indexes = ['Hubness', 'Symmetry']
+indexes = ['Hubness', 'Symmetry', 'FeatCorr', 'SampCorr']
 M = len(indexes)
 
 # initialize figures
@@ -40,21 +41,22 @@ for n in run_names:
 
 # evaluate
 
-Epochs, Idx_hubness, Idx_symmetry, Idx_concentration, Idx_contrast, Idx_kummar = [], [], [], [], [], []
+Epochs, Idx_hubness, Idx_symmetry, Idx_concentration, Idx_contrast, Idx_kummar, Idx_featCorr, Idx_sampCorr = [], [], [], [], [], [], [], []
 
 for m, metric_ in enumerate(ratiing_metrics):
     #print("Begin: {} metric".format(metric))
     for run, net_type, r, epochs, metric in zip(runs, run_net_types, range(len(runs)), run_epochs, run_metrics):
         plot_data_filename = './Plots/Data/metric-space_{}{}.p'.format(net_type, run)
         try:
-            print('WARNINING - SKIIPING TO CALCULATION')
-            assert False
-            combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar = pickle.load(open(plot_data_filename, 'br'))
+            #print('WARNINING - SKIIPING TO CALCULATION')
+            #assert False
+            combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar, idx_featCorr, idx_sampCorr \
+                = pickle.load(open(plot_data_filename, 'br'))
             idx_kummar = np.reshape(idx_kummar, (1, np.max(idx_kummar.shape)))
             print("Loaded results for {}{}".format(net_type, run))
         except:
             print("Evaluating classification accuracy for {}{} using {}".format(net_type, run, metric))
-            combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar = \
+            combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar, idx_featCorr, idx_sampCorr = \
                 eval_embed_space(run, net_type, metric, 'euclidean', epochs, dset, rating_norm='none', cross_validation=True)
 
             '''
@@ -107,20 +109,22 @@ for m, metric_ in enumerate(ratiing_metrics):
             #idx_contrast = np.mean(idx_contrast, axis=0)
             #idx_kummar = np.mean(idx_kummar, axis=0)
             '''
-            print('NO DUMP')
-            #pickle.dump( (combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar),
-            #             open(plot_data_filename, 'bw'))
+            #print('NO DUMP')
+            pickle.dump( (combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar, idx_featCorr, idx_sampCorr),
+                         open(plot_data_filename, 'bw'))
         Epochs += [combined_epochs]
         Idx_hubness += [idx_hubness]
         Idx_symmetry += [idx_symmetry]
         Idx_concentration += [idx_concentration]
         Idx_contrast += [idx_contrast]
         Idx_kummar += [idx_kummar]
+        Idx_featCorr += [idx_featCorr]
+        Idx_sampCorr += [idx_sampCorr]
 
 # plot
 
-for epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar \
-        in zip(Epochs, Idx_hubness, Idx_symmetry, Idx_concentration, Idx_contrast, Idx_kummar):
+for epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar, idx_featCorr, idx_sampCorr \
+        in zip(Epochs, Idx_hubness, Idx_symmetry, Idx_concentration, Idx_contrast, Idx_kummar, Idx_featCorr, Idx_sampCorr):
 
         #   hubness
         next_plot = 0
@@ -154,6 +158,15 @@ for epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kumm
         #   kumar
         if 'Kumari' in indexes:
             p[M * m + next_plot].plot(epochs, smooth(idx_kummar[0]))
+            next_plot += 1
+
+        if 'FeatCorr' in indexes:
+            p[M * m + next_plot].plot(epochs, smooth(idx_featCorr[0]))
+            next_plot += 1
+
+        if 'SampCorr' in indexes:
+            p[M * m + next_plot].plot(epochs, smooth(idx_sampCorr[0]))
+            next_plot += 1
 
         # labels
         #if r == 0:  # first column
@@ -168,7 +181,7 @@ for epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kumm
             #p[M * m + 4].axes.title.set_text('Kumari')
         if m == len(ratiing_metrics) - 1:  # last row
             p[M * m + M//2].axes.xaxis.label.set_text('Epochs')
-p[-1].legend(legend if indexes[-1] is not 'Kumari' else run_names)
+p[1].legend(legend if indexes[-1] is not 'Kumari' else run_names)
 
 for i in range(M * len(ratiing_metrics)):
     p[i].grid(which='both', axis='y')

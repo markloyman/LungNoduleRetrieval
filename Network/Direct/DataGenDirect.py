@@ -81,7 +81,7 @@ class DataSequenceDir(DataSequenceBase):
             else:
                 N = len(self.dataset) // self.batch_size
 
-        elif self.objective == 'rating':
+        elif self.objective in ['rating', 'size', 'rating_size', 'distance-matrix']:
             N = len(self.dataset) // self.batch_size
             if self.balanced:
                 print("WRN: objective rating does not support balanced")
@@ -99,7 +99,7 @@ class DataSequenceDir(DataSequenceBase):
             prepare_data_direct(self.dataset, objective=self.objective, rating_scale=self.rating_scale, num_of_classes=2,
                                 size=self.model_size, verbose=self.verbose)
 
-        sample_weights = np.ones(len(labels))
+        sample_weights = np.ones(len(classes))
         if self.use_class_weight:
             class_weights = get_class_weight(np.squeeze(classes), 'balanced')
             if len(class_weights) == 2:
@@ -132,5 +132,5 @@ class DataSequenceDir(DataSequenceBase):
                 Nm = np.count_nonzero(np.argmax(classes, axis=1))
                 print("Balanced - Benign: {}, Malignant: {}".format(Nb, Nm))
 
-        return (images,), labels, classes, (masks,), sample_weights
+        return (images,), labels if type(labels) is tuple else tuple([labels]), classes, (masks,), sample_weights
 

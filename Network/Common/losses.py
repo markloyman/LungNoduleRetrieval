@@ -66,6 +66,28 @@ def stdev_loss(_, y_pred):
     return K.mean(s)
 
 
+def pearson_correlation(y_true, y_pred):
+    dm_true = K.dot(y_true, K.transpose(y_true))  # distance matrix based on cosine-distance (assuming embeddings are all normalized)
+    dm_pred = K.dot(y_pred, K.transpose(y_pred))
+
+    #y_true = K.cast(y_true, K.floatx())
+    sum_true = K.sum(dm_true, axis=1)
+    sum2_true = K.sum(K.square(dm_true), axis=1)
+
+    #y_pred = K.cast(y_pred, K.floatx())
+    sum_pred = K.sum(dm_pred, axis=1)
+    sum2_pred = K.sum(K.square(dm_pred), axis=1)
+
+    prod = K.sum(dm_true*dm_pred, axis=1)
+    n = K.cast(K.shape(y_true)[0], K.floatx())
+
+    corr =  (n*prod - sum_true*sum_pred)
+    corr /= K.sqrt(n * sum2_true - sum_true * sum_true + K.epsilon())
+    corr /= K.sqrt(n * sum2_pred - sum_pred * sum_pred + K.epsilon())
+
+    return corr
+
+
 class LossWeightSchedualer(Callback):
     def __init__(self, weight_list, schedule):
         self.weight_list = weight_list

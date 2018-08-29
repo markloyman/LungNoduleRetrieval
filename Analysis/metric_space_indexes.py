@@ -119,21 +119,50 @@ def distances_distribution(distances):
         plt.plot(axis, hist, marker='*', alpha=0.2)
 
 
+def features_correlation(embedding):
+    # normalize data
+    embedding = embedding - np.mean(embedding, axis=0, keepdims=True)
+    embedding /= np.std(embedding, axis=0, keepdims=True) + 1e-9
+    # covariance (correlation) matrix
+    cov = embedding.transpose().dot(embedding)
+    cov /= embedding.shape[0]
+    # get off-diagonal
+    mask = np.ones_like(cov) - np.eye(embedding.shape[1])
+    vals = (cov*mask).flatten()
+    l1 = np.mean(np.abs(vals))
+    return l1
+
+
+def samples_correlation(embedding):
+    # normalize data
+    embedding = embedding - np.mean(embedding, axis=1, keepdims=True)
+    embedding /= np.std(embedding, axis=1, keepdims=True) + 1e-9
+    # covariance (correlation) matrix
+    cov = embedding.dot(embedding.transpose())
+    cov /= embedding.shape[1]
+    # get off-diagonal
+    mask = np.ones_like(cov) - np.eye(embedding.shape[0])
+    vals = (cov*mask).flatten()
+    l1 = np.mean(np.abs(vals))
+    return l1
+
+
 def eval_embed_space(run, net_type, metric, rating_metric, epochs, dset, rating_norm='none', cross_validation=False, n_groups=5):
     # init
     Embed = FileManager.Embed(net_type)
     embed_source = [Embed(run + 'c{}'.format(c), dset) for c in range(n_groups)]
-    idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar \
+    idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar, idx_featCorr, idx_sampCorr \
         = [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)], \
-          [[] for i in range(n_groups)], [[] for i in range(n_groups)]
+          [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)], \
+          [[] for i in range(n_groups)]
     valid_epochs = [[] for i in range(n_groups)]
     # calculate
     Ret = Retriever(title='{}'.format(run), dset=dset)
     for i, source in enumerate(embed_source):
         embd, epoch_mask = Ret.load_embedding(source, multi_epcch=True)
-
         for e in epochs:
             try:
+                epoch_idx = np.argwhere(e == epoch_mask)[0][0]
                 Ret.fit(metric=metric, epoch=e)
                 indices, distances = Ret.ret_nbrs()
                 # hubness
@@ -147,6 +176,9 @@ def eval_embed_space(run, net_type, metric, rating_metric, epochs, dset, rating_
                 idx_concentration[i].append(concentration(distances))
                 idx_contrast[i].append(relative_contrast_imp(distances))
                 valid_epochs[i].append(e)
+                # correlation
+                idx_featCorr[i].append(features_correlation(embd[epoch_idx]))
+                idx_sampCorr[i].append(samples_correlation(embd[epoch_idx]))
             except:
                 print("Epoch {} - no calculated embedding".format(e))
         valid_epochs[i] = np.array(valid_epochs[i])
@@ -155,6 +187,8 @@ def eval_embed_space(run, net_type, metric, rating_metric, epochs, dset, rating_
         idx_concentration[i] = np.array(list(zip(*idx_concentration[i])))
         idx_contrast[i] = np.array(list(zip(*idx_contrast[i])))
         idx_kummar[i] = np.array([idx_kummar[i]])
+        idx_featCorr[i] = np.array([idx_featCorr[i]])
+        idx_sampCorr[i] = np.array([idx_sampCorr[i]])
 
     combined_epochs = [i for i, c in enumerate(np.bincount(np.concatenate(valid_epochs))) if c > 3]
 
@@ -163,8 +197,10 @@ def eval_embed_space(run, net_type, metric, rating_metric, epochs, dset, rating_
     idx_concentration = mean_cross_validated_index(idx_concentration, valid_epochs, combined_epochs)
     idx_contrast = mean_cross_validated_index(idx_contrast, valid_epochs, combined_epochs)
     idx_kummar = mean_cross_validated_index(idx_kummar, valid_epochs, combined_epochs)
+    idx_featCorr = mean_cross_validated_index(idx_featCorr, valid_epochs, combined_epochs)
+    idx_sampCorr = mean_cross_validated_index(idx_sampCorr, valid_epochs, combined_epochs)
 
-    return combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar
+    return combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar, idx_featCorr, idx_sampCorr
 
 
 if __name__ == "__main__":

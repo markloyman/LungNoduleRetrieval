@@ -310,15 +310,17 @@ def l2(a, b):
     return np.sqrt(np.sum((a - b) ** 2))
 
 
-def dir_rating_view(run, post, epochs, factor=1.0):
+def dir_rating_view(run, post, epochs, net_type='dirR', factor=1.0):
     # load
     #images, predict, meta_data, labels, masks = pred_loader.load(run, epochs[-1], post)
-    PredFile = FileManager.Pred(type='rating', pre='dirR')
-    images, predict, meta_data, labels, masks = PredFile.load(run=run, epoch=epochs[-1], dset=post)
+    PredFile = FileManager.Pred(type='rating', pre=net_type)
+
+    predict, epochs, meta_data, images, classes, labels, masks = PredFile.load(run=run+'c0', dset=post)
     # prepare
     images  = np.squeeze(images)
+    labels = np.array([np.mean(l, axis=0) for l in labels])
     labels  = np.round(factor*labels).astype('int')
-    predict = np.round(factor*predict).astype('int')
+    predict = np.round(factor*predict[-1]).astype('int')
     #plot
     select = [5, 23, 27, 51]
     plt.figure('view_'+run+'_'+post)
@@ -336,7 +338,7 @@ def dir_rating_view(run, post, epochs, factor=1.0):
 
 if __name__ == "__main__":
     #run = '251', '300'
-    run = '503'  # '412'
+    run = '512c' # '251' '512c'  # '412'
     net_type = 'dirRS'
     epochs = np.arange(1, 101)  # [1, 10, 20, 30]
 
@@ -363,12 +365,12 @@ if __name__ == "__main__":
         #embed_correlate('dirR', run, post, epochs, rating_norm='Round')
         #dir_rating_accuracy(run+'c{}'.format(config), post, epochs)
         #dir_rating_params_correlate(run, post, epochs, rating_norm='none')  # rating_norm='Round'
-        dir_rating_rmse(run, post, epochs, net_type=net_type, weighted=False)
+        #dir_rating_rmse(run, post, epochs, net_type=net_type, weighted=True)
         #dir_rating_rmse(run, post, epochs, dist='ABS', weighted=True)
-        #dir_rating_view(run, post, epochs, factor=1)
+        dir_rating_view(run, post, epochs, net_type=net_type,factor=1)
 
 
-        dir_size_rmse(run, post, epochs, net_type=net_type, weighted=False)
+        #dir_size_rmse(run, post, epochs, net_type=net_type, weighted=False)
 
         print('=' * 15)
         print('Plots Ready...')

@@ -3,10 +3,12 @@ try:
     from Network.Common.dataGenBase import DataGeneratorBase, DataSequenceBase
     from Network.data_loader import load_nodule_dataset, prepare_data, prepare_data_direct
     from Network.dataUtils import augment_all, crop_center, get_sample_weight, get_class_weight
+    from Network.Common.utils import rating_clusters_distance_matrix
 except:
     from Common.dataGenBase import DataGeneratorBase, DataSequenceBase
     from data_loader import load_nodule_dataset, prepare_data, prepare_data_direct
     from dataUtils import augment_all, crop_center, get_sample_weight, get_class_weight
+    from Common.utils import rating_clusters_distance_matrix
 
 
 def select_balanced(some_set, labels, N, permutation):
@@ -134,3 +136,7 @@ class DataSequenceDir(DataSequenceBase):
 
         return (images,), labels if type(labels) is tuple else tuple([labels]), classes, (masks,), sample_weights
 
+    def process_label_batch(self, labels_batch):
+        if self.objective == 'distance-matrix':
+            labels_batch = rating_clusters_distance_matrix(labels_batch)
+        return labels_batch

@@ -5,7 +5,7 @@ try:
     from Network.dataUtils import augment_all, crop_center_all, crop_center, get_sample_weight, get_class_weight
 except:
     from data_loader import load_nodule_dataset, prepare_data, prepare_data_direct
-    from dataUtils import augment_all, crop_center_all, get_sample_weight, get_class_weight
+    from dataUtils import augment_all, crop_center_all, crop_center, get_sample_weight, get_class_weight
 
 
 def split(data_array, idx):
@@ -145,6 +145,9 @@ class DataSequenceBase(utils.Sequence):
 
         self.on_epoch_end()
 
+    def process_label_batch(self, labels_batch):
+        return labels_batch
+
     def on_epoch_end(self):
         print('Run Gen {}: {}'.format(self.epoch, np.where(self.is_training, 'Training', 'Validation')))
 
@@ -156,7 +159,7 @@ class DataSequenceBase(utils.Sequence):
         masks  = [np.vstack([pair[i] for pair in masks])  for i in range(num_of_streams)]
 
         num_of_losses = len(labels[0])
-        labels = [np.vstack([label[i] for label in labels]) for i in range(num_of_losses)]
+        labels = [np.hstack([label[i] for label in labels]) for i in range(num_of_losses)]
 
         classes = np.hstack(classes)
         sample_weights = np.hstack(sample_weights)
@@ -212,7 +215,7 @@ class DataSequenceBase(utils.Sequence):
             images_batch = [crop_center_all(images[index], masks[index], size=self.model_size)
                                 for images, masks in zip(self.images, self.masks)]
 
-        labels_batch = [lbl[index] for lbl in self.labels]
+        labels_batch = [self.process_label_batch(lbl[index]) for lbl in self.labels]
         if self.enable_regularization:
             labels_batch.append(np.zeros(self.batch_size))
 

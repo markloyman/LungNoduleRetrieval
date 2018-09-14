@@ -36,7 +36,7 @@ class Retriever:
         self.multi_epcch = multi_epcch
         if type(filename) is not list:
             filename = [filename]
-        self.images, self.embedding, self.meta_data, self.labels, self.masks = [], [], [], [], []
+        self.images, self.embedding, self.meta_data, self.labels, self.masks, self.rating = [], [], [], [], [], []
         for fn in filename:
             try:
                 assert(type(fn) is str)
@@ -53,6 +53,7 @@ class Retriever:
                 self.embedding.append(embedding)
                 self.meta_data += meta_data
                 self.labels.append(classes)
+                self.rating.append(labels)
                 self.masks.append(masks)
                 self.epochs = epochs
             except:
@@ -61,6 +62,7 @@ class Retriever:
         self.images = np.concatenate(self.images)
         self.embedding = np.concatenate(self.embedding, axis=embed_concat_axis)
         self.labels = np.concatenate(self.labels)
+        self.rating = np.concatenate(self.rating)
         self.masks = np.concatenate(self.masks)
 
         if self.labels.shape[1] > 1:
@@ -133,20 +135,22 @@ class Retriever:
         else:
             return nn
 
-    def show(self, title, image, label, meta, nods=None):
-        L = 'BM'
+    def show(self, title, image, label, rating=None, meta=None, plot_handle=None, nods=None):
+        L = 'BMU'
         #ann = getAnnotation(meta)
         #ann.visualize_in_scan()
         #if nods is None:
         #    feature_vals = calc_rating(meta, method='single')
         #    print('single -> {}'.format(feature_vals))
         #else:
-        feature_vals = calc_rating(meta, nodule_ids=nods)
+        feature_vals = calc_rating(meta, nodule_ids=nods) if rating is None else np.mean(rating, axis=0)
         print('mean ->: {}'.format(feature_vals))
 
-        plt.figure()
-        plt.title("{} - {} ({})".format(title, L[label], np.round(feature_vals, 1)))
-        plt.imshow(image, cmap='gray')
+        if plot_handle is None:
+            plt.figure()
+            plot_handle = plt.subplot(111)
+        plot_handle.axes.title.set_text("{} - {} ({})".format(title, L[label], np.round(feature_vals).astype('int')))
+        plot_handle.imshow(image, cmap='gray')
 
     def show_ret(self, query, n_top=None, method='mean'):
         if n_top == None: n_top = self.n
@@ -166,6 +170,31 @@ class Retriever:
             return self.meta_data[query], self.nod_ids[query]
         else:
             return self.meta_data[query]
+
+    def compare_ret(self, query, n_top=None, method='mean'):
+        if n_top == None: n_top = self.n
+        assert n_top <= self.n
+
+        nn, dd = self.ret(query, n_top=n_top, return_distance=True)
+        print("N: {}".format(nn))
+
+        plt.figure(self.title + ' Retrieval #' + str(query))
+
+        handle = plt.subplot(2, 3, 1)
+        self.show('Query', self.images[query], self.labels[query], rating=self.rating[query], plot_handle=handle, nods=self.nod_ids[query])
+
+        l2 = lambda x, y: np.sqrt((x-y).dot(x-y))
+        qr = np.mean(self.rating[query], axis=0)
+        dists = np.array([l2(qr, np.mean(r, axis=0)) for r in self.rating])
+
+        handle = plt.subplot(2, 3, 2)
+        handle.hist(dists.flatten(), bins=20)
+
+        for idx in range(2*3 - 2):
+            handle = plt.subplot(2,3,idx+3)
+            self.show('Ret#{} [d{:.2f}]'.format(idx, dists[nn[idx]]), self.images[nn[idx]], self.labels[nn[idx]], rating=self.rating[nn[idx]], plot_handle=handle, nods=self.nod_ids[nn[idx]])
+
+
 
     def classify_naive(self):
         clf = KNeighborsClassifier(self.n, weights='uniform')
@@ -258,59 +287,29 @@ class Retriever:
 
 if __name__ == "__main__":
 
-    #WW = ['embed_siam000-15_Test.p', 'embed_siam000-25_Test.p', 'embed_siam001-30_Test.p', 'embed_siam001-40_Test.p']
-    #leg = ['Chained-E15', 'Chained-E25', 'Base-E30', 'Base-E40']
-    #WW = ['embed_siam000-10_Test.p', 'embed_siam000-15_Test.p', 'embed_siam000-20_Test.p', 'embed_siam000-25_Test.p', 'embed_siam000-30_Test.p',
-    #      'embed_siam000-35_Test.p', 'embed_siam000-40_Test.p', 'embed_siam000-45_Test.p', 'embed_siam000-50_Test.p']
     from Network import FileManager
-
-    #Embed = FileManager.Embed('siam')
 
     dset = 'Valid'
 
-    wRuns = ['011']  #['064X', '078X', '026'] #['064X', '071' (is actually 071X), '078X', '081', '082']
-    wRunsNet = ['dirR']  #, 'dir']
+    wRuns = ['512cc0', '251c0']  #['064X', '078X', '026'] #['064X', '071' (is actually 071X), '078X', '081', '082']
+    wRunsNet = ['dirRS', 'dirR']  #, 'dir']
     run_metrics = ['l2']
 
-    #wRuns = ['103']
-    #wRunsNet = ['dir']  # , 'dir']
-    #run_metrics = ['l2']
+    select = 1
 
-    rating_normalizaion = 'Scale' # 'None', 'Normal', 'Scale'
+    rating_normalizaion = 'None' # 'None', 'Normal', 'Scale'
 
-    wEpchs = [10, 20, 30, 35, 40, 45, 50, 55] #, 20, 25, 30, 35, 40, 45]
-    #WW = ['embed_siam{}-{}_{}.p'.format(run, E, dset) for E in wEpchs]
-    #WW = [ Embed(run, E, dset) for E in wEpchs]
-
-    leg = ['E{}'.format(E) for E in wEpchs]
-
-    doClass         = False
-    doRet           = False
-    doRatingRet     = False
-    doMetricSpaceIndexes = True
+    doRatingRet     = True
     doPCA           = False
-
-    #Ret = Retriever(WW[-4], atitle='chn', aset=set)
-    #Ret.fit(3)
-    #Ret.show_ret(10)
-
-    ##  ------------------------
-    #       Classification
-    ##  ------------------------
-
-
-    ##  ------------------------
-    #       Retrieval
-    ##  ------------------------
 
 
     if doRatingRet:
-        Embed = FileManager.Embed('siam')
-        N = 5
-        testData, validData, trainData = load_nodule_raw_dataset(size=144, res='0.5I', sample='Normal')
-        if dset is 'Train':  data = trainData
-        if dset is 'Test':   data = testData
-        if dset is 'Valid':  data = validData
+        Embed = FileManager.Embed(wRunsNet[select])
+        #N = 5
+        #testData, validData, trainData = load_nodule_raw_dataset(size=160, res=0.5, sample='Normal')
+        ##if dset is 'Train':  data = trainData
+        #if dset is 'Test':   data = testData
+        #if dset is 'Valid':  data = validData
 
         #Ret = Retriever(title='Ratings', dset=set)
         #Ret.load_rating(data)
@@ -322,21 +321,20 @@ if __name__ == "__main__":
         #anns = getAnnotation(info, nodule_ids=nod_ids, return_all=True)
         #pickle.dump(anns, open('tmp.p', 'bw'))
 
-        Ret = Retriever(title='', dset=dset)
-        Ret.load_embedding(Embed('100', 40, dset))
-        Ret.fit(N)
+        Ret = Retriever(title=wRuns[select]+wRunsNet[select], dset=dset)
+        Ret.load_embedding(Embed(wRuns[select], dset), multi_epcch=True)
+        #Ret.fit(N, epoch=70)
+        Ret.fit(epoch=70)
 
-        Ret.show_ret(322)
-        Ret.show_ret(153)
-        Ret.show_ret(745)
-        Ret.show_ret(339)
+        #Ret.compare_ret(322)
+        #Ret.compare_ret(153)
+        #Ret.compare_ret(145)
+        Ret.compare_ret(139)
 
-        Ret.show_ret(737)
-        Ret.show_ret(295)
-        Ret.show_ret(262)
-        Ret.show_ret(315)
-
-
+        #Ret.show_ret(237)
+        #Ret.show_ret(295)
+        #Ret.show_ret(262)
+        #Ret.show_ret(315)
 
 
     if doPCA:

@@ -11,11 +11,13 @@ from LIDC.lidcUtils import calc_rating
 from Network.dataUtils import rating_normalize
 from scipy.spatial.distance import pdist, cdist, squareform
 
+from Network.Common.utils import rating_clusters_distance_matrix
+
 '''
 def calc_distance_matrix(X, method):
     rating_mean = np.array(
         [3.75904203, 1.01148583, 5.50651678, 3.79985337, 3.96358749, 1.67269469, 1.56867058, 4.4591072, 2.55197133])
-    rating_std = np.array(
+    rating_std.py = np.array(
         [1.09083287, 0.11373469, 1.02463593, 0.80119638, 1.04281277, 0.89359593, 0.89925905, 1.04813052, 1.12151403])
     rating_min = np.array(
         [1, 1, 1, 1, 1, 1, 1, 1, 1])
@@ -164,17 +166,7 @@ class RatingCorrelator:
         assert weighted is False
         if clustered_rating_distance:
             n = len(self.rating)
-            self.rating_distance_matrix = np.zeros((n, n))
-            for i in range(n):
-                for j in range(n):
-                    if i <= j:
-                        continue
-                    dm = cdist(self.rating[i], self.rating[j], method)
-                    d0 = np.min(dm, axis=0)
-                    d1 = np.min(dm, axis=1)
-                    distance = 0.5*np.mean(d0) + 0.5*np.mean(d1)
-                    self.rating_distance_matrix[i, j] = distance
-                    self.rating_distance_matrix[j, i] = distance
+            self.rating_distance_matrix = rating_clusters_distance_matrix(self.rating)
         else:
             rating = np.array([np.mean(rat, axis=0) for rat in self.rating])
             self.rating_distance_matrix = calc_distance_matrix(rating, method)

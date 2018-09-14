@@ -2,11 +2,14 @@ import pickle
 import numpy as np
 from functools import reduce
 from scipy.misc import imresize
+
 from scipy.spatial.distance import cdist
 try:
     from Network.dataUtils import rating_normalize, crop_center, l2_distance, cluster_distance
+    from Network.Common.utils import rating_clusters_distance, rating_clusters_distance_matrix
 except:
     from dataUtils import rating_normalize, crop_center, l2_distance, cluster_distance
+    from Common.utils import rating_clusters_distance, rating_clusters_distance_matrix
 
 
 # =========================
@@ -29,9 +32,6 @@ def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='No
             data_group = pickle.load(open(filename, 'br'))
         except:
             data_group = pickle.load(open('.'+filename, 'br'))
-
-        #if not include_unknown:
-        #    data_group = list(filter(lambda x: x['label'] < 2, data_group))
 
         if c == test_id:
             set = "Test"
@@ -192,8 +192,8 @@ def prepare_data(data, rating_format='raw', new_size=None, do_augment=False, ret
     if rating_confidence is not None:
         # confidence is only relevant for full dataset
         # and should first be reconsidered
-        conf = np.array([np.sum(entry[6]) for entry in data])
-        conf = 2 - 2 / (1 + conf/np.mean(conf))
+        conf = np.array([np.min(entry[6]) for entry in data])
+        #conf = 2 - 2 / (1 + conf/np.mean(conf))
         #conf = np.array([2. + entry[5].shape[0] - np.max(np.max(entry[5], axis=0) - np.min(entry[5], axis=0)) for entry in data]) / 6.
         if reshuffle:
             conf = conf[new_order]
@@ -216,9 +216,9 @@ def select_balanced(self, some_set, labels, N, permutation):
 
 
 def prepare_data_direct(data, objective='malignancy', rating_scale='none', size=None, num_of_classes=2, balanced=False, return_meta=False, verbose= 0, reshuffle=True):
-
+    rating_format = 'raw' if objective == 'distance-matrix' else 'w_mean'
     images, ratings, classes, masks, meta, conf, nod_size = \
-        prepare_data(data, rating_format='w_mean', scaling=rating_scale, verbose=verbose, reshuffle=reshuffle, return_meta=return_meta)
+        prepare_data(data, rating_format=rating_format, scaling=rating_scale, verbose=verbose, reshuffle=reshuffle, return_meta=return_meta)
 
     if objective == 'malignancy':
         from keras.utils.np_utils import to_categorical
@@ -318,8 +318,8 @@ def prepare_data_siamese(data, objective="malignancy", rating_distance='mean', b
     images, ratings, classes, masks, meta, conf, nod_size = \
         prepare_data(data, rating_format='raw', return_meta=return_meta, reshuffle=True, verbose=verbose)
     if verbose:
-        print("benign:{}, malignant: {}".format(np.count_nonzero(classes == 0),
-                                                np.count_nonzero(classes == 1)))
+        print("benign:{}, malignant:{}, unknwon:{}".format(np.count_nonzero(classes == 0),
+                                                np.count_nonzero(classes == 1), np.count_nonzero(classes == 2)))
     N = images.shape[0]
     benign_filter = np.where(classes == 0)[0]
     malign_filter = np.where(classes == 1)[0]
@@ -440,25 +440,32 @@ def prepare_data_siamese_simple(data, siamese_rating_factor, objective="malignan
     #   Handle Labels
     # =========================
 
-    if objective == "malignancy":
-        assert False
-    elif objective == "rating":
-        rating_pairs = select_pairs(ratings)
+    rating_pairs = select_pairs(ratings)
+
+    if objective in ["rating", "rating_size"]:
+
         if rating_distance == 'mean':
-            similarity_labels = np.array([np.sqrt((a-b).dot(a-b)) for a, b in rating_pairs])
+            similarity_ratings = np.array([np.sqrt((a - b).dot(a - b)) for a, b in rating_pairs])
         elif rating_distance == 'clusters':
-            similarity_labels = []
+            similarity_ratings = []
             for r1, r2 in rating_pairs:
-                # TODO : refactor needed. distance is also implemented in RatingCorrelator
-                dm = cdist(r1, r2, 'euclidean')
-                d0 = np.min(dm, axis=0)
-                d1 = np.min(dm, axis=1)
-                distance = 0.5 * np.mean(d0) + 0.5 * np.mean(d1)
-                similarity_labels += [distance]
-            similarity_labels = np.array(similarity_labels)
+                distance = rating_clusters_distance(r1, r2)
+                similarity_ratings += [distance]
+            similarity_ratings = np.array(similarity_ratings)
         else:
             assert False
-        similarity_labels *= siamese_rating_factor
+        similarity_ratings *= siamese_rating_factor
+
+    if objective in ['size', 'rating_size']:
+        size_pairs = select_pairs(nod_size)
+        similarity_size = np.array([np.sqrt((a - b).dot(a - b)) for a, b in size_pairs])
+
+    if objective == "rating":
+        similarity_labels = similarity_ratings,
+    elif objective == 'size':
+        similarity_labels = similarity_size,
+    elif objective == 'rating_size':
+        similarity_labels = similarity_ratings, similarity_size
     else:
         print("ERR: {} is not a valid objective".format(objective))
         assert False
@@ -480,7 +487,7 @@ def prepare_data_siamese_simple(data, siamese_rating_factor, objective="malignan
     #   Final touch
     # =========================
 
-    size = similarity_labels.shape[0]
+    size = similarity_labels[0].shape[0]
     assert size == image_sub1.shape[0]
     assert size == image_sub2.shape[0]
 
@@ -504,14 +511,14 @@ def prepare_data_siamese_simple(data, siamese_rating_factor, objective="malignan
 
     if return_meta:
         return (    (image_sub1[new_order], image_sub2[new_order]),
-                    similarity_labels[new_order],
+                    tuple([s[new_order] for s in similarity_labels]),
                     (mask_sub1[new_order], mask_sub2[new_order]),
                     confidence[new_order],
                     (reorder(meta_sub1, new_order), reorder(meta_sub2, new_order))
                 )
     else:
         return (    (image_sub1[new_order], image_sub2[new_order]),
-                    similarity_labels[new_order],
+                    tuple([s[new_order] for s in similarity_labels]),
                     (mask_sub1[new_order], mask_sub2[new_order]),
                     confidence[new_order]
                 )

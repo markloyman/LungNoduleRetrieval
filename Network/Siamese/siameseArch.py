@@ -38,7 +38,18 @@ class SiamArch(BaseArch):
         super().__init__(model_loader, input_shape, objective=objective,
                          pooling=pooling, output_size=output_size, normalize=normalize)
 
-        self.net_type = 'siam' if objective == 'malignancy' else 'siamR'
+        if objective == 'malignancy':
+            self.net_type = 'siam'
+        elif objective == 'rating':
+            self.net_type = 'siamR'
+        elif objective == 'size':
+            self.net_type = 'siamS'
+        elif objective == 'rating_size':
+            self.net_type = 'siamRS'
+        else:
+            print("Bad objective ({}) provided".format(objective))
+            assert False
+
         self.batch_size = batch_size
         self.embed_size = 2 * batch_size
 
@@ -65,10 +76,20 @@ class SiamArch(BaseArch):
         else:
             assert(False)
 
-        prediction = Lambda(lambda x: x, name='predictions')(distance_layer)
+
         embed = Lambda(lambda x: K.concatenate([x[0], x[1]], axis=0), name='embed_output')([base1, base2])
 
-        outputs = [prediction, embed] if regularization_loss else prediction
+        outputs = []
+        if objective in ['malignancy', 'rating']:
+            outputs.append(Lambda(lambda x: x, name='predictions')(distance_layer))
+        elif objective == 'size':
+            outputs.append(Lambda(lambda x: x, name='predictions_size')(distance_layer))
+        elif objective == 'rating_size':
+            outputs.append(Lambda(lambda x: x, name='predictions')(distance_layer))
+            outputs.append(Lambda(lambda x: x, name='predictions_size')(distance_layer))
+
+        if regularization_loss:
+            outputs.append(embed)
 
         self.model =    Model(  inputs=[img_input1,img_input2],
                                 outputs = outputs,
@@ -82,18 +103,24 @@ class SiamArch(BaseArch):
         pearson_correlation.__name__  = 'corr'
 
         if self.objective == "malignancy":
-            loss = contrastive_loss
-            metrics = [binary_accuracy, binary_f1_inv, binary_precision_inv, binary_recall_inv]
-            #['binary_accuracy', 'categorical_accuracy', sensitivity, specificity, precision] )
+            loss = {'predictions': contrastive_loss}
+            metrics = {'predictions': [binary_accuracy, binary_f1_inv, binary_precision_inv, binary_recall_inv]}
         elif self.objective == "rating":
-            metrics = [pearson_correlation]
+            loss = {'predictions': loss}
+            metrics = {'predictions': pearson_correlation}
+        elif self.objective == 'size':
+            loss = {'predictions_size': loss}
+            metrics = {'predictions_size': pearson_correlation}
+        elif self.objective == 'rating_size':
+            loss = {'predictions': loss, 'predictions_size': loss}
+            metrics = {'predictions': pearson_correlation, 'predictions_size': pearson_correlation}
         else:
             print("ERR: {} is not a valid objective".format(self.objective))
             assert (False)
 
         self.compile_model( lr=learning_rate, lr_decay=decay,
                             loss        = loss,
-                            metric     = metrics,
+                            metrics     = metrics,
                             scheduale=scheduale)
         # lr = self.lr * (1. / (1. + self.decay * self.iterations))
         self.lr         = learning_rate
@@ -112,7 +139,7 @@ class SiamArch(BaseArch):
         check = 'loss'
         weight_file_pattern = self.set_weight_file_pattern(check, label)
         callbacks = self.callbacks
-        callbacks += [ModelCheckpoint(weight_file_pattern, monitor='val_loss', save_best_only=False)]
+        callbacks += [ModelCheckpoint(weight_file_pattern, monitor='val_loss', save_best_only=False, save_weights_only=True)]
         #on_plateau      = ReduceLROnPlateau(monitor='val_loss', factor=0.5, epsilon=1e-2, patience=5, min_lr=1e-6, verbose=1)
         #early_stop      = EarlyStopping(monitor='loss', min_delta=1e-3, patience=5)
         #lr_decay        = LearningRateScheduler(self.scheduler)

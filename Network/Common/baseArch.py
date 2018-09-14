@@ -289,7 +289,13 @@ class BaseArch(object):
         print("Loaded {}".format(w))
 
     def load_core_weights(self, w):
-        self.base.load_weights(w, by_name=True)
+        import tensorflow as tf
+        if type(self.base) == tf.Tensor:
+            from keras.models import Model
+            model = Model(self.img_input, self.base)
+            model.load_weights(w, by_name=True)
+        else:
+            self.base.load_weights(w, by_name=True)
         print("Loaded {}".format(w))
 
     def compile(self, learning_rate=0.001, decay=0.1, loss='categorical_crossentropy'):

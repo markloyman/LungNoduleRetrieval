@@ -34,8 +34,8 @@ class DataGeneratorSiam(DataGeneratorBase):
         if self.objective == "malignancy":
             data = prepare_data_siamese(dataset, balanced=(self.balanced and is_training),
                                         objective=self.objective, verbose=True, return_meta=True)
-        elif self.objective == "rating":
-            data = prepare_data_siamese_simple(dataset,
+        else:
+            data = prepare_data_siamese_simple(dataset, rating_distance='clusters',
                                                objective=self.objective, verbose=True, return_meta=True)
             data[1] *= siamese_rating_factor
         return data
@@ -72,7 +72,7 @@ class DataSequenceSiam(DataSequenceBase):
                     N = (2 * np.minimum(Nb, Nm) + len(self.dataset)) // self.batch_size
             else:
                 N = len(self.classes) // self.batch_size
-        elif self.objective == "rating":
+        else:
             N = len(self.dataset) // self.batch_size
 
         N *= data_factor
@@ -91,7 +91,8 @@ class DataSequenceSiam(DataSequenceBase):
                                                    wSM=class_weight['SM'])
             else:
                 sample_weight = np.ones(labels.shape)
-        elif self.objective == "rating":
+        #elif self.objective == "rating":
+        else:
             images, labels, masks, confidence = \
                 prepare_data_siamese_simple(self.dataset, rating_distance='clusters',
                                             objective=self.objective, verbose=self.verbose, siamese_rating_factor=siamese_rating_factor)
@@ -99,7 +100,7 @@ class DataSequenceSiam(DataSequenceBase):
             if self.use_confidence:
                 sample_weight = confidence
             else:
-                sample_weight = np.ones(labels.shape)
+                sample_weight = np.ones(labels[0].shape)
 
         print('sample weights: {}'.format(sample_weight[:10]))
 

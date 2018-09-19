@@ -165,13 +165,14 @@ def eval_retrieval(run, net_type, metric, epochs, dset, NN=[7, 11, 17], cross_va
     return P, P_std, F1, F1_std, valid_epochs
 
 
-def eval_correlation(run, net_type, metric, rating_metric, epochs, dset, rating_norm='none', cross_validation=False, n_groups=5):
+def eval_correlation(run, net_type, metric, rating_metric, epochs, dset, objective='rating', rating_norm='none', cross_validation=False, n_groups=5):
 
     Embed = FileManager.Embed(net_type)
 
     if cross_validation:
         # Load
         embed_source = [Embed(run + 'c{}'.format(c), dset) for c in range(n_groups)]
+        #embed_source = [Embed(run + 'c{}'.format(c), dset) for c in [4]]
 
         valid_epochs = [[] for i in range(n_groups)]
         Pm, Km, Pr, Kr = [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)]
@@ -181,12 +182,16 @@ def eval_correlation(run, net_type, metric, rating_metric, epochs, dset, rating_
             Reg = RatingCorrelator(source, multi_epoch=True)
 
             # load rating data
-            cache_filename = 'output/cached_rating_{}_{}.p'.format(source.split('/')[-1][6:-2], c_idx)
+            cache_filename = 'output/cached_{}_{}_{}.p'.format(objective, source.split('/')[-1][6:-2], c_idx)
             if not Reg.load_cached_rating_distance(cache_filename):
                 print('evaluating rating distance matrix...')
                 Reg.evaluate_rating_space(norm=rating_norm, ignore_labels=False)
                 Reg.evaluate_rating_distance_matrix(method=rating_metric, clustered_rating_distance=True)
                 Reg.dump_rating_distance_to_cache(cache_filename)
+
+            if objective == 'size':
+                print('evaluating size distance matrix...')
+                Reg.evaluate_size_distance_matrix()
 
             for E in epochs:
                 # Calc
@@ -196,7 +201,7 @@ def eval_correlation(run, net_type, metric, rating_metric, epochs, dset, rating_
                     #print("Epoch {} - no calculated embedding".format(E))
                     continue
 
-                pm, _, km = Reg.correlate_retrieval('embed', 'malig', verbose=False)
+                pm, _, km = Reg.correlate_retrieval('embed', 'malig' if objective == 'rating' else 'size', verbose=False)
                 pr, _, kr = Reg.correlate_retrieval('embed', 'rating', verbose=False)
                 valid_epochs[c_idx].append(E)
 

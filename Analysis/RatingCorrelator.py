@@ -188,6 +188,16 @@ class RatingCorrelator:
         self.embed_metric = method
         assert np.all(np.isfinite(self.embed_distance_matrix))
 
+    def evaluate_size_distance_matrix(self):
+        nodule_size = np.array([np.count_nonzero(q) for q in self.masks]).reshape(-1, 1) * 0.5 * 0.5
+        tresh = [0, 15, 30, 60, 120]
+        nodule_size = np.digitize(nodule_size, tresh)
+
+        self.size_distance_matrix = calc_distance_matrix(nodule_size, 'l1')
+        self.size_metric = 'l1'
+
+        return self.size_distance_matrix
+
     def correlate_to_ratings(self, method='euclidean', round=False, epoch=None, epsilon=1e-9):
         if self.multi_epcch:
             assert (epoch is not None)
@@ -254,12 +264,13 @@ class RatingCorrelator:
             malig_rating = np.array([[np.mean(rat[:, -1])] for rat in self.rating])
             xVec = calc_distance_matrix(malig_rating, method='euclidean')
             xMet = 'euclidean'
+        elif name == 'size':
+            xVec = self.size_distance_matrix
+            xMet = self.size_metric
         else:
             assert False
-        if flat:
-            return flatten_dm(xVec), xMet
-        else:
-            return xVec, xMet
+
+        return flatten_dm(xVec) if flat else xVec, xMet
 
     def scatter(self, X, Y, xMethod = 'euclidean', yMethod = 'euclidean', sub=False):
         xVec = self.load(X)

@@ -164,7 +164,7 @@ def dir_rating_rmse(run, post, epochs, net_type, dist='RMSE', weighted=False, n_
     return R
 
 
-def dir_rating_params_correlate(run, post, epochs, rating_norm='none', n_groups=5):
+def dir_rating_params_correlate(run, post, epochs, net_type, rating_norm='none', n_groups=5):
 
     reference = [0.7567, 0.5945, 0.7394, 0.5777, 0.6155, 0.7445, 0.6481]  # 0, 0,
     rating_property = ['Subtlety', 'Sphericity', 'Margin',
@@ -172,7 +172,7 @@ def dir_rating_params_correlate(run, post, epochs, rating_norm='none', n_groups=
     mask = [True, False, False, True, True, True, True, True, True]
 
     pear_corr = [[] for i in range(n_groups)]
-    plot_data_filename = './Plots/Data/rating_params_correlation_{}{}.p'.format('dirR', run)
+    plot_data_filename = './Plots/Data/rating_params_correlation_{}{}.p'.format(net_type, run)
     try:
         print('SKIPPING')
         assert False
@@ -181,7 +181,7 @@ def dir_rating_params_correlate(run, post, epochs, rating_norm='none', n_groups=
     except:
         print("Evaluating Rating Correlation for {}".format(run))
         for c, run_config in enumerate([run + 'c{}'.format(config) for config in range(n_groups)]):
-            PredFile = FileManager.Pred(type='rating', pre='dirR')
+            PredFile = FileManager.Pred(type='rating', pre=net_type)
             Reg = RatingCorrelator(PredFile(run=run_config, dset=post), multi_epoch=True)
             Reg.evaluate_rating_space(norm=rating_norm)
             #valid_epochs = []
@@ -212,18 +212,6 @@ def dir_rating_params_correlate(run, post, epochs, rating_norm='none', n_groups=
     plt.xlabel('epochs')
     plt.ylabel('correlation')
     plt.legend(rating_property)
-
-
-def dir_rating_delta_rmse(run, post, e0, e1):
-    PredFile = FileManager.Pred(type='rating', pre='dirR')
-    images0, predict0, meta_data0, labels0, masks0 = PredFile.load(run=run, epoch=e0, dset=post)
-    images1, predict1, meta_data1, labels1, masks1 = PredFile.load(run=run, epoch=e1, dset=post)
-    rmse0 = np.sqrt(np.sum((predict0 - labels0) ** 2, axis=1))
-    rmse1 = np.sqrt(np.sum((predict1 - labels1) ** 2, axis=1))
-
-    delta = rmse1 - rmse0
-
-    return delta
 
 
 def dir_rating_accuracy(run, post, epochs, n_groups=5):
@@ -364,10 +352,10 @@ if __name__ == "__main__":
         #dir_rating_correlate(run, post, epochs, rating_norm='none', clustered_rating_distance=True)
         #embed_correlate('dirR', run, post, epochs, rating_norm='Round')
         #dir_rating_accuracy(run+'c{}'.format(config), post, epochs)
-        #dir_rating_params_correlate(run, post, epochs, rating_norm='none')  # rating_norm='Round'
+        dir_rating_params_correlate(run, post, epochs, net_type=net_type, rating_norm='none')  # rating_norm='Round'
         #dir_rating_rmse(run, post, epochs, net_type=net_type, weighted=True)
         #dir_rating_rmse(run, post, epochs, dist='ABS', weighted=True)
-        dir_rating_view(run, post, epochs, net_type=net_type,factor=1)
+        #dir_rating_view(run, post, epochs, net_type=net_type,factor=1)
 
 
         #dir_size_rmse(run, post, epochs, net_type=net_type, weighted=False)

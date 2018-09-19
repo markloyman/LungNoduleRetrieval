@@ -10,15 +10,15 @@ plt.interactive(False)
 '''
 Feature              Meaning                    # 
 -                    -                          - 
-Subtlety           | Fairly Subtle            | 3 
-Internalstructure  | Soft Tissue              | 1 
-Calcification      | Absent                   | 6 
-Sphericity         | Ovoid/Round              | 4 
-Margin             | Medium Margin            | 3 
-Lobulation         | No Lobulation            | 1 
-Spiculation        | No Spiculation           | 1 
-Texture            | Solid                    | 5 
-Malignancy         | Moderately Unlikely      | 2 
+Subtlety           | Fairly Subtle            | 3   5
+Internalstructure  | Soft Tissue              | 1   4
+Calcification      | Absent                   | 6   6
+Sphericity         | Ovoid/Round              | 4   5
+Margin             | Medium Margin            | 3   5
+Lobulation         | No Lobulation            | 1   5
+Spiculation        | No Spiculation           | 1   5
+Texture            | Solid                    | 5   5
+Malignancy         | Moderately Unlikely      | 2   5
 '''
 
 
@@ -78,19 +78,24 @@ def stat_analyze(dataset, elementID, title):
         plt.xlim(0.5, 0.5+max_range)
         plt.title(labels[i])
 
+    distribution = np.bincount(r[:,2])[1:] + 1e-9
+    distribution /= np.sum(distribution)
+    entropy = -distribution.dot(np.log2(distribution) / np.log2(max_range))
+    return entropy
+
 def show_all_stats(filename):
     dataset = pickle.load(open(filename, 'br'))
-
     elements = ['Subtlety', 'Internalstructure', 'Calcification', 'Sphericity', 'Margin', 'Lobulation', 'Spiculation', 'Texture', 'Malignancy']
 
     for e,i in zip(elements, range(len(elements))):
-        stat_analyze(dataset, elementID=i, title=e)
+        entropy = stat_analyze(dataset, elementID=i, title=e)
+        print('{}: {:.2f}'.format(e, entropy))
 
 if __name__ == "__main__":
 
-    filename  = 'NodulePatches.p'
+    filename  = 'NodulePatchesNew160-0.5.p' # Dataset/DatasetPrimaryCV0_160-0.5-Normal.p
 
     show_all_stats(filename)
-    show_nodule_size_and_pixel_size()
+    #show_nodule_size_and_pixel_size()
 
     plt.show()

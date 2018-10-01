@@ -118,13 +118,13 @@ def crop_center(image, mask, size=None):
     center = np.median(mask_y).astype('int'), np.median(mask_x).astype('int')
 
     cx, cy = max(center[0], size//2), max(center[1], size//2)
-    cx, cy = min(cx, image.shape[0] - size//2), min(cy, image.shape[1] - size//2)
+    cx, cy = min(cx, mask.shape[0] - size//2), min(cy, mask.shape[1] - size//2)
 
     x0 = np.round(cx - size//2).astype('int')
     y0 = np.round(cy - size//2).astype('int')
     size = np.round(size).astype('int')
     
-    return image[y0:(y0+size), x0:(x0+size)], mask[y0:(y0+size), x0:(x0+size)]
+    return image[y0:(y0+size), x0:(x0+size)] if image is not None else None, mask[y0:(y0+size), x0:(x0+size)]
 
 
 def crop_center_all(images, masks, size=None):

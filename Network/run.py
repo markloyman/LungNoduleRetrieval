@@ -33,9 +33,10 @@ if __name__ == '__main__':
         if test:
             epoch0 = 1
             delta_epoch = 1
-            epochs_ = list(range(epoch0, model.last_epoch + 1, delta_epoch)) if delta_epoch > 0 else [epoch0]
-            #epochs_ = [30, 70, 100]
-            model.embed(epochs=epochs_, data='Valid', use_core=True is args.embed)
+            #epochs_ = list(range(epoch0, model.last_epoch + 1, delta_epoch)) if delta_epoch > 0 else [epoch0]
+            epochs_ = [60, 70, 80]
+            #model.embed(epochs=epochs_, data='Valid', use_core=True is args.embed)
+            model.embed_spatial(epochs=epochs_, data='Valid')
 
     #K.clear_session()
     gc.collect()

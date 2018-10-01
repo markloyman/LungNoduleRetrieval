@@ -167,27 +167,33 @@ class BaseArch(object):
                 total_time = (timer() - start) / 60 / 60
             print("Total training time is {:.1f} hours".format(total_time))
 
-    def embed(self, epochs, data='Valid', use_core=True):
+    def config_filenames(self, net_type, use_core, keep_spatial_dim=False):
         # init file managers
-        Weights = File.Weights(self.net_type, output_dir=input_dir)
+        Weights = File.Weights(net_type, output_dir=input_dir)
         if use_core:
-            Embed = File.Embed(self.net_type, output_dir=output_dir)
-        else:
-            if self.net_type == 'dir':
-                Embed = File.Pred(type='malig', pre='dir', output_dir=output_dir)
-            elif self.net_type == 'dirR':
-                Embed = File.Pred(type='rating', pre='dirR', output_dir=output_dir)
-            elif self.net_type == 'dirS':
-                Embed = File.Pred(type='size', pre='dirS', output_dir=output_dir)
-            elif self.net_type == 'dirRS':
-                #assert False # save rating and size in seperate files
-                EmbedR = File.Pred(type='rating', pre='dirRS', output_dir=output_dir)
-                EmbedS = File.Pred(type='size', pre='dirRS', output_dir=output_dir)
+            if keep_spatial_dim:
+                Embed = File.Embed('SP_' + net_type, output_dir=output_dir)
             else:
-                print('{} not recognized'.format(self.net_type))
+                Embed = File.Embed(net_type, output_dir=output_dir)
+        else:
+            if net_type == 'dir':
+                Embed = File.Pred(type='malig', pre='dir', output_dir=output_dir)
+            elif net_type == 'dirR':
+                Embed = File.Pred(type='rating', pre='dirR', output_dir=output_dir)
+            elif net_type == 'dirS':
+                Embed = File.Pred(type='size', pre='dirS', output_dir=output_dir)
+            elif net_type == 'dirRS':
+                # assert False # save rating and size in seperate files
+                Embed = {}
+                Embed['R'] = File.Pred(type='rating', pre='dirRS', output_dir=output_dir)
+                Embed['S'] = File.Pred(type='size', pre='dirRS', output_dir=output_dir)
+            else:
+                print('{} not recognized'.format(net_type))
                 assert False
 
-        # get data from generator
+        return Weights, Embed
+
+    def get_data_loader(self, data):
         data_loader = None
         # valid and test got reversed somewhere along the way
         # so i'm forced to keep consistancy
@@ -199,6 +205,15 @@ class BaseArch(object):
             data_loader = self.data_gen.get_flat_train_data
         else:
             print('{} is not a supperted dataset identification'.format(data))
+
+        return data_loader
+
+    def embed(self, epochs, data='Valid', use_core=True):
+
+        Weights, Embed = self.config_filenames(self.net_type, use_core)
+
+        # get data from generator
+        data_loader = self.get_data_loader(data)
         images, labels, classes, masks, meta, conf, size = data_loader()
 
         if self.net_type == 'dirS' and not use_core:
@@ -210,6 +225,7 @@ class BaseArch(object):
         else:
             embedding = []
         epochs_done = []
+
         if use_core:
             embed_model = self.extract_core(repool=False)
         else:
@@ -249,8 +265,8 @@ class BaseArch(object):
 
         # dump to Embed file
         if self.net_type == 'dirRS' and not use_core:
-            out_filenameR = EmbedR(self.run, data)
-            out_filenameS = EmbedS(self.run, data)
+            out_filenameR = Embed['R'](self.run, data)
+            out_filenameS = Embed['S'](self.run, data)
             pickle.dump((embedding[0], epochs_done, meta, images, classes, labels, masks), open(out_filenameR, 'bw'))
             pickle.dump((embedding[1], epochs_done, meta, images, classes, size, masks), open(out_filenameS, 'bw'))
             print("Saved embedding of shape {} to: {}".format(embedding[0].shape, out_filenameR))
@@ -259,6 +275,50 @@ class BaseArch(object):
             out_filename = Embed(self.run, data)
             pickle.dump((embedding, epochs_done, meta, images, classes, labels, masks), open(out_filename, 'bw'))
             print("Saved embedding of shape {} to: {}".format(embedding.shape, out_filename))
+
+    def embed_spatial(self, epochs, data='Valid'):
+
+        Weights, Embed = self.config_filenames(self.net_type, use_core=True, keep_spatial_dim=True)
+
+        # get data from generator
+        data_loader = self.get_data_loader(data)
+        images, labels, classes, masks, meta, conf, size, z = data_loader()
+
+        start = timer()
+        embedding = []
+        epochs_done = []
+        embed_model = self.extract_spatial_features()
+
+        for epch in epochs:
+            # load weights
+            try:
+                w = None
+                w = Weights(run=self.run, epoch=epch)
+                assert(w is not None)
+            except:
+                print("Skipping. {} not found (epoch {})".format(self.run, epch))
+                continue
+
+            try:
+                self.load_weights(w)
+                # predict
+                pred = embed_model.predict(images)
+            except:
+                print("Epoch {} failed ({})".format(epch, w))
+                continue
+
+            embedding.append(np.expand_dims(pred, axis=0))
+            epochs_done.append(epch)
+
+        embedding = np.concatenate(embedding, axis=0)
+
+        total_time = (timer() - start) / 60 / 60
+        print("Total training time is {:.1f} hours".format(total_time))
+
+        # dump to Embed file
+        out_filename = Embed(self.run, data)
+        pickle.dump((embedding, epochs_done, meta, images, classes, labels, masks, z), open(out_filename, 'bw'))
+        print("Saved embedding of shape {} to: {}".format(embedding.shape, out_filename))
 
     def test(self, images, labels, N=0):
         assert images.shape[0] == labels.shape[0]
@@ -306,3 +366,6 @@ class BaseArch(object):
 
     def extract_core(self, weights=None, repool=False):
         raise NotImplementedError("extract_core() is an abstract method")
+
+    def extract_spatial_features(self, weights=None):
+        raise NotImplementedError("extract_spatial_features() is an abstract method")

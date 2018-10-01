@@ -47,17 +47,17 @@ def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='No
     if apply_mask_to_patch:
         print('WRN: apply_mask_to_patch is for debug only')
         testData = [(entry['patch'] * (0.3 + 0.7 * entry['mask']), entry['mask'], entry['label'], entry['info'],
-                     entry['size'], entry['rating'], entry['weights']) for entry in testData]
+                     entry['size'], entry['rating'], entry['weights'], entry['z']) for entry in testData]
         validData = [(entry['patch'] * (0.3 + 0.7 * entry['mask']), entry['mask'], entry['label'], entry['info'],
-                      entry['size'], entry['rating'], entry['weights']) for entry in validData]
+                      entry['size'], entry['rating'], entry['weights'], entry['z']) for entry in validData]
         trainData = [(entry['patch'] * (0.3 + 0.7 * entry['mask']), entry['mask'], entry['label'], entry['info'],
-                      entry['size'], entry['rating'], entry['weights']) for entry in trainData]
+                      entry['size'], entry['rating'], entry['weights'], entry['z']) for entry in trainData]
     else:
-        testData = [(entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size'], entry['rating'], entry['weights'])
+        testData = [(entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size'], entry['rating'], entry['weights'], entry['z'])
                     for entry in testData]
-        validData = [(entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size'], entry['rating'], entry['weights'])
+        validData = [(entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size'], entry['rating'], entry['weights'], entry['z'])
                      for entry in validData]
-        trainData = [(entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size'], entry['rating'], entry['weights'])
+        trainData = [(entry['patch'], entry['mask'], entry['label'], entry['info'], entry['size'], entry['rating'], entry['weights'], entry['z'])
                      for entry in trainData]
 
     image_ = np.concatenate([e[0] for e in trainData])
@@ -132,6 +132,7 @@ def prepare_data(data, rating_format='raw', new_size=None, do_augment=False, ret
     # 4 'size
     # 5 'rating'
     # 6 'rating_weights'
+    # 7 'z'
 
     N = len(data)
     old_size = data[0][0].shape
@@ -151,8 +152,11 @@ def prepare_data(data, rating_format='raw', new_size=None, do_augment=False, ret
         print("\tMasks Range = [{}, {}]".format(np.max(masks[0]), np.min(masks[0])))
 
     classes = np.array([entry[2] for entry in data]).reshape(N, 1)
+
+    rating_weights = None
     if rating_format == 'raw':
         ratings = np.array([rating_normalize(entry[5], scaling) for entry in data])
+        rating_weights = np.array([entry[6] for entry in data])
     elif rating_format == 'mean':
         ratings  = np.array([rating_normalize(np.mean(entry[5], axis=0), scaling) for entry in data]).reshape(N, 9)
     elif rating_format == 'w_mean':
@@ -171,6 +175,8 @@ def prepare_data(data, rating_format='raw', new_size=None, do_augment=False, ret
     NS = np.digitize(nodule_size, tresh)
     nodule_size = NS
 
+    z = np.array([entry[7] for entry in data]).reshape(N, 1)
+
     if do_augment:
         assert(False)
         #aug_images = []
@@ -186,6 +192,9 @@ def prepare_data(data, rating_format='raw', new_size=None, do_augment=False, ret
         classes = classes[new_order]
         masks  = masks[new_order]
         nodule_size = nodule_size[new_order]
+        z = z[new_order]
+        if rating_weights is not None:
+            rating_weights = rating_weights[new_order]
         #print('permutation: {}'.format(new_order[:20]))
 
     conf = None
@@ -204,7 +213,7 @@ def prepare_data(data, rating_format='raw', new_size=None, do_augment=False, ret
         if reshuffle:
             meta = reorder(meta, new_order)
 
-    return images, ratings, classes, masks, meta, conf, nodule_size
+    return images, ratings, classes, masks, meta, conf, nodule_size, rating_weights, z
 
 
 def select_balanced(self, some_set, labels, N, permutation):
@@ -215,9 +224,9 @@ def select_balanced(self, some_set, labels, N, permutation):
     return reshuff
 
 
-def prepare_data_direct(data, objective='malignancy', rating_scale='none', size=None, num_of_classes=2, balanced=False, return_meta=False, verbose= 0, reshuffle=True):
+def prepare_data_direct(data, objective='malignancy', rating_scale='none', weighted_rating=False, size=None, num_of_classes=2, balanced=False, return_meta=False, verbose= 0, reshuffle=True):
     rating_format = 'raw' if objective == 'distance-matrix' else 'w_mean'
-    images, ratings, classes, masks, meta, conf, nod_size = \
+    images, ratings, classes, masks, meta, conf, nod_size, rating_weights, z = \
         prepare_data(data, rating_format=rating_format, scaling=rating_scale, verbose=verbose, reshuffle=reshuffle, return_meta=return_meta)
 
     if objective == 'malignancy':
@@ -230,7 +239,7 @@ def prepare_data_direct(data, objective='malignancy', rating_scale='none', size=
     elif objective == 'rating_size':
         labels = ratings, nod_size
     elif objective == 'distance-matrix':
-        labels = ratings
+        labels = (ratings, rating_weights) if weighted_rating else ratings
     else:
         assert False
 
@@ -315,7 +324,7 @@ def select_same_pairs(class_A, class_B):
 def prepare_data_siamese(data, objective="malignancy", rating_distance='mean', balanced=False, return_meta=False, verbose= 0):
     if verbose:
         print('prepare_data_siamese:')
-    images, ratings, classes, masks, meta, conf, nod_size = \
+    images, ratings, classes, masks, meta, conf, nod_size, _ = \
         prepare_data(data, rating_format='raw', return_meta=return_meta, reshuffle=True, verbose=verbose)
     if verbose:
         print("benign:{}, malignant:{}, unknwon:{}".format(np.count_nonzero(classes == 0),
@@ -420,7 +429,7 @@ def prepare_data_siamese(data, objective="malignancy", rating_distance='mean', b
 def prepare_data_siamese_simple(data, siamese_rating_factor, objective="malignancy", rating_distance='mean', return_meta=False, verbose=0):
     if verbose:
         print('prepare_data_siamese_simple:')
-    images, ratings, classes, masks, meta, conf, nod_size = \
+    images, ratings, classes, masks, meta, conf, nod_size, _ = \
         prepare_data(data, rating_format='raw', scaling="none", return_meta=return_meta, reshuffle=True, verbose=verbose)
     if verbose:
         if return_meta:
@@ -535,7 +544,7 @@ def make_balanced_trip(elements, c1_head, c1_tail, c2_head, c2_tail):
 def prepare_data_triplet(data, objective="malignancy", rating_distance="mean", balanced=False, return_confidence=False, return_meta=False, verbose= 0):
     if verbose:
         print('prepare_data_triplet:')
-    images, ratings, classes, masks, meta, conf, nod_size \
+    images, ratings, classes, masks, meta, conf, nod_size, _ \
         = prepare_data(data, rating_format="raw", scaling="none", rating_confidence=return_confidence,
                        return_meta=return_meta, reshuffle=True, verbose=verbose)
     if verbose:

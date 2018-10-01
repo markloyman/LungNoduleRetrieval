@@ -120,6 +120,7 @@ class DirectArch(BaseArch):
         elif self.objective == 'distance-matrix':
             loss = {'embed_output': loss}
             #metrics = {'embed_output': root_mean_squared_error}
+
         self.compile_model( lr=learning_rate, lr_decay=decay,
                             loss       = loss,  # 'categorical_crossentropy', mean_squared_error
                             metrics     = metrics,
@@ -173,4 +174,15 @@ class DirectArch(BaseArch):
             model = Model(  inputs  = self.img_input,
                         outputs = self.base,
                         name    ='directEmbed')
+        return model
+
+    def extract_spatial_features(self, weights=None):
+
+        if weights is not None:
+            self.model.load_weights(weights)
+
+        model = Model(  inputs  = self.img_input,
+                    outputs = self.model.get_layer('pre_embed').output,
+                    name    ='directEmbed')
+
         return model

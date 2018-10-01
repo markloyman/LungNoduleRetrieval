@@ -66,8 +66,15 @@ class Embed(object):
         return open(filelist[0], 'br')
 
     def load(self, run=None, dset=None):
-        embed, epochs, meta, images, classes, labels, masks = pickle.load(self.read(run=run, dset=dset))
-        return embed, epochs, meta, images, classes, labels, masks
+        data = pickle.load(self.read(run=run, dset=dset))
+        if len(data) == 7:
+            embed, epochs, meta, images, classes, labels, masks = data
+            return embed, epochs, meta, images, classes, labels, masks
+        elif len(data) == 8:
+            embed, epochs, meta, images, classes, labels, masks, z = data
+            return embed, epochs, meta, images, classes, labels, masks, z
+        else:
+            assert False
 
     def write(self, run=None, epoch=None, dset=None):
         match = self.weightsTemplate.format(run, epoch, dset)

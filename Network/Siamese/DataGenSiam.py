@@ -15,14 +15,14 @@ class DataGeneratorSiam(DataGeneratorBase):
     """docstring for DataGenerator"""
 
     def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_size=32, objective="malignancy",
-                        categorize=False, rating_scale='none',
+                        categorize=False, rating_scale='none', weighted_rating=False,
                         do_augment=False, augment=None, use_class_weight=False, use_confidence=False, debug=False,
                         val_factor = 1, train_facotr = 1, balanced=False, configuration=None, full=False, include_unknown=False):
 
         super().__init__(data_size=data_size, model_size=model_size, res=res, sample=sample, batch_size=batch_size,
                          objective=objective, rating_scale=rating_scale, categorize=categorize,
                          full=full, include_unknown=include_unknown,
-                         do_augment=do_augment, augment=augment,
+                         do_augment=do_augment, augment=augment, weighted_rating=weighted_rating,
                          use_class_weight=use_class_weight, use_confidence=use_confidence,
                          val_factor=val_factor, balanced=balanced, train_factor=train_facotr,
                          configuration=configuration, debug=debug)
@@ -43,7 +43,7 @@ class DataGeneratorSiam(DataGeneratorBase):
 
 class DataSequenceSiam(DataSequenceBase):
     def __init__(self, dataset, is_training=True, model_size=128, batch_size=32,
-                 objective="malignancy", rating_scale='none', categorize=False,
+                 objective="malignancy", rating_scale='none', categorize=False, weighted_rating=False,
                  do_augment=False, augment=None, use_class_weight=False, use_confidence=False, debug=False,
                  data_factor=1, balanced=False):
 
@@ -56,7 +56,7 @@ class DataSequenceSiam(DataSequenceBase):
 
         super().__init__(dataset, is_training=is_training, model_size=model_size, batch_size=batch_size,
                          objective=objective, rating_scale=rating_scale, categorize=categorize,
-                         do_augment=do_augment, augment=augment,
+                         do_augment=do_augment, augment=augment, weighted_rating=weighted_rating,
                          use_class_weight=use_class_weight, use_confidence=use_confidence,
                          balanced=balanced, data_factor=data_factor)
 

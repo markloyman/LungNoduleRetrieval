@@ -23,13 +23,14 @@ class DataGeneratorBase(utils.Sequence):
 
     def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_size=32,
                         objective='malignancy', rating_scale='none', categorize=False,
-                        do_augment=False, augment=None,
+                        do_augment=False, augment=None, weighted_rating=False,
                         use_class_weight=False, use_confidence=False,
                         val_factor = 0, balanced=False, configuration=None, train_factor=1,
                         debug=False, full=False, include_unknown=False):
 
         self.objective = objective
         self.rating_scale = rating_scale
+        self.weighted_rating = weighted_rating
 
         dataset = load_nodule_dataset(size=data_size, res=res, sample=sample, configuration=configuration,
                                       full=full, include_unknown=include_unknown,
@@ -43,7 +44,7 @@ class DataGeneratorBase(utils.Sequence):
         self.balanced = balanced
 
         self.train_seq = self.get_sequence()(self.train_set,
-                                             model_size=model_size, batch_size=batch_size,
+                                             model_size=model_size, batch_size=batch_size, weighted_rating=weighted_rating,
                                              is_training=True, objective=objective, rating_scale=rating_scale,
                                              categorize=categorize, do_augment=do_augment, augment=augment,
                                              use_class_weight=use_class_weight, use_confidence=use_confidence,
@@ -51,7 +52,7 @@ class DataGeneratorBase(utils.Sequence):
 
         if val_factor > 1:
             self.val_seq = self.get_sequence()(self.valid_set,
-                                               model_size=model_size, batch_size=batch_size,
+                                               model_size=model_size, batch_size=batch_size, weighted_rating=weighted_rating,
                                                is_training=False, objective=objective, rating_scale=rating_scale,
                                                categorize=categorize, do_augment=do_augment, augment=augment,
                                                use_class_weight=use_class_weight, use_confidence=use_confidence,
@@ -80,12 +81,12 @@ class DataGeneratorBase(utils.Sequence):
         return self.get_data(self.test_set, is_training=False)
 
     def get_flat_data(self, dataset):
-        images, labels, classes, masks, meta, conf, nodule_size = \
+        images, labels, classes, masks, meta, conf, nodule_size, _, z = \
             prepare_data(dataset, rating_format='raw', verbose=True, reshuffle=False, return_meta=True)
         if self.model_size != self.data_size:
             images = np.array([crop_center(im, msk, size=self.model_size)[0]
                                for im, msk in zip(images, masks)])
-        return images, labels, classes, masks, meta, conf, nodule_size
+        return images, labels, classes, masks, meta, conf, nodule_size, z
 
     def get_flat_train_data(self):
         print('Loaded flat training data')
@@ -113,12 +114,13 @@ class DataSequenceBase(utils.Sequence):
 
     def __init__(self, dataset, is_training=True, model_size=128, batch_size=32,
                  objective='malignancy', rating_scale='none', categorize=False,
-                 do_augment=False, augment=None,
+                 do_augment=False, augment=None, weighted_rating=False,
                  use_class_weight=False, use_confidence=False,
                  balanced=False, data_factor=1):
 
         self.objective = objective
         self.rating_scale = rating_scale
+        self.weighted_rating = weighted_rating
         self.categorize = categorize
         self.dataset = dataset
         self.is_training = is_training
@@ -214,8 +216,10 @@ class DataSequenceBase(utils.Sequence):
         else:
             images_batch = [crop_center_all(images[index], masks[index], size=self.model_size)
                                 for images, masks in zip(self.images, self.masks)]
-
-        labels_batch = [self.process_label_batch(lbl[index]) for lbl in self.labels]
+        if self.weighted_rating:
+            labels_batch = [self.process_label_batch(self.labels[0][index], self.labels[1][index])]
+        else:
+            labels_batch = [self.process_label_batch(lbl[index]) for lbl in self.labels]
         if self.enable_regularization:
             labels_batch.append(np.zeros(self.batch_size))
 

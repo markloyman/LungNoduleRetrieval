@@ -24,7 +24,7 @@ class DataGeneratorDir(DataGeneratorBase):
 
     def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_size=32,
                         objective='malignancy', rating_scale='none', categorize=False,
-                        full=False, include_unknown=False,
+                        full=False, include_unknown=False, weighted_rating=False,
                         do_augment=False, augment=None,
                         use_class_weight=False, use_confidence=False,
                         val_factor = 0, train_factor=1, balanced=False, configuration=None,
@@ -34,7 +34,7 @@ class DataGeneratorDir(DataGeneratorBase):
 
         super().__init__(data_size= data_size, model_size=model_size, res=res, sample=sample, batch_size=batch_size,
                         objective=objective, rating_scale=rating_scale, categorize=categorize,
-                         full=full, include_unknown=include_unknown,
+                         full=full, include_unknown=include_unknown, weighted_rating=weighted_rating,
                         do_augment=do_augment, augment=augment,
                         use_class_weight=use_class_weight, use_confidence=use_confidence,
                         val_factor = val_factor, balanced=balanced, train_factor=train_factor,
@@ -53,7 +53,7 @@ class DataSequenceDir(DataSequenceBase):
 
     def __init__(self, dataset, is_training=True, model_size=128, batch_size=32,
                  objective='malignancy', rating_scale='none', categorize=False,
-                 do_augment=False, augment=None,
+                 do_augment=False, augment=None, weighted_rating=False,
                  use_class_weight=False, use_confidence=False,
                  balanced=False, data_factor=1):
 
@@ -64,7 +64,7 @@ class DataSequenceDir(DataSequenceBase):
 
         super().__init__(dataset, is_training=is_training, model_size=model_size, batch_size=batch_size,
                          objective=objective, rating_scale=rating_scale, categorize=categorize,
-                         do_augment=do_augment, augment=augment,
+                         do_augment=do_augment, augment=augment, weighted_rating=weighted_rating,
                          use_class_weight=use_class_weight, use_confidence=use_confidence,
                          balanced=balanced, data_factor=data_factor)
 
@@ -99,7 +99,7 @@ class DataSequenceDir(DataSequenceBase):
 
         images, labels, classes, masks, meta, weights = \
             prepare_data_direct(self.dataset, objective=self.objective, rating_scale=self.rating_scale, num_of_classes=2,
-                                size=self.model_size, verbose=self.verbose)
+                                size=self.model_size, verbose=self.verbose, weighted_rating=self.weighted_rating)
 
         sample_weights = np.ones(len(classes))
         if self.use_class_weight:
@@ -136,7 +136,7 @@ class DataSequenceDir(DataSequenceBase):
 
         return (images,), labels if type(labels) is tuple else tuple([labels]), classes, (masks,), sample_weights
 
-    def process_label_batch(self, labels_batch):
+    def process_label_batch(self, labels_batch, weights_batch=None):
         if self.objective == 'distance-matrix':
-            labels_batch = rating_clusters_distance_matrix(labels_batch)
+            labels_batch = rating_clusters_distance_matrix(labels_batch, weights=weights_batch)
         return labels_batch

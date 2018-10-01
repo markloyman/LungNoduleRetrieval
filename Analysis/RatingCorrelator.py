@@ -74,11 +74,13 @@ def linear_regression(x, y):
 
 class RatingCorrelator:
 
-    def __init__(self, filename, title='', set='', multi_epoch=False):
+    def __init__(self, filename, conf=None, title='', set='', multi_epoch=False):
         self.title  = title
         self.set    = set
 
-        self.load_embedding(filename, multi_epcch=multi_epoch)
+        if multi_epoch: assert conf is not None
+
+        self.load_embedding(filename, multi_epcch=multi_epoch, load_weights=True, confs=conf)
         self.len = len(self.meta_data)
 
         self.images = np.squeeze(self.images)
@@ -94,12 +96,14 @@ class RatingCorrelator:
         self.embed_metric           = ''
 
 
-    def load_embedding(self, source, multi_epcch=False):
+    def load_embedding(self, source, confs, load_weights=False, multi_epcch=False):
         self.multi_epcch = multi_epcch
         if type(source) is not list:
             source = [source]
-        self.images, self.embedding, self.meta_data, self.labels, self.classes, self.masks = [], [], [], [], [], []
-        for fn in source:
+        if type(confs) is not list:
+            confs = [confs]
+        self.images, self.embedding, self.meta_data, self.labels, self.classes, self.masks, self.weights = [], [], [], [], [], [], []
+        for c, fn in zip(confs, source):
             try:
                 assert(type(fn) is str)
                 if multi_epcch:
@@ -108,11 +112,28 @@ class RatingCorrelator:
                         m = meta_data
                         meta_data = images
                         images = m
+                    weights = None
+                    if load_weights:
+                        size = len(meta_data)
+                        if size < 400:
+                            data_type = 'Clean'
+                        elif size < 700:
+                            data_type = 'Primary'
+                        else:
+                            data_type = 'Full'
+                        data_filename = './Dataset/Dataset{}CV{}_{:.0f}-{}-{}.p'.format(data_type, c, 160, 0.5, 'Normal')
+                        data = pickle.load(open(data_filename, 'br'))
+                        n = len(data)
+                        assert n == len(meta_data)
+                        assert np.all([data[i]['info'][0] == meta_data[i][0] for i in range(n)])
+                        weights = [entry['weights'] for entry in data]
+
                     epochs = np.array(epochs)
                     embed_concat_axis = 1
                 else:
                     images, embedding, meta_data, labels, masks = pickle.load(open(fn, 'br'))
                     classes = labels
+                    weights = None
                     epochs = None
                     embed_concat_axis = 0
                 self.images.append(images)
@@ -121,6 +142,7 @@ class RatingCorrelator:
                 self.classes.append(classes)
                 self.labels.append(labels)
                 self.masks.append(masks)
+                self.weights.append(weights)
                 self.epochs = epochs
             except:
                 print("failed to load " + fn)
@@ -129,6 +151,7 @@ class RatingCorrelator:
         self.embedding = np.concatenate(self.embedding, axis=embed_concat_axis)
         self.labels = np.concatenate(self.labels)
         self.masks = np.concatenate(self.masks)
+        self.weights = np.concatenate(self.weights)
 
     def load_cached_rating_distance(self, filename='output/cache_ratings.p'):
         #return False
@@ -163,10 +186,9 @@ class RatingCorrelator:
         self.rating_distance_matrix = None  # reset after recalculating the ratings
 
     def evaluate_rating_distance_matrix(self, method='chebyshev', clustered_rating_distance=False, weighted=False):
-        assert weighted is False
         if clustered_rating_distance:
             n = len(self.rating)
-            self.rating_distance_matrix = rating_clusters_distance_matrix(self.rating)
+            self.rating_distance_matrix = rating_clusters_distance_matrix(self.rating, weights=self.weights if weighted else None)
         else:
             rating = np.array([np.mean(rat, axis=0) for rat in self.rating])
             self.rating_distance_matrix = calc_distance_matrix(rating, method)

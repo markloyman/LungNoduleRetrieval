@@ -179,15 +179,16 @@ def eval_correlation(run, net_type, metric, rating_metric, epochs, dset, objecti
         PmStd, KmStd, PrStd, KrStd = [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)]
 
         for c_idx, source in enumerate(embed_source):
-            Reg = RatingCorrelator(source, multi_epoch=True)
+            Reg = RatingCorrelator(source, conf=c_idx, multi_epoch=True)
 
             # load rating data
             cache_filename = 'output/cached_{}_{}_{}.p'.format(objective, source.split('/')[-1][6:-2], c_idx)
             if not Reg.load_cached_rating_distance(cache_filename):
                 print('evaluating rating distance matrix...')
                 Reg.evaluate_rating_space(norm=rating_norm, ignore_labels=False)
-                Reg.evaluate_rating_distance_matrix(method=rating_metric, clustered_rating_distance=True)
+                Reg.evaluate_rating_distance_matrix(method=rating_metric, clustered_rating_distance=True, weighted=True)
                 Reg.dump_rating_distance_to_cache(cache_filename)
+                #print('\tno dump for rating distance matrix...')
 
             if objective == 'size':
                 print('evaluating size distance matrix...')

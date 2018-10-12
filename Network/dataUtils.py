@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from scipy.ndimage.interpolation import rotate
 from scipy.spatial import distance_matrix
 from sklearn.utils import class_weight
+from skimage.measure import block_reduce
 
 
 def rating_normalize(rating, method):
@@ -245,6 +246,23 @@ def test_augment(dataset):
     print(values.shape)
     plt.hist(values, 100)
     plt.show()
+
+
+def format_data_as_sequence(data, embed_size, method='rmac'):
+    if method == 'flat':
+        data = np.array([im.swapaxes(0, 2).reshape([im.shape[2], embed_size]) for im in data])
+    elif method == 'rmac':
+        def rmac(x):
+            s1 = x.mean(axis=(1, 2))
+            s2 = block_reduce(x, (x.shape[0], 2,2, embed_size), np.max).mean(axis=(1, 2))
+            s4 = block_reduce(x, (x.shape[0], 2, 2, embed_size), np.max).mean(axis=(1, 2))
+            s8 = x.max(axis=(1, 2))
+            return s1 + s2 + s4 + s8
+        data = [rmac(im.swapaxes(0, 2).squeeze(axis=-1)) for im in data]
+    else:
+        assert False
+    return data
+
 
 if __name__ == "__main__":
 

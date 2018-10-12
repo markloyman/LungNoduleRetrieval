@@ -1,5 +1,5 @@
 from init import *
-from Network.FileManager import Embed
+from Network.FileManager import Embed, Dataset3d
 from Network.dataUtils import crop_center
 
 n_groups = 5
@@ -15,13 +15,12 @@ sample = 'Normal'
 net_type = 'dirR'
 run = '251'
 epoch = 60
-data_type = 'Valid'
 
-for c in range(n_groups):
 
-    embed, epochs, meta, images, classes, labels, masks, z = Embed('SP_' + net_type).load(run=run+'c{}'.format(c), dset=data_type)
+def process_data(data):
+    embed, epochs, meta, images, classes, labels, masks, z = data
     embed = np.squeeze(embed[np.array(epochs) == epoch])
-    print('Loaded embedding: {}'.format(embed.shape))
+    print('Loaded embedding: {} for config #{}'.format(embed.shape, c))
 
     nodule_ids = [reduce(lambda x, y: x + y, [m[0]] + m[-1]) for m in meta]
     unique_ids, id_map = np.unique(nodule_ids, return_inverse=True)
@@ -35,7 +34,9 @@ for c in range(n_groups):
         roi_volume = {}
         roi_volume['embed'] = np.moveaxis(np.array([embed[idx] for idx in curr_roi]), 0, 2)
         roi_volume['patch'] = np.array([images[idx] for idx in curr_roi]).swapaxes(0, -1).squeeze(axis=0)
-        roi_volume['mask'] = np.array([crop_center(image=None, mask=masks[idx], size=input_size)[1] for idx in curr_roi]).swapaxes(0, -1).squeeze(axis=0)
+        roi_volume['mask'] = np.array(
+            [crop_center(image=None, mask=masks[idx], size=input_size)[1] for idx in curr_roi]).swapaxes(0, -1).squeeze(
+            axis=0)
 
         roi_volume['rating'] = labels[curr_roi[0]]
         roi_volume['label'] = classes[curr_roi[0]]
@@ -47,6 +48,27 @@ for c in range(n_groups):
 
         dataset.append(roi_volume)
 
-    out_filename = 'Dataset3dCV{}_{}-{}-{}.p'.format(c, size, res, sample)
-    pickle.dump(dataset, open('Dataset/' + out_filename, 'bw'))
+    return dataset
+
+
+for c in range(n_groups):
+
+    # Valid -->> Train
+    # ====================
+
+    data = Embed('SP_' + net_type).load(run=run+'c{}'.format(c), dset='Valid')
+    dataset = process_data(data)
+
+    out_filename = Dataset3d(c).name(dset='Train', net=net_type, run=run, epoch=epoch)
+    pickle.dump(dataset, open(out_filename, 'bw'))
+    print('Dumpted {} entries to: {}'.format(len(dataset), out_filename))
+
+    # Test -->> Valid
+    # ====================
+
+    data = Embed('SP_' + net_type).load(run=run + 'c{}'.format(c), dset='Test')
+    dataset = process_data(data)
+
+    out_filename = Dataset3d(c).name(dset='Valid', net=net_type, run=run, epoch=epoch)
+    pickle.dump(dataset, open(out_filename, 'bw'))
     print('Dumpted {} entries to: {}'.format(len(dataset), out_filename))

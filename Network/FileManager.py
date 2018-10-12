@@ -112,3 +112,59 @@ class Pred(object):
         return self.manager.name(run, dset)
 
     __call__ = name
+
+
+class Dataset(object):
+
+    def __init__(self, data_type, conf, output_dir='./Dataset'):
+        self.weightsTemplate = output_dir + '/Dataset{}CV{}_{{:.0f}}-{{}}-{{}}.p'.format(data_type, conf)
+
+    def read(self, size, res, sample='Normal'):
+        match = self.weightsTemplate.format(size, res, sample)
+        filelist = glob(match)
+        if len(filelist) == 0:
+            print("Failed to find: {}".format(match))
+            return None
+        return open(filelist[0], 'br')
+
+    def load(self, size, res, sample='Normal'):
+        data = pickle.load(self.read(size, res, sample))
+        return data
+
+    def write(self, size, res, sample='Normal'):
+        match = self.weightsTemplate.format(size, res, sample)
+        return open(match, 'bw')
+
+    def name(self, size, res, sample='Normal'):
+        return self.weightsTemplate.format(size, res, sample)
+
+    __call__ = name
+
+
+class Dataset3d(object):
+
+    def __init__(self, conf, output_dir='./Dataset'):
+        data_type = '3d'
+        self.weightsTemplate = output_dir + '/Dataset{}CV{}-{{}}_{{}}{{}}-{{}}.p'.format(data_type, conf)
+
+    def read(self, dset, net, run, epoch):
+        match = self.weightsTemplate.format(dset, net, run, epoch)
+        filelist = glob(match)
+        if len(filelist) == 0:
+            print("Failed to find: {}".format(match))
+            return None
+        return open(filelist[0], 'br')
+
+    def load(self, dset, net, run, epoch):
+        data = pickle.load(self.read(dset, net, run, epoch))
+        return data
+
+    def write(self,  dset, net, run, epoch):
+        match = self.weightsTemplate.format( dset, net, run, epoch)
+        return open(match, 'bw')
+
+    def name(self,  dset, net, run, epoch):
+        return self.weightsTemplate.format( dset, net, run, epoch)
+
+    __call__ = name
+

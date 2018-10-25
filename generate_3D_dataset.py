@@ -56,19 +56,21 @@ for c in range(n_groups):
     # Valid -->> Train
     # ====================
 
-    data = Embed('SP_' + net_type).load(run=run+'c{}'.format(c), dset='Valid')
-    dataset = process_data(data)
+    for d in ['Train', 'Valid', 'Test']:
+        data = Embed('SP_' + net_type).load(run=run+'c{}'.format(c), dset=d)
+        dataset = process_data(data)
 
-    out_filename = Dataset3d(c).name(dset='Train', net=net_type, run=run, epoch=epoch)
-    pickle.dump(dataset, open(out_filename, 'bw'))
-    print('Dumpted {} entries to: {}'.format(len(dataset), out_filename))
+        out_filename = Dataset3d(c).name(dset=d, net=net_type, run=run, epoch=epoch)
+        pickle.dump(dataset, open(out_filename, 'bw'))
+        print('Dumpted {} entries to: {}'.format(len(dataset), out_filename))
 
     # Test -->> Valid
     # ====================
-
+    '''
     data = Embed('SP_' + net_type).load(run=run + 'c{}'.format(c), dset='Test')
     dataset = process_data(data)
 
     out_filename = Dataset3d(c).name(dset='Valid', net=net_type, run=run, epoch=epoch)
     pickle.dump(dataset, open(out_filename, 'bw'))
     print('Dumpted {} entries to: {}'.format(len(dataset), out_filename))
+    '''

@@ -1,12 +1,14 @@
 import numpy as np
 try:
     from Network.Common.dataGenBase import DataGeneratorBase, DataSequenceBase
-    from Network.data_loader import load_nodule_dataset, prepare_data_siamese, prepare_data_siamese_simple, prepare_data
+    from Network.data_loader import load_nodule_dataset
+    from Network.Siamese.prepare_data import prepare_data_siamese, prepare_data_siamese_simple, prepare_data
     from Network.dataUtils import augment_all, crop_center, get_sample_weight_for_similarity, get_class_weight
     from Network.Siamese.metrics import siamese_rating_factor
 except:
     from Common.dataGenBase import DataGeneratorBase, DataSequenceBase
-    from data_loader import load_nodule_dataset, prepare_data_siamese, prepare_data_siamese_simple, prepare_data
+    from data_loader import load_nodule_dataset
+    from Siamese.prepare_data import prepare_data_siamese, prepare_data_siamese_simple, prepare_data
     from dataUtils import augment_all, crop_center, get_sample_weight, get_class_weight
     from Siamese.metrics import siamese_rating_factor
 
@@ -14,18 +16,17 @@ except:
 class DataGeneratorSiam(DataGeneratorBase):
     """docstring for DataGenerator"""
 
-    def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_size=32, objective="malignancy",
+    def __init__(self,  load_dataset_fn, data_size= 128, model_size=128, batch_size=32, objective="malignancy",
                         categorize=False, rating_scale='none', weighted_rating=False,
-                        do_augment=False, augment=None, use_class_weight=False, use_confidence=False, debug=False,
-                        val_factor = 1, train_facotr = 1, balanced=False, configuration=None, full=False, include_unknown=False):
+                        do_augment=False, augment=None, use_class_weight=False, use_confidence=False,
+                        val_factor = 1, train_facotr = 1, balanced=False, seq_model=False):
 
-        super().__init__(data_size=data_size, model_size=model_size, res=res, sample=sample, batch_size=batch_size,
+        super().__init__(load_dataset_fn, data_size=data_size, model_size=model_size, batch_size=batch_size,
                          objective=objective, rating_scale=rating_scale, categorize=categorize,
-                         full=full, include_unknown=include_unknown,
                          do_augment=do_augment, augment=augment, weighted_rating=weighted_rating,
                          use_class_weight=use_class_weight, use_confidence=use_confidence,
                          val_factor=val_factor, balanced=balanced, train_factor=train_facotr,
-                         configuration=configuration, debug=debug)
+                         seq_model=seq_model)
 
     def get_sequence(self):
         return DataSequenceSiam
@@ -45,7 +46,7 @@ class DataSequenceSiam(DataSequenceBase):
     def __init__(self, dataset, is_training=True, model_size=128, batch_size=32,
                  objective="malignancy", rating_scale='none', categorize=False, weighted_rating=False,
                  do_augment=False, augment=None, use_class_weight=False, use_confidence=False, debug=False,
-                 data_factor=1, balanced=False):
+                 data_factor=1, balanced=False, seq_model=False):
 
         #assert use_confidence is False
         assert categorize is False
@@ -58,7 +59,7 @@ class DataSequenceSiam(DataSequenceBase):
                          objective=objective, rating_scale=rating_scale, categorize=categorize,
                          do_augment=do_augment, augment=augment, weighted_rating=weighted_rating,
                          use_class_weight=use_class_weight, use_confidence=use_confidence,
-                         balanced=balanced, data_factor=data_factor)
+                         balanced=balanced, data_factor=data_factor, seq_model=False)
 
     def calc_N(self, data_factor=1):
         if self.objective == "malignancy":
@@ -82,7 +83,7 @@ class DataSequenceSiam(DataSequenceBase):
     def load_data(self):
 
         if self.objective == "malignancy":
-            images, labels, masks, confidence = \
+            images, labels, masks, confidence, meta = \
                 prepare_data_siamese(self.dataset, balanced=(self.balanced and self.is_training),
                                      objective=self.objective, verbose=self.verbose)
             if self.use_class_weight:
@@ -93,8 +94,8 @@ class DataSequenceSiam(DataSequenceBase):
                 sample_weight = np.ones(labels.shape)
         #elif self.objective == "rating":
         else:
-            images, labels, masks, confidence = \
-                prepare_data_siamese_simple(self.dataset, rating_distance='clusters',
+            images, labels, masks, confidence, meta = \
+                prepare_data_siamese_simple(self.dataset, rating_distance='weighted_clusters',
                                             objective=self.objective, verbose=self.verbose, siamese_rating_factor=siamese_rating_factor)
 
             if self.use_confidence:
@@ -104,6 +105,6 @@ class DataSequenceSiam(DataSequenceBase):
 
         print('sample weights: {}'.format(sample_weight[:10]))
 
-        return images, labels, [None]*len(labels), masks, sample_weight
+        return images, labels if type(labels) is tuple else tuple([labels]), [None]*len(labels), masks, sample_weight
 
 

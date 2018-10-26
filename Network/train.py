@@ -18,7 +18,8 @@ try:
     from Network.Triplet.tripletArch import TripArch
     from Network.Triplet.DataGenTrip import DataGeneratorTrip
     from Network.model import miniXception_loader
-    from Network.data_loader import load_nodule_dataset, prepare_data_direct
+    from Network.data_loader import load_nodule_dataset, build_loader
+    from Network.Direct import prepare_data_direct
     from Network.dataUtils import crop_center
     from Network import FileManager
     input_dir = './output'
@@ -33,7 +34,8 @@ except:
     from Triplet.tripletArch import TripArch
     from Triplet.DataGenTrip import DataGeneratorTrip
     from model import miniXception_loader
-    from data_loader import load_nodule_dataset, prepare_data_direct
+    from data_loader import load_nodule_dataset, build_loader
+    from Direct import prepare_data_direct
     from dataUtils import crop_center
     import FileManager
     input_dir = '/input'
@@ -77,9 +79,10 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
     ## --------------------------------------- ##
 
     #data
+    dataset_type = 'Clean'
     data_size = 160
     if no_training:
-        data_size = 128
+        data_size = 160
     res = 0.5  # 'Legacy' #0.7 #0.5 #'0.5I'
     sample = 'Normal'  # 'UniformNC' #'Normal' #'Uniform'
     use_gen = True
@@ -91,6 +94,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
     do_augment = True
     if no_training:
         do_augment = False
+    preload_weight = None
 
     print("-"*30)
     print("Running {} for --** {} **-- model, with #{} configuration".
@@ -102,6 +106,8 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
     model = None
 
     data_augment_params = {'max_angle': 30, 'flip_ratio': 0.5, 'crop_stdev': 0.15, 'epoch': 0}
+
+    data_loader = build_loader(size=data_size, res=res, sample=sample, dataset_type=dataset_type, configuration=config)
 
     ## --------------------------------------- ##
     ## ------- Prepare Direct Architecture ------- ##
@@ -147,24 +153,24 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         #run = '251'  # avg-pooling
         #run = '252'  # msrmac-pooling
         #run = 'dir253'  # avg-pooling, aug
-        run = '254'  # msrmac-pooling, aug
-        #run = '_zz'
+        #run = '254'  # msrmac-pooling, aug
+        run = 'zzz'
 
         model = DirectArch( miniXception_loader, input_shape, output_size=out_size,
                             normalize=normalize, pooling='msrmac')
         model.model.summary()
         model.compile(learning_rate=1e-3, decay=0)
         if use_gen:
-            generator = DataGeneratorDir(
-                            configuration=config, val_factor=0 if skip_validation else 1, balanced=False,
-                            data_size=data_size, model_size=model_size, res=res, sample=sample, batch_size=32,
+            generator = DataGeneratorDir(data_loader,
+                            val_factor=0 if skip_validation else 1, balanced=False,
+                            data_size=data_size, model_size=model_size, batch_size=32,
                             do_augment=do_augment, augment=data_augment_params,
                             use_class_weight=True, use_confidence=False)
             model.load_generator(generator)
         else:
             dataset = load_nodule_dataset(size=data_size, res=res, sample=sample)
-            images_train, labels_train, class_train, masks_train, _ = prepare_data_direct(dataset[2], num_of_classes=2, size=model_size)
-            images_valid, labels_valid, class_valid, masks_valid, _ = prepare_data_direct(dataset[1], num_of_classes=2, size=model_size)
+            images_train, labels_train, class_train, masks_train, _ = prepare_data_direct(dataset[2], num_of_classes=2)
+            images_valid, labels_valid, class_valid, masks_valid, _ = prepare_data_direct(dataset[1], num_of_classes=2)
             images_train = np.array([crop_center(im, msk, size=model_size)[0]
                                for im, msk in zip(images_train, masks_train)])
             images_valid = np.array([crop_center(im, msk, size=model_size)[0]
@@ -187,7 +193,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         #run = 'dirR012'  # logcosh, rmac, no scaling, decay
         #run = 'dirR013'  # model-binary, rmac, logcosh
         #run = 'dirR014ZZ'  # model-not-binary, rmac, logcosh
-        #run = 'ZZZ'  #
+
         #run = '201b'  # msrmac-pool
         #run = '202c'  # avg-pool
 
@@ -234,17 +240,41 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         #run = '502' # schd1 *corrected data-loading
         #run = '503' # schd2 *corrected data-loading
 
-        run = '512c'  # primary aug
+        #run = '512c'  # primary aug
 
-        #run = '600'
+        #run = '600'  # base full aug
+        #run = '601b'  # full aug + confidence
+        #run = '602'  # full aug + confidence + b64
+        #run = '603'  # full aug + confidence + b32 + lr-4
+        #run = '604'  # full aug + confidence + pretrain:dirR251
+        #run = '605'  # full aug + confidence + pretrain:dirR251 + lr-4
+        #run = '606'
+
+        #run = '700'  # distance-matrix-loss primary aug
+        #run = '701'  # distance-matrix-loss primary aug (-corretion loss)
+        #run = '702'  # distance-matrix-loss primary aug (-corretion loss) b64
+        #run = '703'  # distance-matrix-loss primary aug (-corretion loss) b128
+        #run = '704'  # distance-matrix, pretrain:dirR251
+        #run = '705'  # distance-matrix, l2-correlation
+        #run = '706'  # distance-matrix, l2-correlation, pretrain:dirR251
+        #run = '707'  # distance-matrix, l2-correlation, pretrain:dirR251, lr-4, dm-labels
+        #run = '708'  # distance-matrix, l2-correlation, pretrain:dirR251, lr-4, b64, dm-labels
+        #run = '709'  # distance-matrix, l2-corr, dm-labels
+
+        #run = '710'  # distance-matrix, l2-corr, dm-labels, pretrain:dirR251-20
+
+        #run = '720'  # distance-matrix, l2-corr, dm-labels-weighted,
+
+        run = 'abx'
+
+        obj = 'rating'  # 'distance-matrix' 'rating' 'rating-size'
 
         rating_scale = 'none'
-        obj = 'rating_size'  # 'distance-matrix'
-
         reg_loss = None  # {'SampleCorrelation': 0.0}  # 'Dispersion', 'Std', 'FeatureCorrelation', 'SampleCorrelation'
         batch_size = 32
 
-        preload_weight = None  # FileManager.Weights('dirRS', output_dir=input_dir).name(run='512c{}'.format(config), epoch=120)
+        epoch_pre = 20
+        preload_weight = None  # FileManager.Weights('dirR', output_dir=input_dir).name(run='251c{}'.format(config), epoch=epoch_pre)
 
         model = DirectArch(miniXception_loader, input_shape, output_size=out_size, objective=obj, separated_prediction=False,
                            normalize=normalize, pooling='msrmac', l1_regularization=None, regularization_loss=reg_loss, batch_size=batch_size)
@@ -266,18 +296,18 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         model.compile(learning_rate=1e-3, decay=0, loss=loss, scheduale=sched) # mean_squared_logarithmic_error, binary_crossentropy, logcosh
 
         if use_gen:
-            generator = DataGeneratorDir(configuration=config, val_factor=0 if skip_validation else 1,
-                    data_size=data_size, model_size=model_size, res=res, sample=sample, batch_size=batch_size,
-                    objective=obj, rating_scale=rating_scale,
-                    full=False, include_unknown=True,
+            generator = DataGeneratorDir(data_loader,
+                    val_factor=0 if skip_validation else 1,
+                    data_size=data_size, model_size=model_size, batch_size=batch_size,
+                    objective=obj, rating_scale=rating_scale, weighted_rating=(obj=='distance-matrix'),
                     balanced=False,
                     do_augment=do_augment, augment=data_augment_params,
-                    use_class_weight=False, use_confidence=False)
+                    use_class_weight=False, use_confidence=True)
             model.load_generator(generator)
         else:
-            dataset = load_nodule_dataset(size=data_size, res=res, sample=sample)
-            images_train, labels_train, masks_train = prepare_data_direct(dataset[2], size=model_size, objective='rating', rating_scale=rating_scale)
-            images_valid, labels_valid, masks_valid = prepare_data_direct(dataset[1], size=model_size, objective='rating', rating_scale=rating_scale)
+            dataset = load_nodule_dataset(size=data_size, res=res, sample=sample, dataset_type=dataset_type)
+            images_train, labels_train, masks_train = prepare_data_direct(dataset[2], objective='rating', rating_scale=rating_scale)
+            images_valid, labels_valid, masks_valid = prepare_data_direct(dataset[1], objective='rating', rating_scale=rating_scale)
             images_train = np.array([crop_center(im, msk, size=model_size)[0]
                                for im, msk in zip(images_train, masks_train)])
             images_valid = np.array([crop_center(im, msk, size=model_size)[0]
@@ -307,15 +337,16 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         #run = '220' # l2, max, data-aug
         #run = '224'  # l2, msrmac, data-aug
         #run = '230' # l2 max, alt-loss, data-aug
-        run = '234'  # l2 msrmac, alt-loss, data-aug
+        #run = '234'  # l2 msrmac, alt-loss, data-aug
 
+        run = 'zzz'
 
         gen = True
         batch_size = 64 if local else 128
 
         # model
-        generator = DataGeneratorSiam(configuration=config,
-                                      data_size=data_size, model_size=model_size, res=res, sample=sample, batch_size=batch_size,
+        generator = DataGeneratorSiam(data_loader,
+                                      data_size=data_size, model_size=model_size, batch_size=batch_size,
                                       val_factor=0 if skip_validation else 3, balanced=True, objective="malignancy",
                                       do_augment=do_augment, augment=data_augment_params,
                                       use_class_weight=False)
@@ -357,30 +388,53 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         #run = '180'  # baseline, b64
         #run = '181'  # baseline, FeatCorr.1
         #run = '182'  # baseline, SampCorr.1
-        #run = '200'  # pretrain with dirR251-70
-        run = 'zzz'
 
+        #run = '200'  # pretrain with dirR251-70
+
+        #run = '300'   # obj: size
+        #run = '311'  # obj: rating-size
+
+        run = 'zzz'  #
+
+
+        obj = 'rating'  # rating / size / rating_size
         batch_size = 16 if local else 64
         reg_loss = None  # {'SampleCorrelation': 0.1}  # 'Dispersion', 'Std', 'FeatureCorrelation', 'SampleCorrelation'
 
+        epoch_pre = 60
         preload_weight = None  # FileManager.Weights('dirR', output_dir=input_dir).name(run='251c{}'.format(config), epoch=70)
 
+        should_use_scheduale = (reg_loss is not None) or (obj == 'rating_size')
+        '''
+        sched = [{'epoch': 00, 'weights': [0.1, 0.9]},
+                 {'epoch': 30, 'weights': [0.4, 0.6]},
+                 {'epoch': 60, 'weights': [0.6, 0.4]},
+                 {'epoch': 80, 'weights': [0.9, 0.1]},
+                 {'epoch': 100, 'weights': [1.0, 0.0]}] \
+            if should_use_scheduale else []
+        '''
+        sched = [{'epoch': 00, 'weights': [0.1, 0.9]},
+                 {'epoch': 20, 'weights': [0.4, 0.6]},
+                 {'epoch': 30, 'weights': [0.6, 0.4]},
+                 {'epoch': 50, 'weights': [0.9, 0.1]},
+                 {'epoch': 80, 'weights': [1.0, 0.0]}] \
+            if should_use_scheduale else []
         # model
-        generator = DataGeneratorSiam(configuration=config,
-                                      data_size=data_size, model_size=model_size, res=res, sample=sample, batch_size=batch_size,
+        generator = DataGeneratorSiam(data_loader,
+                                      data_size=data_size, model_size=model_size, batch_size=batch_size,
                                       train_facotr=2, val_factor=0 if skip_validation else 3, balanced=False,
-                                      objective="rating", full=False, include_unknown=False,
+                                      objective=obj,
                                       do_augment=do_augment, augment=data_augment_params,
                                       use_class_weight=False, use_confidence=False)
 
-        model = SiamArch(miniXception_loader, input_shape, output_size=out_size, objective="rating",
+        model = SiamArch(miniXception_loader, input_shape, output_size=out_size, objective=obj,
                          batch_size=batch_size, distance='l2', normalize=normalize, pooling='msrmac',
                          regularization_loss=reg_loss, l1_regularization=False)
 
         if preload_weight is not None:
             model.load_core_weights(preload_weight)
         model.model.summary()
-        model.compile(learning_rate=1e-3, decay=0, loss='logcosh') # mean_squared_error, logcosh
+        model.compile(learning_rate=1e-3, decay=0, loss='logcosh', scheduale=sched) # mean_squared_error, logcosh
         model.load_generator(generator)
 
     ## --------------------------------------- ##
@@ -427,8 +481,8 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         model.model.summary()
         model.compile(learning_rate=1e-3, decay=0) #0.05
 
-        generator = DataGeneratorTrip(configuration=config,
-                                      data_size=data_size, model_size=model_size, res=res, sample=sample, batch_size=16,
+        generator = DataGeneratorTrip(data_loader,
+                                      data_size=data_size, model_size=model_size, batch_size=16,
                                       objective=objective, balanced=(objective == 'malignancy'), categorize=True,
                                       val_factor=0 if skip_validation else 3, train_factor=1,
                                       do_augment=do_augment, augment=data_augment_params,
@@ -446,8 +500,8 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
 
     if no_training:
         model.last_epoch = epochs
-        model.run='{}{}c{}'.format('', run, config)
+        model.run = '{}{}c{}'.format('', run, config)
     else:
-        model.train(run='{}{}c{}'.format('', run, config), epoch=0, n_epoch=epochs, gen=use_gen, do_graph=False)
+        model.train(run='{}{}c{}'.format('', run, config), epoch=(0 if preload_weight is None else epoch_pre), n_epoch=epochs, gen=use_gen, do_graph=False)
 
     return model

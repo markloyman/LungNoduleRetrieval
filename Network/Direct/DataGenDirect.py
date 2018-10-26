@@ -1,14 +1,16 @@
 import numpy as np
 try:
     from Network.Common.dataGenBase import DataGeneratorBase, DataSequenceBase
-    from Network.data_loader import load_nodule_dataset, prepare_data, prepare_data_direct
+    from Network.data_loader import load_nodule_dataset
+    from Network.Direct.prepare_data import prepare_data, prepare_data_direct
     from Network.dataUtils import augment_all, crop_center, get_sample_weight, get_class_weight
-    from Network.Common.utils import rating_clusters_distance_matrix
+    from Network.dataUtils import rating_clusters_distance_matrix
 except:
     from Common.dataGenBase import DataGeneratorBase, DataSequenceBase
-    from data_loader import load_nodule_dataset, prepare_data, prepare_data_direct
+    from data_loader import load_nodule_dataset
+    from Direct.prepare_data import prepare_data, prepare_data_direct
     from dataUtils import augment_all, crop_center, get_sample_weight, get_class_weight
-    from Common.utils import rating_clusters_distance_matrix
+    from dataUtils import rating_clusters_distance_matrix
 
 
 def select_balanced(some_set, labels, N, permutation):
@@ -22,31 +24,30 @@ def select_balanced(some_set, labels, N, permutation):
 class DataGeneratorDir(DataGeneratorBase):
     """docstring for DataGenerator"""
 
-    def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_size=32,
+    def __init__(self,  load_dataset_fn, data_size= 128, model_size=128, batch_size=32,
                         objective='malignancy', rating_scale='none', categorize=False,
-                        full=False, include_unknown=False, weighted_rating=False,
+                        weighted_rating=False,
                         do_augment=False, augment=None,
                         use_class_weight=False, use_confidence=False,
-                        val_factor = 0, train_factor=1, balanced=False, configuration=None,
-                        debug=False):
+                        val_factor = 0, train_factor=1, balanced=False,
+                        seq_model=False):
 
         assert categorize is False
 
-        super().__init__(data_size= data_size, model_size=model_size, res=res, sample=sample, batch_size=batch_size,
+        super().__init__(load_dataset_fn, data_size= data_size, model_size=model_size, batch_size=batch_size,
                         objective=objective, rating_scale=rating_scale, categorize=categorize,
-                         full=full, include_unknown=include_unknown, weighted_rating=weighted_rating,
+                        weighted_rating=weighted_rating,
                         do_augment=do_augment, augment=augment,
                         use_class_weight=use_class_weight, use_confidence=use_confidence,
                         val_factor = val_factor, balanced=balanced, train_factor=train_factor,
-                         configuration=configuration, debug=debug)
+                        seq_model=seq_model)
 
     def get_sequence(self):
         return DataSequenceDir
 
     def get_data(self, dataset, is_training):
         return prepare_data_direct(dataset, objective=self.objective, reshuffle=False,
-                                   rating_scale=self.rating_scale, num_of_classes=2, size=self.model_size,
-                                   verbose=True, return_meta=True)
+                                   rating_scale=self.rating_scale, num_of_classes=2, verbose=True)
 
 
 class DataSequenceDir(DataSequenceBase):
@@ -55,7 +56,7 @@ class DataSequenceDir(DataSequenceBase):
                  objective='malignancy', rating_scale='none', categorize=False,
                  do_augment=False, augment=None, weighted_rating=False,
                  use_class_weight=False, use_confidence=False,
-                 balanced=False, data_factor=1):
+                 balanced=False, data_factor=1, seq_model=False):
 
         assert (categorize is False)
 
@@ -66,7 +67,7 @@ class DataSequenceDir(DataSequenceBase):
                          objective=objective, rating_scale=rating_scale, categorize=categorize,
                          do_augment=do_augment, augment=augment, weighted_rating=weighted_rating,
                          use_class_weight=use_class_weight, use_confidence=use_confidence,
-                         balanced=balanced, data_factor=data_factor)
+                         balanced=balanced, data_factor=data_factor, seq_model=seq_model)
 
     def calc_N(self, data_factor):
 
@@ -97,9 +98,14 @@ class DataSequenceDir(DataSequenceBase):
 
     def load_data(self):
 
+        rating_format = 'mean' if self.seq_model else 'w_mean'
+        if rating_format == 'mean':
+            print("WRN: rating_format is 'mean' instead of 'w_mean'");
+
         images, labels, classes, masks, meta, weights = \
-            prepare_data_direct(self.dataset, objective=self.objective, rating_scale=self.rating_scale, num_of_classes=2,
-                                size=self.model_size, verbose=self.verbose, weighted_rating=self.weighted_rating)
+            prepare_data_direct(self.dataset,
+                                objective=self.objective, rating_scale=self.rating_scale, rating_format=rating_format,
+                                num_of_classes=2, verbose=self.verbose, weighted_rating=self.weighted_rating)
 
         sample_weights = np.ones(len(classes))
         if self.use_class_weight:

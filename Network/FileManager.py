@@ -73,6 +73,9 @@ class Embed(object):
         elif len(data) == 8:
             embed, epochs, meta, images, classes, labels, masks, z = data
             return embed, epochs, meta, images, classes, labels, masks, z
+        elif len(data) == 10:
+            embed, epochs, meta, images, classes, labels, masks, conf, rating_weights, z = data
+            return embed, epochs, meta, images, classes, labels, masks, conf, rating_weights, z
         else:
             assert False
 
@@ -116,8 +119,8 @@ class Pred(object):
 
 class Dataset(object):
 
-    def __init__(self, data_type, conf, output_dir='./Dataset'):
-        self.weightsTemplate = output_dir + '/Dataset{}CV{}_{{:.0f}}-{{}}-{{}}.p'.format(data_type, conf)
+    def __init__(self, data_type, conf, dir='./Dataset'):
+        self.weightsTemplate = dir + '/Dataset{}CV{}_{{:.0f}}-{{}}-{{}}.p'.format(data_type, conf)
 
     def read(self, size, res, sample='Normal'):
         match = self.weightsTemplate.format(size, res, sample)
@@ -143,9 +146,9 @@ class Dataset(object):
 
 class Dataset3d(object):
 
-    def __init__(self, conf, output_dir='./Dataset'):
+    def __init__(self, conf, dir='./Dataset'):
         data_type = '3d'
-        self.weightsTemplate = output_dir + '/Dataset{}CV{}-{{}}_{{}}{{}}-{{}}.p'.format(data_type, conf)
+        self.weightsTemplate = dir + '/Dataset{}CV{}-{{}}_{{}}{{}}-{{}}.p'.format(data_type, conf)
 
     def read(self, dset, net, run, epoch):
         match = self.weightsTemplate.format(dset, net, run, epoch)

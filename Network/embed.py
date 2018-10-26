@@ -7,7 +7,8 @@ try:
     from Network.Siamese.siameseArch import SiamArch
     from Network.Triplet.tripletArch import TripArch
     from Network.dataUtils import crop_center
-    from Network.data_loader import load_nodule_dataset, prepare_data
+    from Network.data_loader import load_nodule_dataset
+    from Network.Common import prepare_data
     from Network.model import miniXception_loader
 except:
     import FileManager
@@ -15,7 +16,8 @@ except:
     from Siamese.siameseArch import SiamArch
     from Triplet.tripletArch import TripArch
     from dataUtils import crop_center
-    from data_loader import load_nodule_dataset, prepare_data
+    from data_loader import load_nodule_dataset
+    from Common import prepare_data
     from model import miniXception_loader
 
 class Embeder:
@@ -38,11 +40,11 @@ class Embeder:
 
         self.model = None
 
-    def prepare_data(self, data_subset_id, configuration=None):
+    def prepare_data(self, data_subset_id, dataset_type='Clean', configuration=None):
 
         images, labels, classes, masks, meta, conf = \
-            prepare_data(load_nodule_dataset(configuration=configuration, size=self.data_size, res=self.data_res, sample=self.data_sample)[data_subset_id],
-                         categorize=False,
+            prepare_data(load_nodule_dataset(size=self.data_size, res=self.data_res, sample=self.data_sample, dataset_type=dataset_type,
+                                             configuration=configuration)[data_subset_id],
                          reshuffle=False,
                          return_meta=True,
                          verbose=1)

@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 
 #plt.interactive(False)
 
+
 def getNoduleSize(nodule):
     # take largest dimension over all annotations
     # nodule: cluster of annotations
@@ -11,6 +12,7 @@ def getNoduleSize(nodule):
     for ann in nodule:
         bb = max(bb, max(ann.bbox_dimensions()))
     return bb
+
 
 def getAnnotation(info, return_all=False, nodule_ids=None):
     qu = pl.query(pl.Scan).filter(pl.Scan.patient_id == info[0],

@@ -2,9 +2,13 @@ import numpy as np
 from numpy.random import rand
 import matplotlib.pyplot as plt
 from scipy.ndimage.interpolation import rotate
-from scipy.spatial import distance_matrix
+from scipy.spatial.distance import cdist
 from sklearn.utils import class_weight
 from skimage.measure import block_reduce
+
+
+def reorder(a_list, order):
+    return [a_list[order[i]] for i in range(len(order))]
 
 
 def rating_normalize(rating, method):
@@ -37,15 +41,6 @@ def uncategorize(hot_labels):
 
 def l2_distance(a, b):
     return np.sqrt((a - b).dot(a - b))
-
-
-def cluster_distance(a, b):
-    assert False  # need to validate first
-    distances = distance_matrix(a, b)
-    nns =  np.mean(np.min(distances, axis=0))
-    nns += np.mean(np.min(distances, axis=1))
-
-    return nns
 
 
 def get_class_weight(labels, method='balanced'):
@@ -248,20 +243,53 @@ def test_augment(dataset):
     plt.show()
 
 
-def format_data_as_sequence(data, embed_size, method='rmac'):
+def format_data_as_sequence(data, embed_size, method='flat'):
     if method == 'flat':
         data = np.array([im.swapaxes(0, 2).reshape([im.shape[2], embed_size]) for im in data])
     elif method == 'rmac':
         def rmac(x):
             s1 = x.mean(axis=(1, 2))
-            s2 = block_reduce(x, (x.shape[0], 2,2, embed_size), np.max).mean(axis=(1, 2))
+            s2 = block_reduce(x, (x.shape[0], 2, 2, embed_size), np.max).mean(axis=(1, 2))
             s4 = block_reduce(x, (x.shape[0], 2, 2, embed_size), np.max).mean(axis=(1, 2))
             s8 = x.max(axis=(1, 2))
-            return s1 + s2 + s4 + s8
+            x = s1 + s2 + s4 + s8
+            norm = np.sqrt(np.sum(x*x, axis=1, keepdims=True))
+            x = x / np.where(norm > 0, norm, 1)
+            return x
         data = [rmac(im.swapaxes(0, 2).squeeze(axis=-1)) for im in data]
     else:
         assert False
     return data
+
+
+def rating_clusters_distance(rating_a, rating_b, distance_norm='eucledean', weight_a=None, weight_b=None):
+    dm = cdist(rating_a, rating_b, distance_norm)
+    d_b = np.min(dm, axis=0)
+    d_a = np.min(dm, axis=1)
+
+    if (weight_a is None) or (weight_b is None):
+        distance = 0.5 * np.mean(d_a) + 0.5 * np.mean(d_b)
+    else:
+        distance = 0.5 * np.dot(d_a, weight_a) / len(d_a) + 0.5 * np.dot(d_b, weight_b) / len(d_b)
+
+    return distance
+
+
+def rating_clusters_distance_matrix(ratings, distance_norm='euclidean', weights=None):
+    n = len(ratings)
+    distance_matrix = np.zeros((n, n))
+    for i in range(n):
+        for j in range(n):
+            if i <= j:
+                continue
+            if weights is None:
+                distance = rating_clusters_distance(ratings[i], ratings[j], distance_norm)
+            else:
+                distance = rating_clusters_distance(ratings[i], ratings[j], distance_norm, weights[i], weights[j])
+            distance_matrix[i, j] = distance
+            distance_matrix[j, i] = distance
+
+    return distance_matrix
 
 
 if __name__ == "__main__":

@@ -22,13 +22,14 @@ class Rating:
         self.model = DirectArch(miniXception_loader, input_shape, objective="rating", pooling=self.pooling, output_size=self.out_size,
                            normalize=True)
 
-    def load_dataset(self, data_subset_id, size=160, sample='Normal', res=0.5, rating_scale='none', configuration=None, full=False, include_unknown=False):
+    def load_dataset(self, data_subset_id, size=160, sample='Normal', res=0.5, rating_scale='none', configuration=None, dataset_type='Clean'):
         # prepare test data
         self.images_test, self.labels_test, self.classes_test, self.masks_test, self.meta_test, _ = \
-            prepare_data_direct(load_nodule_dataset(configuration=configuration, size=size, res=res, sample=sample, full=full, include_unknown=include_unknown)[data_subset_id],
-                                size=size,
-                                return_meta=True, objective="rating", rating_scale=rating_scale, verbose=1,
-                                balanced=False)
+            prepare_data_direct(
+                load_nodule_dataset(size=size, res=res, sample=sample, dataset_type=dataset_type, configuration=configuration)[data_subset_id],
+                size=size,
+                return_meta=True, objective="rating", rating_scale=rating_scale, verbose=1,
+                balanced=False)
 
         print("Data ready: images({}), labels({})".format(self.images_test[0].shape, self.labels_test.shape))
         print("Range = [{:.2f},{:.2f}]".format(np.min(self.images_test[0]), np.max(self.images_test[0])))
@@ -88,7 +89,7 @@ class Malignancy:
         images, predict, meta_data, labels, masks = pickle.load(open(filename, 'br'))
         return images, predict, meta_data, labels, masks
 
-    def predict_malignancy(self, weights_file, out_filename, data_subset_id, configuration=None):
+    def predict_malignancy(self, weights_file, out_filename, data_subset_id, dataset_type='Clean', configuration=None):
 
         input_shape = (self.model_size, self.model_size, 1)
 
@@ -104,7 +105,7 @@ class Malignancy:
         # prepare test data
         images_test, labels_test, classes_test, masks_test, meta_test = \
             prepare_data_direct(
-                load_nodule_dataset(configuration=configuration, size=self.data_size, res=self.res, sample=self.sample)[data_subset_id],
+                load_nodule_dataset(size=self.data_size, res=self.res, sample=self.sample, dataset_type=dataset_type, configuration=configuration)[data_subset_id],
                     size=self.model_size, return_meta=True, objective="malignancy", verbose=1, balanced=False)
 
         print("Data ready: images({}), labels({})".format(images_test[0].shape, labels_test.shape))

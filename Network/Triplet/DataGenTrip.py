@@ -1,30 +1,29 @@
 import numpy as np
 try:
     from Network.Common.dataGenBase import DataGeneratorBase, DataSequenceBase
-    from Network.data_loader import load_nodule_dataset, prepare_data_triplet, prepare_data
+    from Network.data_loader import load_nodule_dataset
+    from Network.Triplet.prepare_data import prepare_data_triplet, prepare_data
     from Network.dataUtils import augment_all, crop_center, get_sample_weight_for_similarity, get_class_weight
 except:
     from Common.dataGenBase import DataGeneratorBase, DataSequenceBase
-    from data_loader import load_nodule_dataset, prepare_data_triplet, prepare_data
+    from data_loader import load_nodule_dataset
+    from Triplet.prepare_data import prepare_data_triplet, prepare_data
     from dataUtils import augment_all, crop_center, get_sample_weight, get_class_weight
 
 
 class DataGeneratorTrip(DataGeneratorBase):
     """docstring for DataGenerator"""
 
-    def __init__(self,  data_size= 128, model_size=128, res='Legacy', sample='Normal', batch_size=32,
-                        categorize=False, rating_scale='none',
-                        full=False, include_unknown=False, balanced=False,
+    def __init__(self,  load_dataset_fn, data_size= 128, model_size=128, batch_size=32,
+                        categorize=False, rating_scale='none', balanced=False,
                         do_augment=False, augment=None, use_class_weight=False, use_confidence=False,
-                        debug=False, val_factor=1, train_factor=1, objective="malignancy", configuration=None):
+                        val_factor=1, train_factor=1, objective="malignancy"):
 
-        super().__init__(data_size=data_size, model_size=model_size, res=res, sample=sample, batch_size=batch_size,
+        super().__init__(load_dataset_fn, data_size=data_size, model_size=model_size, batch_size=batch_size,
                          objective=objective, rating_scale=rating_scale, categorize=categorize,
-                         full=full, include_unknown=include_unknown,
                          do_augment=do_augment, augment=augment,
                          use_class_weight=use_class_weight, use_confidence=use_confidence,
-                         val_factor=val_factor, train_factor=train_factor, balanced=balanced, configuration=configuration,
-                         debug=debug)
+                         val_factor=val_factor, train_factor=train_factor, balanced=balanced)
 
     def get_sequence(self):
         return DataSequenceTrip

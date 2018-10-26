@@ -101,6 +101,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
           format("training" if not no_training else "validation", choose_model, config))
     print("\tdata_size = {},\n\tmodel_size = {},\n\tres = {},\n\tdo_augment = {}".
           format(data_size, model_size, res, do_augment))
+    print("\tdataset_type = {}".format(dataset_type))
     print("-" * 30)
 
     model = None
@@ -293,7 +294,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
             if should_use_scheduale else []
 
         loss = 'logcosh' if obj is not 'distance-matrix' else pearson_correlation
-        model.compile(learning_rate=1e-3, decay=0, loss=loss, scheduale=sched) # mean_squared_logarithmic_error, binary_crossentropy, logcosh
+        model.compile(learning_rate=1e-3, decay=0, loss=loss, scheduale=sched)  # mean_squared_logarithmic_error, binary_crossentropy, logcosh
 
         if use_gen:
             generator = DataGeneratorDir(data_loader,
@@ -348,7 +349,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         generator = DataGeneratorSiam(data_loader,
                                       data_size=data_size, model_size=model_size, batch_size=batch_size,
                                       val_factor=0 if skip_validation else 3, balanced=True, objective="malignancy",
-                                      do_augment=do_augment, augment=data_augment_params,
+                                      do_augment=do_augment, augment=data_augment_params, weighted_rating=True,
                                       use_class_weight=False)
 
         model = SiamArch(miniXception_loader, input_shape, output_size=out_size, batch_size=batch_size,
@@ -497,6 +498,8 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
     ## --------------------------------------- ##
     ## -------      RUN             ------ ##
     ## --------------------------------------- ##
+
+    print('Current Run: {}{}c{}'.format('', run, config))
 
     if no_training:
         model.last_epoch = epochs

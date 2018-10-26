@@ -34,10 +34,10 @@ class DataGeneratorSiam(DataGeneratorBase):
     def get_data(self, dataset, is_training):
         if self.objective == "malignancy":
             data = prepare_data_siamese(dataset, balanced=(self.balanced and is_training),
-                                        objective=self.objective, verbose=True, return_meta=True)
+                                        objective=self.objective, verbose=True)
         else:
-            data = prepare_data_siamese_simple(dataset, rating_distance='clusters',
-                                               objective=self.objective, verbose=True, return_meta=True)
+            data = prepare_data_siamese_simple(dataset, rating_distance='weighted_clusters' if self.weighted_rating else 'clusters',
+                                               objective=self.objective, verbose=True)
             data[1] *= siamese_rating_factor
         return data
 
@@ -95,7 +95,7 @@ class DataSequenceSiam(DataSequenceBase):
         #elif self.objective == "rating":
         else:
             images, labels, masks, confidence, meta = \
-                prepare_data_siamese_simple(self.dataset, rating_distance='weighted_clusters',
+                prepare_data_siamese_simple(self.dataset, rating_distance='weighted_clusters' if self.weighted_rating else 'clusters',
                                             objective=self.objective, verbose=self.verbose, siamese_rating_factor=siamese_rating_factor)
 
             if self.use_confidence:
@@ -103,7 +103,7 @@ class DataSequenceSiam(DataSequenceBase):
             else:
                 sample_weight = np.ones(labels[0].shape)
 
-        print('sample weights: {}'.format(sample_weight[:10]))
+        #print('sample weights: {}'.format(sample_weight[:10]))
 
         return images, labels if type(labels) is tuple else tuple([labels]), [None]*len(labels), masks, sample_weight
 

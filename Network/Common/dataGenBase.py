@@ -247,8 +247,8 @@ class DataSequenceBase(utils.Sequence):
     def __getitem__(self, index):
 
         if self.do_augment and self.is_training and (self.epoch >= self.augment['epoch']):
-            if index == 0:
-                print("Augmentation Enabled")
+            #if index == 0:
+            #    print("Augmentation Enabled")
             images_batch = [augment_all(images[index], masks[index], model_size=self.model_size, augment_params=self.augment)
                                 for images, masks in zip(self.images, self.masks)]
         else:

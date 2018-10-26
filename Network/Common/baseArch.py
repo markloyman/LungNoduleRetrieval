@@ -63,7 +63,7 @@ class BaseArch(object):
             self.data_gen.set_regularizer(True)
             #enable_regularization = True
 
-    def compile_model(self, lr, lr_decay, loss, metrics, scheduale=[]):
+    def compile_model(self, lr, lr_decay, loss, metrics, scheduale=[], temporal_weights=False):
         loss_weights = {}
         do_scheduale = len(scheduale) > 0
         if 'predictions' in loss.keys():
@@ -118,7 +118,8 @@ class BaseArch(object):
         self.model.compile(optimizer=Adam(lr=lr, decay=lr_decay),
                            loss=loss,
                            loss_weights=loss_weights,
-                           metrics=metrics)
+                           metrics=metrics,
+                           sample_weight_mode='temporal' if temporal_weights else None)
         self.lr = lr
         self.lr_decay = lr_decay
         self.model_ready = True
@@ -134,6 +135,7 @@ class BaseArch(object):
             print("LR Decay: {}".format([round(self.lr / (1. + self.lr_decay * n), 5) for n in range(n_epoch)]))
         try:
             if gen:
+                self.data_gen.activate_sequences()
                 #print("Train Steps: {}, Val Steps: {}".format(self.data_gen.train_N(), self.data_gen.val_N()))
                 history = self.model.fit_generator(
                     generator=self.data_gen.training_sequence(),
@@ -198,23 +200,23 @@ class BaseArch(object):
         # valid and test got reversed somewhere along the way
         # so i'm forced to keep consistancy
         if data == 'Valid':
-            data_loader = self.data_gen.get_flat_test_data
-        elif data == 'Test':
             data_loader = self.data_gen.get_flat_valid_data
+        elif data == 'Test':
+            data_loader = self.data_gen.get_flat_test_data
         elif data == 'Train':
             data_loader = self.data_gen.get_flat_train_data
         else:
-            print('{} is not a supperted dataset identification'.format(data))
+            print('{} is not a supported dataset identification'.format(data))
 
         return data_loader
 
-    def embed(self, epochs, data='Valid', use_core=True):
+    def embed(self, epochs, data='Valid', use_core=True, seq_model=False):
 
         Weights, Embed = self.config_filenames(self.net_type, use_core)
 
         # get data from generator
         data_loader = self.get_data_loader(data)
-        images, labels, classes, masks, meta, conf, size = data_loader()
+        images, labels, classes, masks, meta, conf, size, rating_weights, z = data_loader()
 
         if self.net_type == 'dirS' and not use_core:
             labels = size
@@ -238,13 +240,19 @@ class BaseArch(object):
                 w = Weights(run=self.run, epoch=epch)
                 assert(w is not None)
             except:
-                print("Skipping. {} not found (epoch {})".format(epch, w))
+                print("Skipping. {} not found (w {})".format(epch, w))
                 continue
 
             try:
-                self.load_weights(w)
+                if use_core:
+                    self.load_core_weights(w)
+                else:
+                    self.load_weights(w)
                 # predict
-                pred = embed_model.predict(images)
+                if seq_model:
+                    pred = np.vstack([embed_model.predict(np.expand_dims(im, axis=0), batch_size=1) for im in images])
+                else:
+                    pred = embed_model.predict(images, batch_size=1)
             except:
                 print("Epoch {} failed ({})".format(epch, w))
                 continue
@@ -267,13 +275,13 @@ class BaseArch(object):
         if self.net_type == 'dirRS' and not use_core:
             out_filenameR = Embed['R'](self.run, data)
             out_filenameS = Embed['S'](self.run, data)
-            pickle.dump((embedding[0], epochs_done, meta, images, classes, labels, masks), open(out_filenameR, 'bw'))
-            pickle.dump((embedding[1], epochs_done, meta, images, classes, size, masks), open(out_filenameS, 'bw'))
+            pickle.dump((embedding[0], epochs_done, meta, images, classes, labels, masks, conf, rating_weights, z), open(out_filenameR, 'bw'))
+            pickle.dump((embedding[1], epochs_done, meta, images, classes, size,   masks, conf, rating_weights, z), open(out_filenameS, 'bw'))
             print("Saved embedding of shape {} to: {}".format(embedding[0].shape, out_filenameR))
             print("Saved embedding of shape {} to: {}".format(embedding[1].shape, out_filenameS))
         else:
             out_filename = Embed(self.run, data)
-            pickle.dump((embedding, epochs_done, meta, images, classes, labels, masks), open(out_filename, 'bw'))
+            pickle.dump((embedding, epochs_done, meta, images, classes, labels, masks, conf, rating_weights, z), open(out_filename, 'bw'))
             print("Saved embedding of shape {} to: {}".format(embedding.shape, out_filename))
 
     def embed_spatial(self, epochs, data='Valid'):
@@ -282,7 +290,7 @@ class BaseArch(object):
 
         # get data from generator
         data_loader = self.get_data_loader(data)
-        images, labels, classes, masks, meta, conf, size, z = data_loader()
+        images, labels, classes, masks, meta, conf, size, rating_weights, z = data_loader()
 
         start = timer()
         embedding = []
@@ -317,7 +325,7 @@ class BaseArch(object):
 
         # dump to Embed file
         out_filename = Embed(self.run, data)
-        pickle.dump((embedding, epochs_done, meta, images, classes, labels, masks, z), open(out_filename, 'bw'))
+        pickle.dump((embedding, epochs_done, meta, images, classes, labels, masks, conf, rating_weights, z), open(out_filename, 'bw'))
         print("Saved embedding of shape {} to: {}".format(embedding.shape, out_filename))
 
     def test(self, images, labels, N=0):

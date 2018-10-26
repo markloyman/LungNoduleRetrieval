@@ -81,7 +81,7 @@ class Retriever:
     def load_rating(self, dataset):
         #images, mask, rating, meta, labels, nod_ids = \
         #   zip(*[ (e['patch'], e['mask'], e['rating'], e['info'], e['label'], e['nod_ids'] ) for e in dataset])
-        images, mask, labels, meta, size, rating, weights = zip(*dataset)
+        images, mask, labels, meta, size, rating, weights, _ = zip(*dataset)
 
         images = [im*(1.0-0.5*ms) for im, ms in zip(images, mask)]
         images = np.squeeze(images)

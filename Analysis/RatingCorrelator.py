@@ -74,13 +74,13 @@ def linear_regression(x, y):
 
 class RatingCorrelator:
 
-    def __init__(self, filename, conf=None, title='', set='', multi_epoch=False):
+    def __init__(self, filename, conf=None, title='', set='', multi_epoch=False, seq=False):
         self.title  = title
         self.set    = set
 
         if multi_epoch: assert conf is not None
 
-        self.load_embedding(filename, multi_epcch=multi_epoch, load_weights=True, confs=conf)
+        self.load_embedding(filename, multi_epcch=multi_epoch, load_weights=True, confs=conf, seq=seq)
         self.len = len(self.meta_data)
 
         self.images = np.squeeze(self.images)
@@ -96,7 +96,7 @@ class RatingCorrelator:
         self.embed_metric           = ''
 
 
-    def load_embedding(self, source, confs, load_weights=False, multi_epcch=False):
+    def load_embedding(self, source, confs, load_weights=False, multi_epcch=False, seq=False):
         self.multi_epcch = multi_epcch
         if type(source) is not list:
             source = [source]
@@ -115,17 +115,22 @@ class RatingCorrelator:
                     weights = None
                     if load_weights:
                         size = len(meta_data)
-                        if size < 400:
-                            data_type = 'Clean'
-                        elif size < 700:
-                            data_type = 'Primary'
+                        if seq:
+                            data_type = '3d'
                         else:
-                            data_type = 'Full'
-                        data_filename = './Dataset/Dataset{}CV{}_{:.0f}-{}-{}.p'.format(data_type, c, 160, 0.5, 'Normal')
+                            if size < 400:
+                                data_type = 'Clean'
+                            elif size < 700:
+                                data_type = 'Primary'
+                            else:
+                                data_type = 'Full'
+                        c_data = ( (c+1) % 5) if (fn.find('Test') < 0) else c
+                        data_filename = './Dataset/Dataset{}CV{}_{:.0f}-{}-{}.p'.format(data_type, c_data, 160, 0.5, 'Normal')
                         data = pickle.load(open(data_filename, 'br'))
                         n = len(data)
                         assert n == len(meta_data)
-                        assert np.all([data[i]['info'][0] == meta_data[i][0] for i in range(n)])
+                        meta_ids = [ x[0] + "-" + "|".join(x[-1]) for x in meta_data]
+                        assert np.all([data[i]['info'][0] in meta_ids for i in range(n)])
                         weights = [entry['weights'] for entry in data]
 
                     epochs = np.array(epochs)
@@ -150,7 +155,7 @@ class RatingCorrelator:
         self.images = np.concatenate(self.images)
         self.embedding = np.concatenate(self.embedding, axis=embed_concat_axis)
         self.labels = np.concatenate(self.labels)
-        self.masks = np.concatenate(self.masks)
+        self.masks = np.concatenate(self.masks) if len(self.masks) > 1 else self.masks[0]
         self.weights = np.concatenate(self.weights)
 
     def load_cached_rating_distance(self, filename='output/cache_ratings.p'):

@@ -165,21 +165,23 @@ def eval_retrieval(run, net_type, metric, epochs, dset, NN=[7, 11, 17], cross_va
     return P, P_std, F1, F1_std, valid_epochs
 
 
-def eval_correlation(run, net_type, metric, rating_metric, epochs, dset, objective='rating', rating_norm='none', cross_validation=False, n_groups=5):
+def eval_correlation(run, net_type, metric, rating_metric, epochs, dset, objective='rating', rating_norm='none', cross_validation=False, n_groups=5, seq=False):
 
     Embed = FileManager.Embed(net_type)
 
     if cross_validation:
         # Load
-        embed_source = [Embed(run + 'c{}'.format(c), dset) for c in range(n_groups)]
-        #embed_source = [Embed(run + 'c{}'.format(c), dset) for c in [4]]
+        if n_groups > 1:
+            embed_source = [Embed(run + 'c{}'.format(c), dset) for c in range(n_groups)]
+        else:
+            embed_source = [Embed(run + 'c{}'.format(c), dset) for c in [1]]
 
         valid_epochs = [[] for i in range(n_groups)]
         Pm, Km, Pr, Kr = [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)]
         PmStd, KmStd, PrStd, KrStd = [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)]
 
         for c_idx, source in enumerate(embed_source):
-            Reg = RatingCorrelator(source, conf=c_idx, multi_epoch=True)
+            Reg = RatingCorrelator(source, conf=c_idx, multi_epoch=True, seq=seq)
 
             # load rating data
             cache_filename = 'output/cached_{}_{}_{}.p'.format(objective, source.split('/')[-1][6:-2], c_idx)

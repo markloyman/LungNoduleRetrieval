@@ -98,14 +98,15 @@ class DirectArch(BaseArch):
         self.data_ready  = False
         self.model_ready = False
 
-    def compile(self, learning_rate = 0.001, decay=0.1, loss='categorical_crossentropy', scheduale=[]):
+    def compile(self, learning_rate = 0.001, decay=0.1, loss='categorical_crossentropy', scheduale=[], temporal_weights=False):
         categorical_accuracy.__name__ = 'accuracy'
         sensitivity.__name__ = 'recall'
         root_mean_squared_error.__name__ = 'rmse'
         multitask_accuracy.__name__ = 'accuracy'
         metrics = []
         if self.objective == 'malignancy':
-            metrics = [categorical_accuracy, f1, sensitivity, precision, specificity]
+            metrics = {'predictions': [categorical_accuracy, f1, sensitivity, precision, specificity]}
+            loss = {'predictions': loss}
         elif self.objective == 'rating':
             metrics = {'predictions': root_mean_squared_error}
             loss = {'predictions': loss}
@@ -124,7 +125,8 @@ class DirectArch(BaseArch):
         self.compile_model( lr=learning_rate, lr_decay=decay,
                             loss       = loss,  # 'categorical_crossentropy', mean_squared_error
                             metrics     = metrics,
-                            scheduale=scheduale)
+                            scheduale=scheduale,
+                            temporal_weights = temporal_weights)
         self.lr         = learning_rate
         self.lr_decay   = decay
         self.model_ready = True

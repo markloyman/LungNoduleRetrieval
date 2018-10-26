@@ -8,13 +8,19 @@ alpha = 0.4
 
 
 def accuracy(true, pred):
+    mask = (np.abs(true-pred) <=1).astype('uint')
+    acc = np.mean(mask)
+    return acc
+
+'''
+def accuracy(true, pred):
     #pred = np.clip(pred, 0, 1)
     pred = np.squeeze(np.round(pred).astype('uint'))
     true = np.squeeze(np.round(true).astype('uint'))
     mask = (true==pred).astype('uint')
     acc = np.mean(mask)
     return acc
-
+'''
 
 def embed_correlate(network_type, run, post, epochs, rating_norm='none'):
     pear_corr = []
@@ -121,7 +127,9 @@ def dir_rating_rmse(run, post, epochs, net_type, dist='RMSE', weighted=False, n_
             predict, valid_epochs, images, meta_data, classes, labels, masks = PredFile.load(run=run_config, dset=post)
             labels = np.array([np.mean(l, axis=0) for l in labels])
             for i, e in enumerate(epochs):
-                print(" Epoch {}:".format(e))
+                #print("=" * 20)
+                #print(" Epoch {}:".format(e))
+                #print("-" * 20)
                 try:
                     idx = int(np.argwhere(valid_epochs == e))
                 except:
@@ -129,13 +137,18 @@ def dir_rating_rmse(run, post, epochs, net_type, dist='RMSE', weighted=False, n_
                     continue
                 pred = predict[idx]
 
-                for r, max_val in zip(range(9), [5, 4, 6, 5, 5, 5, 5, 5, 5]):
+                for r, max_val in zip(range(9), [5, 5, 6, 5, 5, 5, 5, 5, 5]):
+                    #print("{}:".format(rating_property[r]))
                     W = np.ones(labels.shape[0])
                     if weighted:
                         w = np.histogram(labels[:, r], bins=np.array(range(max_val+1))+0.5)[0]
+                        #print("\tcounts - {}".format(w))
                         w = 1 - w / np.sum(w)
-                        pred_w = np.minimum(np.maximum(pred[:, r], 1.0), max_val)
-                        W = w[np.round(pred_w - 1).astype('int')]
+                        w /= (len(w) - 1)
+                        assert np.abs(w.sum() - 1) < 1e-6
+                        #print("\tweighted by {}".format(w))
+                        #pred_w = np.minimum(np.maximum(pred[:, r], 1.0), max_val)
+                        W = w[np.round(labels[:, r] - 1).astype('int')]
                     if dist=='RMSE':
                         err = W.dot((pred[:, r] - labels[:, r])**2)
                         err = np.sqrt(err/np.sum(W))
@@ -144,13 +157,22 @@ def dir_rating_rmse(run, post, epochs, net_type, dist='RMSE', weighted=False, n_
                     else:
                         print('{} unrecognized distance'.format(dist))
                         assert False
-                    print("\t{}: \t{:.2f}".format(rating_property[r], err))
-                    R[i, r] = err
+                    #print("rmse: \t{:.2f}".format(err))
+                    R[i, r, c] = err
                 rmse = np.sqrt(np.mean(np.sum((pred - labels) ** 2, axis=1)))
-                print("\t{}: \t{:.2f}".format(rating_property[r], rmse))
+                #print("=" * 20)
+                #print("overall: \t{:.2f}".format(rmse))
                 R[i, 9, c] = rmse
         R = np.mean(R, axis=2)
-        pickle.dump(R, open(plot_data_filename, 'bw'))
+        for i, e in enumerate(epochs):
+            print("=" * 20)
+            print(" Epoch {}:".format(e))
+            print("-" * 20)
+            for p, property in enumerate(rating_property):
+                print("\t{}: \t{:.2f}".format(property, R[i, p]))
+            print("\t" + ("-" * 10))
+            print("\toverall: \t{:.2f}".format(R[i, 9]))
+        #pickle.dump(R, open(plot_data_filename, 'bw'))
 
     # smooth
     for r in range(9):
@@ -182,7 +204,7 @@ def dir_rating_params_correlate(run, post, epochs, net_type, rating_norm='none',
         print("Evaluating Rating Correlation for {}".format(run))
         for c, run_config in enumerate([run + 'c{}'.format(config) for config in range(n_groups)]):
             PredFile = FileManager.Pred(type='rating', pre=net_type)
-            Reg = RatingCorrelator(PredFile(run=run_config, dset=post), multi_epoch=True)
+            Reg = RatingCorrelator(PredFile(run=run_config, dset=post), multi_epoch=True, conf=c)
             Reg.evaluate_rating_space(norm=rating_norm)
             #valid_epochs = []
             for e in epochs:
@@ -197,6 +219,15 @@ def dir_rating_params_correlate(run, post, epochs, net_type, rating_norm='none',
         pear_corr = np.mean(pear_corr, axis=0)
         print('NO DUMP')
         #pickle.dump(pear_corr, open(plot_data_filename, 'bw'))
+
+    for i, e in enumerate(epochs):
+        print("=" * 20)
+        print(" Epoch {}:".format(e))
+        print("-" * 20)
+        for p, property in enumerate(rating_property):
+            print("\t{}: \t{:.2f}".format(property, pear_corr[i, p]))
+        #print("\t" + ("-" * 10))
+        #print("\toverall: \t{:.2f}".format(R[i, 9]))
 
     for p in range(pear_corr.shape[1]):
         pear_corr[:, p] = smooth(pear_corr[:, p], window_length=5, polyorder=2)
@@ -214,25 +245,28 @@ def dir_rating_params_correlate(run, post, epochs, net_type, rating_norm='none',
     plt.legend(rating_property)
 
 
-def dir_rating_accuracy(run, post, epochs, n_groups=5):
+def dir_rating_accuracy(run, post, net_type, epochs, n_groups=5):
     #images, predict, meta_data, labels, masks = pred_loader.load(run, epochs[-1], post)
     rating_property = ['Subtlety', 'Internalstructure', 'Calcification', 'Sphericity', 'Margin',
                        'Lobulation', 'Spiculation', 'Texture', 'Malignancy']
-    PredFile = FileManager.Pred(type='rating', pre='dirR')
-    acc = np.zeros([len(epochs), n_groups])
+    PredFile = FileManager.Pred(type='rating', pre=net_type)
+    acc = np.zeros([len(epochs), n_groups, len(rating_property)])
     for c, run_config in enumerate([run + 'c{}'.format(config) for config in range(n_groups)]):
         predict, valid_epochs, images, meta_data, classes, labels, masks = PredFile.load(run=run_config, dset=post)
+        labels = np.array([np.mean(t, axis=0) for t in labels])
         for i, e in enumerate(epochs):
             try:
                 idx = int(np.argwhere(valid_epochs == e))
             except:
                 print('skip epoch {}'.format(e))
                 continue
-            acc[i, c] = accuracy(labels, predict[idx])
-    acc = np.mean(acc, axis=2)
+            for ridx, r in enumerate(rating_property):
+                acc[i, c, ridx] = accuracy(labels[:,ridx], predict[idx,:,ridx])
+    acc = np.mean(acc, axis=1)
     plt.figure()
     plt.title('Rating Acc')
     plt.plot(epochs, acc)
+    plt.legend(rating_property)
 
     return acc
 
@@ -326,14 +360,14 @@ def dir_rating_view(run, post, epochs, net_type='dirR', factor=1.0):
 
 if __name__ == "__main__":
     #run = '251', '300'
-    run = '512c' # '251' '512c'  # '412'
-    net_type = 'dirRS'
+    run = '251'  # '251' '512c'  # '412'
+    net_type = 'dirR'
     epochs = np.arange(1, 101)  # [1, 10, 20, 30]
 
     # 0     Test
     # 1     Validation
     # 2     Training
-    DataSubSet = 1
+    DataSubSet = 0
 
     if DataSubSet == 0:
         post = "Test"
@@ -351,7 +385,7 @@ if __name__ == "__main__":
 
         #dir_rating_correlate(run, post, epochs, rating_norm='none', clustered_rating_distance=True)
         #embed_correlate('dirR', run, post, epochs, rating_norm='Round')
-        #dir_rating_accuracy(run+'c{}'.format(config), post, epochs)
+        #dir_rating_accuracy(run, post, net_type, epochs)
         dir_rating_params_correlate(run, post, epochs, net_type=net_type, rating_norm='none')  # rating_norm='Round'
         #dir_rating_rmse(run, post, epochs, net_type=net_type, weighted=True)
         #dir_rating_rmse(run, post, epochs, dist='ABS', weighted=True)

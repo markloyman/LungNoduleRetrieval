@@ -92,7 +92,7 @@ class DataSequenceSiam(DataSequenceBase):
                                                    wSM=class_weight['SM'])
             else:
                 sample_weight = np.ones(labels.shape)
-        #elif self.objective == "rating":
+        # elif self.objective == "rating":
         else:
             images, labels, masks, confidence, meta = \
                 prepare_data_siamese_simple(self.dataset, rating_distance='weighted_clusters' if self.weighted_rating else 'clusters',
@@ -103,7 +103,7 @@ class DataSequenceSiam(DataSequenceBase):
             else:
                 sample_weight = np.ones(labels[0].shape)
 
-        #print('sample weights: {}'.format(sample_weight[:10]))
+        # print('sample weights: {}'.format(sample_weight[:10]))
 
         return images, labels if type(labels) is tuple else tuple([labels]), [None]*len(labels), masks, sample_weight
 

@@ -261,7 +261,7 @@ class DataSequenceBase(utils.Sequence):
                 images_batch = [crop_center_all(images[index], masks[index], size=self.model_size)
                                     for images, masks in zip(self.images, self.masks)]
 
-        if self.weighted_rating:
+        if self.weighted_rating and self.objective == 'distance-matrix':
             labels_batch = [self.process_label_batch(self.labels[0][index], self.labels[1][index])]
         else:
             labels_batch = [self.process_label_batch(lbl[index]) for lbl in self.labels]
@@ -288,7 +288,7 @@ class DataSequenceBase(utils.Sequence):
         if index == 0:
             batch_size = images_batch[0].shape if type(images_batch) is list else images_batch.shape
             print("Batch #{} of size {}".format(index, batch_size ))
-            #print("\tWeights: {}".format(weights_batch[:10]))
+            # print("\tWeights: {}".format(weights_batch[:10]))
 
         return images_batch, \
                labels_batch if len(labels_batch) > 1 else labels_batch[0], \

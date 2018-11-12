@@ -363,7 +363,7 @@ class BaseArch(object):
             model = Model(self.img_input, self.base)
             model.load_weights(w, by_name=True)
         else:
-            self.base.load_weights(w, by_name=True)
+            self.model.load_weights(w, by_name=True)
         print("Loaded {}".format(w))
 
     def compile(self, learning_rate=0.001, decay=0.1, loss='categorical_crossentropy'):

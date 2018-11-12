@@ -2,16 +2,15 @@ import pickle
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.stats import pearsonr, spearmanr, kendalltau  # , wasserstein_distance
+from scipy.stats import pearsonr, spearmanr, kendalltau
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
 
 from Analysis.analysis import calc_distance_matrix, calc_cross_distance_matrix
 from LIDC.lidcUtils import calc_rating
 from Network.dataUtils import rating_normalize
-from scipy.spatial.distance import pdist, cdist, squareform
 
-from Network.Common.utils import rating_clusters_distance_matrix
+from Network.dataUtils import rating_clusters_distance_matrix
 
 '''
 def calc_distance_matrix(X, method):
@@ -107,13 +106,17 @@ class RatingCorrelator:
             try:
                 assert(type(fn) is str)
                 if multi_epcch:
-                    embedding, epochs, meta_data, images, classes, labels, masks = pickle.load(open(fn, 'br'))
+                    data = pickle.load(open(fn, 'br'))
+                    if len(data) == 7:
+                        embedding, epochs, meta_data, images, classes, labels, masks = data
+                        conf, rating_weights, z = None, None, None
+                    elif len(data) == 10:
+                        embedding, epochs, meta_data, images, classes, labels, masks, conf, rating_weights, z = data
                     if type(meta_data) is np.ndarray:
                         m = meta_data
                         meta_data = images
                         images = m
-                    weights = None
-                    if load_weights:
+                    if load_weights and (rating_weights is None):
                         size = len(meta_data)
                         if seq:
                             data_type = '3d'
@@ -124,14 +127,15 @@ class RatingCorrelator:
                                 data_type = 'Primary'
                             else:
                                 data_type = 'Full'
-                        c_data = ( (c+1) % 5) if (fn.find('Test') < 0) else c
+                        #c_data = ( (c+1) % 5) if (fn.find('Test') < 0) else c
+                        c_data = (c % 5) if (fn.find('Test') < 0) else c
                         data_filename = './Dataset/Dataset{}CV{}_{:.0f}-{}-{}.p'.format(data_type, c_data, 160, 0.5, 'Normal')
                         data = pickle.load(open(data_filename, 'br'))
                         n = len(data)
                         assert n == len(meta_data)
                         meta_ids = [ x[0] + "-" + "|".join(x[-1]) for x in meta_data]
                         assert np.all([data[i]['info'][0] in meta_ids for i in range(n)])
-                        weights = [entry['weights'] for entry in data]
+                        rating_weights = [entry['weights'] for entry in data]
 
                     epochs = np.array(epochs)
                     embed_concat_axis = 1
@@ -147,7 +151,7 @@ class RatingCorrelator:
                 self.classes.append(classes)
                 self.labels.append(labels)
                 self.masks.append(masks)
-                self.weights.append(weights)
+                self.weights.append(rating_weights)
                 self.epochs = epochs
             except:
                 print("failed to load " + fn)

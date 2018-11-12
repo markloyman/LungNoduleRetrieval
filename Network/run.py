@@ -30,8 +30,8 @@ if __name__ == '__main__':
         print("Perform Full Cross-Validation Run")
 
     # DIR / SIAM / DIR_RATING / SIAM_RATING / TRIPLET
-    net_type = 'SIAM_RATING'
-    data_type = 'Valid'
+    net_type = 'DIR_RATING'
+    embed_data_type = 'Test'
 
     for config in config_list:
         if args.seq:
@@ -42,11 +42,12 @@ if __name__ == '__main__':
             epoch0 = 1
             delta_epoch = 1
             if args.spatial:
-                epochs_ = [60, 70, 80]
-                model.embed_spatial(epochs=epochs_, data=data_type)
+                epochs_ = [30, 35, 40]
+                model.embed_spatial(epochs=epochs_, data=embed_data_type)
             else:
                 epochs_ = list(range(epoch0, model.last_epoch + 1, delta_epoch)) if delta_epoch > 0 else [epoch0]
-                model.embed(epochs=epochs_, data=data_type, use_core=True is args.embed, seq_model=args.seq)
+                # epochs_ = [75, 80, 85]
+                model.embed(epochs=epochs_, data=embed_data_type, use_core=True is args.embed, seq_model=args.seq)
 
 
     #K.clear_session()

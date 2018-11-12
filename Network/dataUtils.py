@@ -270,9 +270,30 @@ def rating_clusters_distance(rating_a, rating_b, distance_norm='eucledean', weig
     if (weight_a is None) or (weight_b is None):
         distance = 0.5 * np.mean(d_a) + 0.5 * np.mean(d_b)
     else:
-        distance = 0.5 * np.dot(d_a, weight_a) / len(d_a) + 0.5 * np.dot(d_b, weight_b) / len(d_b)
+        distance = 0.5 * np.average(d_a, weights=weight_a) + 0.5 * np.average(d_b, weights=weight_b)
+        #distance = 0.5 * np.dot(d_a, weight_a) / len(d_a) + 0.5 * np.dot(d_b, weight_b) / len(d_b)
 
     return distance
+
+
+def rating_clusters_distance_and_std(rating_a, rating_b, distance_norm='eucledean', weight_a=None, weight_b=None):
+    dm = cdist(rating_a, rating_b, distance_norm)
+    d_b = np.min(dm, axis=0)
+    d_a = np.min(dm, axis=1)
+
+    if (weight_a is None) or (weight_b is None):
+        distance = 0.5 * np.mean(d_a) + 0.5 * np.mean(d_b)
+        std = 0.5 * np.std(d_a) + 0.5 * np.std(d_b)
+    else:
+        d_a_avg = np.average(d_a, weights=weight_a)
+        d_b_avg = np.average(d_b, weights=weight_b)
+        distance = 0.5 * d_a_avg + 0.5 * d_b_avg
+
+        d_a_std = np.average((d_a - d_a_avg) ** 2, weights=weight_a)
+        d_b_std = np.average((d_b - d_b_avg) ** 2, weights=weight_b)
+        std = 0.5 * d_a_std + 0.5 * d_b_std
+
+    return distance, std
 
 
 def rating_clusters_distance_matrix(ratings, distance_norm='euclidean', weights=None):

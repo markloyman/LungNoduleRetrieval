@@ -194,11 +194,11 @@ def eval_embed_space(run, net_type, metric, rating_metric, epochs, dset, rating_
 
     idx_hubness = mean_cross_validated_index(idx_hubness, valid_epochs, combined_epochs)
     idx_symmetry = mean_cross_validated_index(idx_symmetry, valid_epochs, combined_epochs)
-    idx_concentration = mean_cross_validated_index(idx_concentration, valid_epochs, combined_epochs)
-    idx_contrast = mean_cross_validated_index(idx_contrast, valid_epochs, combined_epochs)
-    idx_kummar = mean_cross_validated_index(idx_kummar, valid_epochs, combined_epochs)
-    idx_featCorr = mean_cross_validated_index(idx_featCorr, valid_epochs, combined_epochs)
-    idx_sampCorr = mean_cross_validated_index(idx_sampCorr, valid_epochs, combined_epochs)
+    idx_concentration = np.zeros_like(idx_hubness)  #mean_cross_validated_index(idx_concentration, valid_epochs, combined_epochs)
+    idx_contrast = np.zeros_like(idx_hubness)  # mean_cross_validated_index(idx_contrast, valid_epochs, combined_epochs)
+    idx_kummar = np.zeros_like(idx_hubness)  # mean_cross_validated_index(idx_kummar, valid_epochs, combined_epochs)
+    idx_featCorr = np.zeros_like(idx_hubness)  # mean_cross_validated_index(idx_featCorr, valid_epochs, combined_epochs)
+    idx_sampCorr = np.zeros_like(idx_hubness)  # mean_cross_validated_index(idx_sampCorr, valid_epochs, combined_epochs)
 
     return combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar, idx_featCorr, idx_sampCorr
 

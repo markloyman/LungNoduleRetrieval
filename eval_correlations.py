@@ -7,12 +7,12 @@ from Analysis.analysis import smooth
 # Setup
 # ========================
 
-experiment_name = 'DirObj'
+experiment_name = 'SpieDirPool'
 dset = 'Valid'
 rating_metrics = ['euclidean']  #['l2', 'l1', 'cosine']
 rating_norm = 'none'
 n_groups = 5
-objective = 'size'
+objective = 'rating'  # 'size'
 
 runs, run_net_types, run_metrics, run_epochs, run_names, _, _ = load_experiments(experiment_name)
 
@@ -23,8 +23,8 @@ for m, metric_rating in enumerate(rating_metrics):
     for run, net_type, dist, epochs, metric in zip(runs, run_net_types, run_metrics, run_epochs, run_metrics):
         plot_data_filename = './Plots/Data/correlation_{}{}.p'.format(net_type, run)
         try:
-            print('NOTE: SKIPPING TO EVELUATION')
-            assert False
+            #print('NOTE: SKIPPING TO EVELUATION')
+            #assert False
             valid_epochs, idx_malig_pearson, idx_malig_kendall, idx_rating_pearson, idx_rating_kendall = \
                 pickle.load(open(plot_data_filename, 'br'))
             print("Loaded results for {}{}".format(net_type, run))
@@ -32,7 +32,7 @@ for m, metric_rating in enumerate(rating_metrics):
             print("Evaluating classification accuracy for {}{} using {}".format(net_type, run, metric))
 
             Pm, PmStd, Km, KmStd, Pr, PrStd, Kr, KrStd, valid_epochs = \
-                performance.eval_correlation(run, net_type, metric, metric_rating, epochs, dset, objective=objective, rating_norm=rating_norm, cross_validation=True, n_groups=5)
+                performance.eval_correlation(run, net_type, metric, metric_rating, epochs, dset, objective=objective, rating_norm=rating_norm, cross_validation=True, n_groups=5, seq=False)
             idx_malig_pearson = Pm, PmStd
             idx_malig_kendall = Km, KmStd
             idx_rating_pearson= Pr, PrStd
@@ -113,7 +113,7 @@ for m, metric_rating in enumerate(rating_metrics):
             plt_[2 * m + 3].grid(which='major', axis='y')
 
         if m == 0:  # first row
-            plt_[0].axes.title.set_text('Malignancy' if objective == 'rating' else 'size')
+            plt_[0].axes.title.set_text('Malignancy' if objective == 'rating' else 'Size')
             plt_[1].axes.title.set_text('Ratings')
             plt_[0].axes.yaxis.label.set_text('Pearson')
             if do_kendall:
@@ -125,6 +125,7 @@ for m, metric_rating in enumerate(rating_metrics):
     for i in range(n_cells):
         #plt_[i] = plt.subplot(n_rows, n_cols, i + 1)
         plt_[i].grid(which='both', axis='y')
+        plt_[i].axes.set_ylim(.0, .5)
 
 print('Plots Ready...')
 plt.show()

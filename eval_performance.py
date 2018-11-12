@@ -7,7 +7,7 @@ if __name__ == "__main__":
 
     # Setup
 
-    experiment_name = 'SiamRating'
+    experiment_name = 'SpieSiamCosinePool'
     dset = 'Valid'
     start = timer()
 
@@ -16,8 +16,8 @@ if __name__ == "__main__":
     # Initialize Figures
 
     plt.figure(experiment_name + ' Performance: ' + dset)
-    col_titles = ['Classification', 'Retrieval', 'Retrieval']
-    col_labels = ['Accuracy', 'Precision', 'Ret-Index']
+    col_titles = ['Classification', 'Retrieval', '']
+    col_labels = ['Accuracy', 'Precision', 'Precision']
     legend = []
     for n in run_names:
         legend += [n]
@@ -43,6 +43,7 @@ if __name__ == "__main__":
     for run, net_type, _, metric, epochs in zip(runs, run_net_types, range(len(runs)), run_metrics, run_epochs):
         plot_data_filename = './Plots/Data/performance_{}{}.p'.format(net_type, run)
         try:
+            #assert False
             acc, acc_std, prec, prec_std, index, index_std, valid_epochs = pickle.load(open(plot_data_filename, 'br'))
             print("Loaded results for {}{}".format(net_type, run))
         except:
@@ -71,7 +72,7 @@ if __name__ == "__main__":
 
     # Display
 
-    alpha = 0.2
+    alpha = 0.4
 
     for acc, acc_std, prec, prec_std, index, index_std, epochs in zip(Acc, Acc_std, Prec, Prec_std, Index, Index_std, Valid_epochs):
         '''
@@ -98,22 +99,22 @@ if __name__ == "__main__":
         row = 0
 
         # Accuracy
-        q = plt_[idx(0, row)].plot(epochs, smooth(acc), '-*')
+        q = plt_[idx(0, row)].plot(epochs, smooth(acc), '-')
         plt_[idx(0, row)].plot(epochs, smooth(acc + acc_std), color=q[0].get_color(), ls='--', alpha=alpha)
         plt_[idx(0, row)].plot(epochs, smooth(acc - acc_std), color=q[0].get_color(), ls='--', alpha=alpha)
-        Axes.set_ylim(plt_[idx(0, row)].axes, .7, .9)
+        Axes.set_ylim(plt_[idx(0, row)].axes, .6, .9)
 
         # Precision
-        q = plt_[idx(1, row)].plot(epochs, smooth(prec), '-*')
+        q = plt_[idx(1, row)].plot(epochs, smooth(prec), '-')
         plt_[idx(1, row)].plot(epochs, smooth(prec + prec_std), color=q[0].get_color(), ls='--', alpha=alpha)
         plt_[idx(1, row)].plot(epochs, smooth(prec - prec_std), color=q[0].get_color(), ls='--', alpha=alpha)
-        Axes.set_ylim(plt_[idx(1, row)].axes, .6, .8)
+        Axes.set_ylim(plt_[idx(1, row)].axes, .5, .8)
 
         # Precision Index
-        q = plt_[idx(2, row)].plot(epochs, smooth(index), '-*')
+        q = plt_[idx(2, row)].plot(epochs, smooth(index), '-')
         plt_[idx(2, row)].plot(epochs, smooth(index + index_std), color=q[0].get_color(), ls='--', alpha=alpha)
         plt_[idx(2, row)].plot(epochs, smooth(index - index_std), color=q[0].get_color(), ls='--', alpha=alpha)
-        Axes.set_ylim(plt_[idx(2, row)].axes, .6, .8)
+        Axes.set_ylim(plt_[idx(2, row)].axes, .5, .8)
 
     plt_[-1].legend(legend)
 

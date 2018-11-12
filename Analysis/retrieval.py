@@ -41,7 +41,14 @@ class Retriever:
             try:
                 assert(type(fn) is str)
                 if multi_epcch:
-                    embedding, epochs, meta_data, images, classes, labels, masks = pickle.load(open(fn, 'br'))
+                    data = pickle.load(open(fn, 'br'))
+                    if len(data) == 7:
+                        embedding, epochs, meta_data, images, classes, labels, masks = data
+                    elif len(data) == 10:
+                        embedding, epochs, meta_data, images, classes, labels, masks, conf, rating_weights, z = data
+                    else:
+                        print("\twrong number of data elements in the embedding file: {}".format(len(data)))
+                        assert False
                     epochs = np.array(epochs)
                     embed_concat_axis = 1
                 else:
@@ -289,13 +296,13 @@ if __name__ == "__main__":
 
     from Network import FileManager
 
-    dset = 'Valid'
+    dset = 'Test'
 
-    wRuns = ['512cc0', '251c0']  #['064X', '078X', '026'] #['064X', '071' (is actually 071X), '078X', '081', '082']
-    wRunsNet = ['dirRS', 'dirR']  #, 'dir']
+    wRuns = ['813c0']  # ['512cc0', '251c0']  #['064X', '078X', '026'] #['064X', '071' (is actually 071X), '078X', '081', '082']
+    wRunsNet = ['dirR']  # ['dirRS', 'dirR']  #, 'dir']
     run_metrics = ['l2']
 
-    select = 1
+    select = 0
 
     rating_normalizaion = 'None' # 'None', 'Normal', 'Scale'
 
@@ -324,12 +331,15 @@ if __name__ == "__main__":
         Ret = Retriever(title=wRuns[select]+wRunsNet[select], dset=dset)
         Ret.load_embedding(Embed(wRuns[select], dset), multi_epcch=True)
         #Ret.fit(N, epoch=70)
-        Ret.fit(epoch=70)
+        Ret.fit(epoch=50)
 
-        #Ret.compare_ret(322)
-        #Ret.compare_ret(153)
-        #Ret.compare_ret(145)
-        Ret.compare_ret(139)
+        Ret.compare_ret(139) ## large malig
+        Ret.compare_ret(10) ## benign, "noisy", near tissue
+        Ret.compare_ret(20) ## benign, adjacent to tissue
+
+        Ret.compare_ret(30) ## M, mid size
+        Ret.compare_ret(70) ## B
+        Ret.compare_ret(462) ## unknown, large, connected to tissue
 
         #Ret.show_ret(237)
         #Ret.show_ret(295)

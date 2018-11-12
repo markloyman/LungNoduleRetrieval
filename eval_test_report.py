@@ -24,7 +24,7 @@ def autolabel(rects, xpos='center'):
 if __name__ == "__main__":
 
     # Setup
-    exp_name = 'SummaryAlt'
+    exp_name = 'SpieSummary'
     dset = 'Test'
     rating_norm = 'none'
     start = timer()
@@ -73,7 +73,7 @@ if __name__ == "__main__":
         #dataStd[run_id, 6] = kr_std
 
         print("Evaluating metric space for {}{}".format(net_type, run))
-        combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar = \
+        combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar, _, _ = \
             eval_embed_space(run, net_type, metric, 'euclidean', epochs, dset, rating_norm='none',
                              cross_validation=True)
 

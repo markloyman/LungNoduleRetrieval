@@ -11,7 +11,7 @@ from Analysis.analysis import smooth
 
 # Setup
 
-experiment_name = 'DirObj'
+experiment_name = 'SpieSiamRatingCosine'
 dset = 'Valid'
 rating_normalizaion = 'Scale' # 'None', 'Normal', 'Scale'
 ratiing_metrics = ['euclidean']
@@ -20,7 +20,7 @@ n_groups = 5
 
 runs, run_net_types, run_metrics, run_epochs, run_names, _, _ = load_experiments(experiment_name)
 
-alpha = 0.2
+alpha = 0.4
 
 #indexes = ['Hubness', 'Symmetry', 'Contrast', 'Concentration', 'Kumari']
 indexes = ['Hubness', 'Symmetry', 'FeatCorr', 'SampCorr']

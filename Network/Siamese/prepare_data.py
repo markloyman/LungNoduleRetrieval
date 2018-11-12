@@ -3,10 +3,10 @@ from scipy.spatial.distance import cdist
 from functools import reduce
 try:
     from Network.Common import prepare_data
-    from Network.dataUtils import rating_clusters_distance, reorder
+    from Network.dataUtils import rating_clusters_distance, rating_clusters_distance_and_std, reorder
 except:
     from Common import prepare_data
-    from dataUtils import rating_clusters_distance, reorder
+    from dataUtils import rating_clusters_distance, rating_clusters_distance_and_std, reorder
 
 
 def select_different_pair(class_A, class_B, n):
@@ -153,22 +153,32 @@ def prepare_data_siamese_simple(data, siamese_rating_factor, objective="malignan
     rating_pairs = select_pairs(ratings)
     rating_weight_pairs = select_pairs(rating_weights)
 
+    confidence = np.ones(len(image_pairs))
+
     if objective in ["rating", "rating_size"]:
 
         if rating_distance == 'mean':
             similarity_ratings = np.array([np.sqrt((a - b).dot(a - b)) for a, b in rating_pairs])
         elif rating_distance == 'clusters':
             similarity_ratings = []
+            confidence = []
             for r1, r2 in rating_pairs:
-                distance = rating_clusters_distance(r1, r2)
+                distance, std = rating_clusters_distance_and_std(r1, r2)
                 similarity_ratings += [distance]
+                confidence += [std]
             similarity_ratings = np.array(similarity_ratings)
+            confidence = np.array(confidence)
+            confidence = 1 - .5 * confidence / (confidence + .5)
         elif 'weighted_clusters':
             similarity_ratings = []
+            confidence = []
             for r, w in zip(rating_pairs, rating_weight_pairs):
-                distance = rating_clusters_distance(r[0], r[1], 'l2', weight_a=w[0], weight_b=w[1])
+                distance, std = rating_clusters_distance_and_std(r[0], r[1], 'euclidean', weight_a=w[0], weight_b=w[1])
                 similarity_ratings += [distance]
+                confidence += [std]
             similarity_ratings = np.array(similarity_ratings)
+            confidence = np.array(confidence)
+            confidence = 1 - .5 * confidence / (confidence + .5)
         else:
             assert False
         similarity_ratings *= siamese_rating_factor
@@ -214,17 +224,16 @@ def prepare_data_siamese_simple(data, siamese_rating_factor, objective="malignan
     #                            ])
 
     #confidence = np.repeat('SB', N)
-    confidence = []
-    for r1, r2 in rating_pairs:
-        dm = cdist(r1, r2, 'euclidean')
-        d0 = np.max(dm, axis=0)
-        d1 = np.max(dm, axis=1)
-        distance = 0.5 * np.mean(d0) + 0.5 * np.mean(d1)
-        confidence += [distance]
-    confidence = 1.0 - np.array(confidence)/(8.0 + 0.25*np.array(confidence))
+    #onfidence = []
+    #for r1, r2 in rating_pairs:
+    #    dm = cdist(r1, r2, 'euclidean')
+    #    d0 = np.max(dm, axis=0)
+    #    d1 = np.max(dm, axis=1)
+    #    distance = 0.5 * np.mean(d0) + 0.5 * np.mean(d1)
+    #    confidence += [distance]
+    #confidence = 1.0 - np.array(confidence)/(8.0 + 0.25*np.array(confidence))
 
     new_order = np.random.permutation(size)
-
 
     return (    (reorder(image_sub1, new_order), reorder(image_sub2, new_order)),
                 tuple([s[new_order] for s in similarity_labels]),

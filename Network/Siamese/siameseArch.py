@@ -17,17 +17,17 @@ except:
     import FileManager as File
 
 
-def contrastive_loss(y_true, y_pred, marginal=False):
+def contrastive_loss(y_true, y_pred, marginal=True):
     '''Contrastive loss from Hadsell-et-al.'06
     http://yann.lecun.com/exdb/publis/pdf/hadsell-chopra-lecun-06.pdf
     '''
     margin = siamese_margin
+    print('contrastive_loss: marginal-loss={}, margin={}'.format(marginal, margin))
     if marginal:
-        return (1 - y_true) * K.square(K.maximum(y_pred - (3.0/5) * margin, 0)) \
-               + y_true * K.square(K.maximum( (4.0/5)*margin - y_pred, 0))
+        return (1 - y_true) * K.square(K.maximum(y_pred - .2 * margin, 0)) \
+               + y_true * K.square(K.maximum(.8 * margin - y_pred, 0))
     else:
         return (1 - y_true) * K.square(y_pred) + y_true * K.square(K.maximum(margin - y_pred, 0))
-
 
 
 class SiamArch(BaseArch):

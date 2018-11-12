@@ -124,7 +124,7 @@ def dir_rating_rmse(run, post, epochs, net_type, dist='RMSE', weighted=False, n_
         R = np.zeros([len(epochs), 10, n_groups])
 
         for c, run_config in enumerate([run + 'c{}'.format(config) for config in range(n_groups)]):
-            predict, valid_epochs, images, meta_data, classes, labels, masks = PredFile.load(run=run_config, dset=post)
+            predict, valid_epochs, images, meta_data, classes, labels, masks, conf, rating_weights, z = PredFile.load(run=run_config, dset=post)
             labels = np.array([np.mean(l, axis=0) for l in labels])
             for i, e in enumerate(epochs):
                 #print("=" * 20)
@@ -337,7 +337,7 @@ def dir_rating_view(run, post, epochs, net_type='dirR', factor=1.0):
     #images, predict, meta_data, labels, masks = pred_loader.load(run, epochs[-1], post)
     PredFile = FileManager.Pred(type='rating', pre=net_type)
 
-    predict, epochs, meta_data, images, classes, labels, masks = PredFile.load(run=run+'c0', dset=post)
+    predict, epochs, meta_data, images, classes, labels, masks, _, _, _ = PredFile.load(run=run+'c0', dset=post)
     # prepare
     images  = np.squeeze(images)
     labels = np.array([np.mean(l, axis=0) for l in labels])
@@ -360,7 +360,7 @@ def dir_rating_view(run, post, epochs, net_type='dirR', factor=1.0):
 
 if __name__ == "__main__":
     #run = '251', '300'
-    run = '251'  # '251' '512c'  # '412'
+    run = '813'  # '251'  # '251' '512c'  # '412'
     net_type = 'dirR'
     epochs = np.arange(1, 101)  # [1, 10, 20, 30]
 
@@ -386,10 +386,10 @@ if __name__ == "__main__":
         #dir_rating_correlate(run, post, epochs, rating_norm='none', clustered_rating_distance=True)
         #embed_correlate('dirR', run, post, epochs, rating_norm='Round')
         #dir_rating_accuracy(run, post, net_type, epochs)
-        dir_rating_params_correlate(run, post, epochs, net_type=net_type, rating_norm='none')  # rating_norm='Round'
+        #dir_rating_params_correlate(run, post, epochs, net_type=net_type, rating_norm='none')  # rating_norm='Round'
         #dir_rating_rmse(run, post, epochs, net_type=net_type, weighted=True)
         #dir_rating_rmse(run, post, epochs, dist='ABS', weighted=True)
-        #dir_rating_view(run, post, epochs, net_type=net_type,factor=1)
+        dir_rating_view(run, post, epochs, net_type=net_type,factor=1)
 
 
         #dir_size_rmse(run, post, epochs, net_type=net_type, weighted=False)

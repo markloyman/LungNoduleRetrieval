@@ -72,8 +72,11 @@ def prepare_data(data, rating_format='raw', reshuffle=False, verbose = 0, scalin
 
     z = np.array([entry[7] for entry in data]).reshape(N, 1)
 
-    # confidence is only relevant for full dataset and should first be reconsidered
-    conf = np.array([np.min(entry[6]) for entry in data])
+    # confidence
+    # only relevant for full dataset and should first be reconsidered
+    # conf = np.array([np.min(entry[6]) for entry in data])
+    # mean rating based objective
+    conf = 1 - .5*np.array([rating_normalize(np.std(entry[5], axis=0).mean(), scaling) for entry in data])
 
     meta = [entry[3] for entry in data]
 

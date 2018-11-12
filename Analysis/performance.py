@@ -32,7 +32,22 @@ def mean_cross_validated_index(index, valid_epochs, combined_epochs):
                 for i, e in enumerate(ve):
                     if e == epoch:
                         collect += [idx[:, i]]
-        merged[:, ep_id] = np.mean(collect, axis=0)
+        merged[:, ep_id] = np.stack([np.mean(collect, axis=0)[0], np.std(collect, axis=0)[0]]) \
+                            if (2 == collect[0].shape[0]) else np.mean(collect, axis=0)
+    return merged
+
+
+def std_cross_validated_index(index, valid_epochs, combined_epochs):
+    merged = np.zeros((index[0].shape[0], len(combined_epochs)))
+    for ep_id, epoch in enumerate(combined_epochs):
+        #collect = [[idx[:, i] for i, e in enumerate(ve) if e == epoch] for idx, ve in zip(index, valid_epochs) if epoch in ve]
+        collect = []
+        for idx, ve in zip(index, valid_epochs):
+            if epoch in ve:
+                for i, e in enumerate(ve):
+                    if e == epoch:
+                        collect += [idx[:, i]]
+        merged[:, ep_id] = np.std(collect, axis=0)
     return merged
 
 
@@ -49,7 +64,7 @@ def mean_cross_validated_index_with_std(index, valid_epochs, combined_epochs):
                     if e == epoch:
                         collect += [idx[i, :]]
         merged[ep_id] = np.mean(np.mean(collect, axis=-1), axis=0)
-        merged_std[ep_id] = np.mean(np.std(collect, axis=-1), axis=0)
+        merged_std[ep_id] = np.std(np.mean(collect, axis=-1), axis=0)
     return merged, merged_std
 
 
@@ -252,9 +267,9 @@ def eval_correlation(run, net_type, metric, rating_metric, epochs, dset, objecti
     Km = mean_cross_validated_index(Km, valid_epochs, merged_epochs)
     Pr = mean_cross_validated_index(Pr, valid_epochs, merged_epochs)
     Kr = mean_cross_validated_index(Kr, valid_epochs, merged_epochs)
-    PmStd = mean_cross_validated_index(PmStd, valid_epochs, merged_epochs)
-    KmStd = mean_cross_validated_index(KmStd, valid_epochs, merged_epochs)
-    PrStd = mean_cross_validated_index(PrStd, valid_epochs, merged_epochs)
-    KrStd = mean_cross_validated_index(KrStd, valid_epochs, merged_epochs)
+    PmStd = std_cross_validated_index(PmStd, valid_epochs, merged_epochs)
+    KmStd = std_cross_validated_index(KmStd, valid_epochs, merged_epochs)
+    PrStd = std_cross_validated_index(PrStd, valid_epochs, merged_epochs)
+    KrStd = std_cross_validated_index(KrStd, valid_epochs, merged_epochs)
 
     return np.squeeze(Pm), np.squeeze(PmStd), np.squeeze(Km), np.squeeze(KmStd), np.squeeze(Pr), np.squeeze(PrStd), np.squeeze(Kr), np.squeeze(KrStd), np.array(merged_epochs)

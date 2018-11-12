@@ -79,7 +79,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
     ## --------------------------------------- ##
 
     #data
-    dataset_type = 'Clean'
+    dataset_type = 'Primary'
     data_size = 160
     if no_training:
         data_size = 160
@@ -115,47 +115,11 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
     ## --------------------------------------- ##
 
     if choose_model is "DIR":
-        #run = 'dir100'  # no-pooling
-        #run = 'dir101'  # conv-pooling
-        #run = 'dir102'  # avg-pooling
-        #run = 'dir103'  # max-pooling
-        #run = 'dir104c'  # rmac-pooling
-        #run = 'dir200'  # rmac, decay=0
-        #run = 'dir201'  # max, decay=0
-        #run = 'dir999'  # rmac
-        #run  = 'dir900'   # max
-        #run = 'dir901'  # avg
-        #run = 'dir902'  # msrmac
-        #run = 'dir210'  # out64
-        #run = 'dir211'  # out256
-        #run = 'dir212'  # out32
-        #run = 'dir220'  # network max width 256
-        #run = 'dir221'  # network max width 256, data aug ('crop_stdev': 0.05) - used 128 data
-        #run = 'dir222'  # network max width 256, data aug ('crop_stdev': 0.15) - used 128 data
-        #run = 'dir223'  # Sequence, 3 workers, data aug with 144 data
-        #run = 'dir224'  # Sequence, 5 deg rotation, data aug with 144 data
-        #run = 'dir225'  # Sequence, 0 deg rotation, data aug with 144 data, drop.5
-        #run = 'dir226'  # Sequence, 0 deg rotation, data aug with 144 data, drop.3
-        #run = 'dir227'  # Sequence, 0 deg rotation, data aug with 144 data, drop.0
-        #run = 'dir228'  # Sequence, 0 deg rotation, data aug with 144 data, drop.1
-        #run = 'dir229'  # 10 deg rotation, drop.1
-        #run = 'dir230'  # 20 deg rotation, drop.1
-        #run = 'dir231'  # 30 deg rotation, drop.1
-        #run = 'dir232'  # no rotation, drop.1
-        #run = 'dir233'  # no rotation, drop.1
-        #run = 'dir234'  # 30 deg rotation, drop.1
-        #run = '235'  # baseline with Dataset160
-        #run = 'dir236'  # baseline with Dataset128
-        #run = 'dir240b'  # data-aug-no-rot
-        #run = 'dir241'  # data-aug-rot20
-        #run = 'dir242'  # data-aug-rot40
-        #run = 'dir243b'  # data-aug-rot60
-        #run = 'dir250'  # max2-pooling
-        #run = '251'  # avg-pooling
-        #run = '252'  # msrmac-pooling
-        #run = 'dir253'  # avg-pooling, aug
-        #run = '254'  # msrmac-pooling, aug
-        run = 'zzz'
+        # run = '300'  # SPIE avg-pool (data-aug, balanced=False,class_weight=True)
+        # run = '301'  # SPIE max-pool (data-aug, balanced=False,class_weight=True)
+        # run = '302'  # SPIE rmac-pool (data-aug, balanced=False,class_weight=True)
+
+        # run = 'zzz'
 
         model = DirectArch( miniXception_loader, input_shape, output_size=out_size,
                             normalize=normalize, pooling='msrmac')
@@ -179,94 +143,20 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
             model.load_data(images_train, labels_train, images_valid, labels_valid, batch_size=32)
 
     if choose_model is "DIR_RATING":
-        #run = 'dirR000'  # mse
-        #run = 'dirR001'  # msle
-        #run = 'dirR002'  # mse, linear activation
-        #run = 'dirR003'  # mse, linear activation
-        #run = 'dirR004X'  # logcosh
-        #run = 'dirR005'  # binary_crossentropy
-        #run = 'dirR006'  # mse, batch_sz=64
-        #run = 'dirR007'  # mse, data-aug
-        #run = 'dirR008'  # mse, scaled-rating
-        #run = 'dirR009'  # logcosh, max, scaled
-        #run = 'dirR010'  # logcosh, rmac, scaled
-        #run = 'dirR011X'  # logcosh, rmac, no scaling
-        #run = 'dirR012'  # logcosh, rmac, no scaling, decay
-        #run = 'dirR013'  # model-binary, rmac, logcosh
-        #run = 'dirR014ZZ'  # model-not-binary, rmac, logcosh
 
-        #run = '201b'  # msrmac-pool
-        #run = '202c'  # avg-pool
+        ### CLEAN SET
+        # run = '800'  # rmac conf:size
+        # run = '801'  # rmac conf:none
+        # run = '802'  # rmac conf:rating-std
+        # run = '803'  # max conf:none
 
-        #run = '200b'  # max-pool
-        #run = '210'  # max-pool data-aug                                               Class Weight -> B:0.74, M:1.53
-        #run = '220'  # max-pool data-aug data-primary                                  Class Weight -> B:0.77, M:1.52, U:??? (¬0.9)
+        ### PRIMARY SET
+        # run = '810'  # rmac conf:size
+        # run = '811'  # rmac conf:none
+        # run = '812'  # rmac conf:rating-std
+        run = '813'  # max conf:none
 
-        #run = '203'  # max-pool                            (rating w_mean)
-        #run = '213'  # max-pool data-aug
-        #run = '223'  # max-pool data-aug data-primary                                  Class Weight -> B:0.78, M:1.61, U:0.91
-
-
-        #run = '233'  # max-pool data-aug data-primary, confidence                      Class Weight -> B:0.77, M: 1.52, U: 0.38
-        #run = '243'  # max-pool data-aug data-primary, confidence no-class-weight
-        #run = '253'  # max-pool data-aug data-primary, no-confidence no-class-weight
-
-        #run = '251'  # msrmac-pool data-aug data-primary, no-confidence no-class-weight
-
-        #run = '260'  # msrmac-pool no reg
-        #run = '261'  # msrmac-pool L1 reg = 1e-2
-        #run = '262'  # msrmac-pool L1 reg = 1e-3
-        #run = '263'   # msrmac-pool L1 reg = 1e-3 (on embedding)
-        #run = 'z264'  # msrmac-pool, RegLoss:FeatureCorrelation
-
-        #run = '270'  # msrmac, baseline, b=32
-        #run = '271'  # msrmac, baseline, b=128
-        #run = '272'  # msrmac, b32, SampCorr.1
-        #run = '273'  # msrmac, b32, SampCorr.5
-        #run = '275'  # msrmac, b32, FeatCorr.1
-        #run = '276'  # msrmac, FeatCorr.sch01
-        #run = '277'  # msrmac, SampCorr.sch01
-
-        #run = '300'  # msrmac, separated-predictions, data-aug, data-primary
-
-        #run = '400b'  # obj:size
-        #run = '401'  # obj:size, double dense prediction layer
-        #run = '402z'  # obj:size, double dense prediction layer + BN
-        #run = '410'  # obj:size(mask area), double dense prediction layer + BN
-        #run = '411d'  # obj:size (digitized mask area)
-        #run = '412'  # obj:size (digitized mask area) *corrected data-loading
-
-        #run = '500'  # obj:rating_size
-        #run = '501'  # obj:rating_size (digitized mask area)
-        #run = '502' # schd1 *corrected data-loading
-        #run = '503' # schd2 *corrected data-loading
-
-        #run = '512c'  # primary aug
-
-        #run = '600'  # base full aug
-        #run = '601b'  # full aug + confidence
-        #run = '602'  # full aug + confidence + b64
-        #run = '603'  # full aug + confidence + b32 + lr-4
-        #run = '604'  # full aug + confidence + pretrain:dirR251
-        #run = '605'  # full aug + confidence + pretrain:dirR251 + lr-4
-        #run = '606'
-
-        #run = '700'  # distance-matrix-loss primary aug
-        #run = '701'  # distance-matrix-loss primary aug (-corretion loss)
-        #run = '702'  # distance-matrix-loss primary aug (-corretion loss) b64
-        #run = '703'  # distance-matrix-loss primary aug (-corretion loss) b128
-        #run = '704'  # distance-matrix, pretrain:dirR251
-        #run = '705'  # distance-matrix, l2-correlation
-        #run = '706'  # distance-matrix, l2-correlation, pretrain:dirR251
-        #run = '707'  # distance-matrix, l2-correlation, pretrain:dirR251, lr-4, dm-labels
-        #run = '708'  # distance-matrix, l2-correlation, pretrain:dirR251, lr-4, b64, dm-labels
-        #run = '709'  # distance-matrix, l2-corr, dm-labels
-
-        #run = '710'  # distance-matrix, l2-corr, dm-labels, pretrain:dirR251-20
-
-        #run = '720'  # distance-matrix, l2-corr, dm-labels-weighted,
-
-        run = 'abx'
+        # run = 'zzz'
 
         obj = 'rating'  # 'distance-matrix' 'rating' 'rating-size'
 
@@ -278,7 +168,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         preload_weight = None  # FileManager.Weights('dirR', output_dir=input_dir).name(run='251c{}'.format(config), epoch=epoch_pre)
 
         model = DirectArch(miniXception_loader, input_shape, output_size=out_size, objective=obj, separated_prediction=False,
-                           normalize=normalize, pooling='msrmac', l1_regularization=None, regularization_loss=reg_loss, batch_size=batch_size)
+                           normalize=normalize, pooling='max', l1_regularization=None, regularization_loss=reg_loss, batch_size=batch_size)
         model.model.summary()
 
         if preload_weight is not None:
@@ -303,7 +193,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
                     objective=obj, rating_scale=rating_scale, weighted_rating=(obj=='distance-matrix'),
                     balanced=False,
                     do_augment=do_augment, augment=data_augment_params,
-                    use_class_weight=False, use_confidence=True)
+                    use_class_weight=False, use_confidence=False)
             model.load_generator(generator)
         else:
             dataset = load_nodule_dataset(size=data_size, res=res, sample=sample, dataset_type=dataset_type)
@@ -320,43 +210,38 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
     ## --------------------------------------- ##
 
     if choose_model is "SIAM":
-        #run = 'siam100'  # base model, res=0.5I, l2
-        #run = 'siam101'  # base model, res=0.5I, l1 | b: lr->e-2
-        #run = 'siam102'  # base model, res=0.5I, l2, msrmac
-        #run = 'siam103'  # base model, res=0.5I, cosine
-        #run = 'siam104'  # base model, res=0.5I, l1, norm-l1
-        #run = 'siam200b'   # l2, max-pool, w256
-        #run = 'siam202c'  # l2, rmac-pool, w512
-        #run = 'siam203'  # l2, rmac-pool, w512, old data style
-        #run = 'siam204'  # l2, msrmac-pool, w256
-        #run = 'siam205'  # l1, max-pool, w256
-        #run = 'siam206'  # l1, msrmac-pool, w256
-        #run = 'siam207'  # l2, avg-pool, w256
-        #run = '208c'  # l1, avg-pool, w256
-        #run = '210b'  # l2, max-pool, alt loss 210:fix-attempt-at-loss, 210b:corrected-alt-loss
-        #run = '214'  # l2, msrmac, alt loss (different)
-        #run = '220' # l2, max, data-aug
-        #run = '224'  # l2, msrmac, data-aug
-        #run = '230' # l2 max, alt-loss, data-aug
-        #run = '234'  # l2 msrmac, alt-loss, data-aug
+        # run = '300'  # l1, avg-pool (data-aug, balanced=True, class_weight=False)
+        # run = '301'  # l1, max-pool (data-aug, balanced=True, class_weight=False)
+        # run = '302'  # l1, rmac-pool (data-aug, balanced=True, class_weight=False)
+        # run = '310'  # l2, avg-pool (data-aug, balanced=True, class_weight=False)
+        # run = '311'  # l2, max-pool (data-aug, balanced=True, class_weight=False)
+        # run = '312'  # l2, rmac-pool (data-aug, balanced=True, class_weight=False)
+        # run = '320'  # cos, avg-pool (data-aug, balanced=True, class_weight=False)
+        # run = '321'  # cos, max-pool (data-aug, balanced=True, class_weight=False)
+        # run = '322b'  # cos, rmac-pool (data-aug, balanced=True, class_weight=False)
 
-        run = 'zzz'
+        # b/c - changed margin-loss params
+        # run = '313c'  # l2, max-pool MARGINAL-LOSS (data-aug, balanced=True, class_weight=False)
+        # run = '314c'  # l2, rmac-pool MARGINAL-LOSS (data-aug, balanced=True, class_weight=False)
+        # run = '323c'  # cos, max-pool MARGINAL-LOSS (data-aug, balanced=True, class_weight=False)
+        # run = '324c'  # cos, rmac-pool MARGINAL-LOSS (data-aug, balanced=True, class_weight=False)
 
-        gen = True
+        # run = 'zzz'
+
         batch_size = 64 if local else 128
 
         # model
         generator = DataGeneratorSiam(data_loader,
                                       data_size=data_size, model_size=model_size, batch_size=batch_size,
                                       val_factor=0 if skip_validation else 3, balanced=True, objective="malignancy",
-                                      do_augment=do_augment, augment=data_augment_params, weighted_rating=True,
+                                      do_augment=do_augment, augment=data_augment_params,
                                       use_class_weight=False)
 
         model = SiamArch(miniXception_loader, input_shape, output_size=out_size, batch_size=batch_size,
                          distance='l2', normalize=normalize, pooling='msrmac')
         model.model.summary()
         model.compile(learning_rate=1e-3, decay=0)
-        if gen:
+        if use_gen:
             model.load_generator(generator)
         else:
             imgs_trn, lbl_trn = generator.next_train().__next__()
@@ -364,43 +249,27 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
             model.load_data(imgs_trn, lbl_trn, imgs_val, lbl_val)
 
     if choose_model is "SIAM_RATING":
-        #run = 'siamR001'  # mse-loss, rating-scaled
-        #run = 'siamR002'  # mse-loss, rating-scaled, repeated-epochs
-        #run = 'siamR003'  # mse-loss, 0.25*rating-scaled, repeated-epochs(3)
-        #run = 'siamR004X'  # mse-loss, 0.25*rating-scaled, repeated-epochs(5)
-        #run = 'siamR005'  # mse-loss, 0.25*rating-scaled, repeated-epochs(1)
-        #run = 'siamR006XX'  # rmac, mse-loss, 0.25*rating-scaled, repeated-epochs(1)
-        #run = 'siamR007'  # rmac, logcosh-loss, 0.25*rating-scaled, repeated-epochs(1)
-        #run = 'siamR008X'  # data-aug
-        #run = 'siamR009'  # cosine
-        #run = '100c'  # l2, max-pooling, train_factor=1
-        #run = '101b'  # l2, max-pooling, train_factor=2
-        #run = '102'  # l2, max-pooling, train_factor=3
-        #run = '103'  # l2, max-pooling, train_factor=1, mse
-        #run = '110'  # l2, max-pooling, train_factor=3
-        #run = '112'  # l2, msrmac-pooling, train_factor=3
-        #run = '122'  # l2, msrmac-pooling, train_factor=2, data-aug
-        #run = '132'  # l2, msrmac-pooling, train_factor=2, data-aug, primary
-        #run = '142'  # l2, msrmac-pooling, train_factor=2, out=64
-        #run = '152'  # l2, msrmac-pooling, train_factor=2, out=32
-        #run = '162'  # l2, msrmac-pooling, train_factor=2, out=8
-        #run = '172'  # l2, msrmac-pooling, train_factor=2, out=256
-        #run = '135'  # l2, msrmac-pooling, train_factor=2, data-aug, primary
-        #run = '180'  # baseline, b64
-        #run = '181'  # baseline, FeatCorr.1
-        #run = '182'  # baseline, SampCorr.1
+        ### clean set
+        # run = '400'  # l2-rmac no-conf
+        # run = '401'  # cosine-rmac no-conf
+        # run = '402'  # l2-rmac conf
+        # run = '403'  # cosine-rmac conf
+        # run = '404'  # l2-max no-conf
+        # run = '405'  # cosine-max no-conf
 
-        #run = '200'  # pretrain with dirR251-70
+        ### primary set
+        # run = '410'  # l2-rmac no-conf
+        # run = '411'  # cosine-rmac no-conf
+        # run = '412'  # l2-rmac conf
+        # run = '413'  # cosine-rmac conf
+        # run = '414'  # l2-max no-conf
+        # run = '415'  # cosine-max no-conf
 
-        #run = '300'   # obj: size
-        #run = '311'  # obj: rating-size
-
-        run = 'zzz'  #
-
+        # run = 'zzz'
 
         obj = 'rating'  # rating / size / rating_size
         batch_size = 16 if local else 64
-        reg_loss = None  # {'SampleCorrelation': 0.1}  # 'Dispersion', 'Std', 'FeatureCorrelation', 'SampleCorrelation'
+        reg_loss = None  # {'SampleCorrating_clusters_distance_and_stdrelation': 0.1}  # 'Dispersion', 'Std', 'FeatureCorrelation', 'SampleCorrelation'
 
         epoch_pre = 60
         preload_weight = None  # FileManager.Weights('dirR', output_dir=input_dir).name(run='251c{}'.format(config), epoch=70)
@@ -424,12 +293,12 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         generator = DataGeneratorSiam(data_loader,
                                       data_size=data_size, model_size=model_size, batch_size=batch_size,
                                       train_facotr=2, val_factor=0 if skip_validation else 3, balanced=False,
-                                      objective=obj,
+                                      objective=obj, weighted_rating=True,
                                       do_augment=do_augment, augment=data_augment_params,
                                       use_class_weight=False, use_confidence=False)
 
         model = SiamArch(miniXception_loader, input_shape, output_size=out_size, objective=obj,
-                         batch_size=batch_size, distance='l2', normalize=normalize, pooling='msrmac',
+                         batch_size=batch_size, distance='cosine', normalize=normalize, pooling='rmac',
                          regularization_loss=reg_loss, l1_regularization=False)
 
         if preload_weight is not None:

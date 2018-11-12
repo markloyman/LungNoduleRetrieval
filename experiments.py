@@ -215,21 +215,30 @@ def load_experiments(experiment):
     #   Dir-Objectives
     # ===========================
     elif experiment == 'DirObj':
-        runs = [ '251', '512c', '705', '709', '710']  # '270', '412', '502', '503',
-        run_net_types = ['dirR', 'dirRS', 'dirD', 'dirD', 'dirD'] # 'dirR', 'dirS', 'dirRS', 'dirRS',
+        runs = [ '251', '512c', '705', '709', '710', '720']  # '270', '412', '502', '503',
+        run_net_types = ['dirR', 'dirRS', 'dirD', 'dirD', 'dirD', 'dirD'] # 'dirR', 'dirS', 'dirRS', 'dirRS',
         run_metrics = ['l2'] * len(runs)
         run_epochs = [list(range(1, 161, 1))] * len(runs)
-        run_names = [ 'R251-base-aug-primary', 'RS512c-aug-primary', 'D705-l2corr', 'D709-dm-label', '710-dm-lbl-pre:dirR251-20']  # '270-base', '412-size', '502-rating-size', '503-rating-size-02',
+        run_names = [ 'R251-base-aug-primary', 'RS512c-aug-primary', 'D705-l2corr', 'D709-dm-label', 'D710-dm-lbl-pre:dirR251-20', 'D720-weighted-dm']  # '270-base', '412-size', '502-rating-size', '503-rating-size-02',
         # 'D706-l2corr-pre:dirR251-60', 'D707-lr-4', 'D708-lr-4-b64',
     # ===========================
     #   Dir-Full
     # ===========================
     elif experiment == 'DirFull':
-        runs = [ '251', '600', '601b', '602', '603', '604', '606']  # '270', '412', '502', '503',
+        runs = [ '251', '601b', '602', '603', '604', '606']  # '270', '412', '502', '503',
         run_net_types = ['dirR'] * len(runs)
         run_metrics = ['l2'] * len(runs)
         run_epochs = [list(range(1, 221, 1))] * len(runs)
-        run_names = [ '251-base-aug-primary', '600-full', '601b-full-conf', '602-full-conf-b64', '603-lr-4', '604-pre:dirR251', '606-pre:dirR251-lr-4']
+        run_names = [ '251-base-aug-primary', '601b-full-conf', '602-full-conf-b64', '603-lr-4', '604-pre:dirR251', '606-pre:dirR251-lr-4']
+    # ===========================
+    #   Full-Dataset
+    # ===========================
+    elif experiment == 'FullDataset':
+        runs = ['251', '601b']
+        run_net_types = ['dirR'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 221, 1))] * len(runs)
+        run_names = ['251-base-aug-primary', '601b-full-conf']
     # ===========================
     #   Siam-Rating-Reg
     # ===========================
@@ -308,7 +317,110 @@ def load_experiments(experiment):
         run_metrics = ['l2'] * len(runs)
         run_epochs = [list(range(1, 101, 1))] * len(runs)
         run_names = ['162-o8', '152-o32', '142-o64', '112-o128', '172-o256']
-
+    # ===========================
+    #   Dir-Seq
+    # ===========================
+    elif experiment == 'DirSeq':
+        runs = [ '0005'] # '0001',
+        run_net_types = ['dirR'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 100, 1))] * len(runs)
+        run_names = ['0005-flat-train']  # '0001-flat-valid',
+    # ===========================
+    #   SPIE-Summary
+    # ===========================
+    elif experiment == 'SpieSummary':
+        runs = ['302', '312', '813', '410', '411']
+        run_net_types = ['dir', 'siam', 'dirR', 'siamR', 'siamR']
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 101, 1))] * len(runs)
+        run_names = ['dir-rmac', 'siam-l2-rmac', 'dirR-max-primary', 'siamR-l2-rmac-primary', 'siamR-cosine-rmac-primary']
+        run_ep_perf = [[35], [35], [50], [80], [80]]
+    # ===========================
+    #   SPIE-Direct-Pooling
+    # ===========================
+    elif experiment == 'SpieDirPool':
+        runs = ['300', '301', '302']
+        run_net_types = ['dir'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 61, 1))] * len(runs)
+        run_names = ['dir-avg', 'dir-max', 'dir-rmac']
+        run_ep_perf = []
+    # ===========================
+    #   SPIE-Siamese-L1-Pooling
+    # ===========================
+    elif experiment == 'SpieSiamL1Pool':
+        runs = ['300', '301', '302']
+        run_net_types = ['siam'] * len(runs)
+        run_metrics = ['l1'] * len(runs)
+        run_epochs = [list(range(1, 61, 1))] * len(runs)
+        run_names = ['siam-l1-avg', 'siam-l1-max', 'siam-11-rmac']
+        run_ep_perf = []
+    # ===========================
+    #   SPIE-Siamese-L2-Pooling
+    # ===========================
+    elif experiment == 'SpieSiamL2Pool':
+        runs = ['310', '311', '312']  # '314'
+        run_net_types = ['siam'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 61, 1))] * len(runs)
+        run_names = ['siam-l2-avg', 'siam-l2-max', 'siam-12-rmac']  # 'siam-l2-rmac-marginal'
+        run_ep_perf = []
+    # ===========================
+    #   SPIE-Siamese-Cosine-Pooling
+    # ===========================
+    elif experiment == 'SpieSiamCosinePool':
+        runs = ['320', '321', '322b']  # '324'
+        run_net_types = ['siam'] * len(runs)
+        run_metrics = ['cosine'] * len(runs)
+        run_epochs = [list(range(1, 101, 1))] * len(runs)
+        run_names = ['siam-cosine-avg', 'siam-cosine-max', 'siam-cosine-rmac']  # 'siam-cosine-rmac-marginal'
+        run_ep_perf = []
+    # ===========================
+    #   SPIE-Siamese-L2-AltLoss
+    # ===========================
+    #elif experiment == 'SpieSiamL2AltLoss':
+    #    runs = ['311', '312', '313b', '314b']
+    #    run_net_types = ['siam'] * len(runs)
+    #    run_metrics = ['cosine'] * len(runs)
+    #    run_epochs = [list(range(1, 101, 1))] * len(runs)
+    #    run_names = ['siam-l2-max', 'siam-l2-rmac', 'siam-l2-max-marginal', 'siam-l2-rmac-marginal']
+    # ===========================
+    #   SPIE-Siamese-Cosine-AltLoss
+    # ===========================
+    #elif experiment == 'SpieSiamCosineAltLoss':
+    #    runs = ['321', '322', '323b', '324b']
+    #    run_net_types = ['siam'] * len(runs)
+    #    run_metrics = ['cosine'] * len(runs)
+    #    run_epochs = [list(range(1, 101, 1))] * len(runs)
+    #   run_names = ['siam-cosine-max', 'siam-cosine-rmac', 'siam-cosine-max-marginal', 'siam-cosine-rmac-marginal']
+    # ===========================
+    #   SPIE-DirectRating
+    # ===========================
+    elif experiment == 'SpieDirRating':
+        runs = ['803', '801', '813', '811']  # '800' '802' '810' '812'
+        run_net_types = ['dirR'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 101, 1))] * len(runs)
+        run_names = ['dirR-max-clean', 'dirR-rmac-clean', 'dirR-max-primary', 'dirR-rmac-primary']  # 'dirR-conf-size' 'dirR-conf-rating-std' 'dirR-conf-size-primary' 'dirR-conf-rating-std-primary'
+    # ===========================
+    #   SPIE-SiamRating-L2
+    # ===========================
+    elif experiment == 'SpieSiamRatingL2':
+        runs = ['404', '400', '414', '410']  # '402', '403'
+        run_net_types = ['siamR'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 101, 1))] * len(runs)
+        run_names = ['siamR-l2-max-clean', 'siamR-l2-rmac-clean', 'siamR-l2-max-primary', 'siamR-l2-rmac-primary']  # , 'siamR-l2-conf', 'siamR-cosine-conf'
+    # ===========================
+    #   SPIE-SiamRating-Cosine
+    # ===========================
+    elif experiment == 'SpieSiamRatingCosine':
+        runs = ['405', '401', '415', '411']  # '412', '413'
+        run_net_types = ['siamR'] * len(runs)
+        run_metrics = ['cosine'] * len(runs)
+        run_epochs = [list(range(1, 101, 1))] * len(runs)
+        run_names = ['siamR-cosine-max-clean', 'siamR-cosine-rmac-clean', 'siamR-cosine-max-primary', 'siamR-cosine-rmac-primary']  # 'siamR-l2-conf', 'siamR-cosine-conf'
     # ===========================
     #   Debug
     # ===========================

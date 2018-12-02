@@ -1,14 +1,8 @@
-import pickle
-from timeit import default_timer as timer
-import  os
-
-import numpy as np
 from keras import backend as K
 from keras.callbacks import ModelCheckpoint, TensorBoard, Callback
 from keras.layers import Input
 from keras.layers import Lambda, Activation
 from keras.models import Model
-from keras.optimizers import Adam
 
 try:
     from Network.Common.baseArch import BaseArch
@@ -48,7 +42,7 @@ def triplet_loss(_, y_pred):
 class TripArch(BaseArch):
 
     def __init__(self, model_loader, input_shape, objective='malignancy',
-                 pooling='rmac', output_size=1024, distance='l2', normalize=False, categorize=False):
+                 pooling='rmac', output_size=1024, distance='l2', normalize=False, categorize=False, regularization_loss={}):
 
         super().__init__(model_loader, input_shape, objective=objective,
                          pooling=pooling, output_size=output_size, normalize=normalize)
@@ -80,14 +74,23 @@ class TripArch(BaseArch):
         distance_layer_neg = Lambda(distance_layer,
                                     output_shape=distance_output_shape, name='neg_dist')([base_ref, base_neg])
 
-        output_layer = Lambda(lambda vects: K.concatenate(vects, axis=1), name='output')([distance_layer_pos, distance_layer_neg])
+        trip_layer = Lambda(lambda vects: K.concatenate(vects, axis=1), name='output')([distance_layer_pos, distance_layer_neg])
+
+        embed = Lambda(lambda x: K.concatenate([x[0], x[1], x[2]], axis=0), name='embed_output')([base_ref, base_pos, base_neg])
 
         self.categorize = categorize
         if categorize:
-            output_layer = Activation('softmax')(output_layer)
+            trip_layer = Activation('softmax')(trip_layer)
+
+        self.regularization_loss = regularization_loss
+
+        outputs = []
+        outputs.append(trip_layer)
+        if regularization_loss:
+            outputs.append(embed)
 
         self.model =    Model(  inputs=[img_input_ref, img_input_pos, img_input_neg],
-                                outputs = output_layer,
+                                outputs = outputs,
                                 name='tripletArch')
 
     def compile(self, learning_rate = 0.001, decay=0.0, loss = 'mean_squared_error', scheduale=[]):
@@ -95,15 +98,15 @@ class TripArch(BaseArch):
         kendall_correlation.__name__  = 'corr'
 
         if self.categorize:
-            loss = 'categorical_crossentropy'
+            loss = {'output': 'categorical_crossentropy'}
         else:
-            loss =  triplet_loss #[contrastive_loss_p, contrastive_loss_n] #'mean_squared_error' #triplet_loss
-        metrics = [rank_accuracy, kendall_correlation]
+            loss =  {'output': triplet_loss} #[contrastive_loss_p, contrastive_loss_n] #'mean_squared_error' #triplet_loss
+        metrics = {'output': [rank_accuracy, kendall_correlation]}
 
-        self.model.compile( optimizer   = Adam(lr=learning_rate, decay=decay), #, decay=0.01*learning_rate),
-                            loss        = loss,
-                            metrics     = metrics,
-                            scheduale   = scheduale)
+        self.compile_model(lr=learning_rate, lr_decay=decay,
+                           loss=loss,
+                           metrics=metrics,
+                           scheduale=scheduale)
         # lr = self.lr * (1. / (1. + self.decay * self.iterations))
         self.lr         = learning_rate
         self.lr_decay   = decay

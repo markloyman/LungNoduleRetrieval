@@ -1,8 +1,10 @@
 import numpy as np
 try:
     from Network.Common import prepare_data
+    from Network.dataUtils import rating_clusters_distance, rating_clusters_distance_and_std, reorder, l2_distance
 except:
     from Common import prepare_data
+    from dataUtils import rating_clusters_distance, rating_clusters_distance_and_std, reorder, l2_distance
 
 
 def select_triplets(elements):
@@ -46,10 +48,10 @@ def make_balanced_trip(elements, c1_head, c1_tail, c2_head, c2_tail):
 def prepare_data_triplet(data, objective="malignancy", rating_distance="mean", balanced=False, return_confidence=False, return_meta=False, verbose= 0):
     if verbose:
         print('prepare_data_triplet:')
-    images, ratings, classes, masks, meta, conf, nod_size, _ \
+    images, ratings, classes, masks, meta, conf, nod_size, _, _ \
         = prepare_data(data, rating_format="raw", scaling="none", reshuffle=True, verbose=verbose)
 
-    N = images.shape[0]
+    N = len(images)
 
     if balanced:
         print('Create a balanced split')

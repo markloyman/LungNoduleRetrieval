@@ -36,19 +36,20 @@ class DataGeneratorTrip(DataGeneratorBase):
 
 class DataSequenceTrip(DataSequenceBase):
     def __init__(self, dataset, is_training=True, model_size=128, batch_size=32,
-                 objective="malignancy", rating_scale='none', categorize=False,
+                 objective="malignancy", rating_scale='none', categorize=False, weighted_rating=False,
                  do_augment=False, augment=None, use_class_weight=False, use_confidence=False, debug=False,
-                 data_factor=1, balanced=False):
+                 data_factor=1, balanced=False, seq_model = False):
 
         assert use_class_weight is False
         assert use_confidence is False
+        assert seq_model is False
 
         if objective == 'malignancy':
             assert categorize is True
 
         super().__init__(dataset, is_training=is_training, model_size=model_size, batch_size=batch_size,
                          objective=objective, rating_scale=rating_scale, categorize=categorize,
-                         do_augment=do_augment, augment=augment,
+                         do_augment=do_augment, augment=augment, weighted_rating=weighted_rating,
                          use_class_weight=use_class_weight, use_confidence=use_confidence,
                          balanced=balanced, data_factor=data_factor)
 
@@ -57,14 +58,13 @@ class DataSequenceTrip(DataSequenceBase):
             # make sure N is correct
             if self.balanced:
                 classes = np.array([entry[2] for entry in self.dataset])
-                Nb = np.count_nonzero(1 - classes)
-                Nm = np.count_nonzero(classes)
+                Nb = np.count_nonzero(0 == classes)
+                Nm = np.count_nonzero(1 == classes)
                 M = min(Nb, Nm)
                 N = 2 * M // self.batch_size
-                print("VERIFY N IS CORRECT!!!")
             else:
                 N = len(self.dataset) // self.batch_size
-                assert False
+                print("VERIFY N IS CORRECT!!!")
         else:
             N = len(self.dataset) // self.batch_size
 
@@ -86,4 +86,4 @@ class DataSequenceTrip(DataSequenceBase):
         else:
             sample_weight = np.ones(labels.shape)
 
-        return images, labels, [None]*len(labels), masks, sample_weight
+        return images, labels if type(labels) is tuple else tuple([labels]), [None]*len(labels), masks, sample_weight

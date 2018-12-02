@@ -356,14 +356,17 @@ class BaseArch(object):
         self.model.load_weights(w)
         print("Loaded {}".format(w))
 
-    def load_core_weights(self, w):
+    def load_core_weights(self, w, freeze_n_layers=0):
         import tensorflow as tf
         if type(self.base) == tf.Tensor:
             from keras.models import Model
             model = Model(self.img_input, self.base)
-            model.load_weights(w, by_name=True)
         else:
-            self.model.load_weights(w, by_name=True)
+            model = self.model
+        model.load_weights(w, by_name=True)
+        if freeze_n_layers > 0:
+            for layer in model.layers[:freeze_n_layers]:
+                layer.trainable = False
         print("Loaded {}".format(w))
 
     def compile(self, learning_rate=0.001, decay=0.1, loss='categorical_crossentropy'):

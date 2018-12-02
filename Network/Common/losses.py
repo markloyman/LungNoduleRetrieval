@@ -1,4 +1,5 @@
 from keras import backend as K
+from keras import losses as K_losses
 from keras.callbacks import Callback
 import tensorflow as tf
 from functools import partial
@@ -73,7 +74,8 @@ def l2DM(x):
     #dm = K.sqrt(dm)
     return dm
 
-def pearson_correlation(y_true, y_pred):
+
+def pearson_correlation(y_true, y_pred, normalized=False):
     # distance matrix based on cosine-distance (assuming embeddings are all normalized)
     #dm_true = K.dot(y_true, K.transpose(y_true))
     #dm_pred = K.dot(y_pred, K.transpose(y_pred))
@@ -81,6 +83,10 @@ def pearson_correlation(y_true, y_pred):
     #dm_true = l2DM(y_true)
     dm_true = y_true
     dm_pred = l2DM(y_pred)
+
+    if normalized:
+        dm_true = K.softmax(dm_true)
+        dm_pred = K.softmax(dm_pred)
 
     #y_true = K.cast(y_true, K.floatx())
     sum_true = K.sum(dm_true, axis=1)
@@ -98,6 +104,43 @@ def pearson_correlation(y_true, y_pred):
     corr /= K.sqrt(n * sum2_pred - sum_pred * sum_pred + K.epsilon())
 
     return -corr
+
+
+def distance_matrix_logcosh(y_true, y_pred):
+    # distance matrix based on cosine-distance (assuming embeddings are all normalized)
+    # dm_true = K.dot(y_true, K.transpose(y_true))
+    # dm_pred = K.dot(y_pred, K.transpose(y_pred))
+    # l2 distance matrix
+    # dm_true = l2DM(y_true)
+    dm_true = y_true
+    dm_pred = l2DM(y_pred)
+
+    loss = K_losses.logcosh(dm_true, dm_pred)
+
+    return loss
+
+
+def distance_matrix_rank_loss_adapter(base_loss, label):
+    func = partial(distance_matrix_rank_loss, base_loss=base_loss)
+    func.__name__ = label + '_rank_loss'
+    return func
+
+
+def distance_matrix_rank_loss(y_true, y_pred, base_loss, normalized=False):
+    # l2 distance matrix
+    dm_true = y_true
+    dm_pred = l2DM(y_pred)
+
+    if normalized:
+        dm_true = K.mean(dm_true, axis=1, keepdims=True) - dm_true
+        dm_pred = K.mean(dm_pred, axis=1, keepdims=True) - dm_pred
+
+    dm_true = K.softmax(dm_true)
+    dm_pred = K.softmax(dm_pred)
+
+    loss = base_loss(dm_true, dm_pred)
+
+    return loss
 
 
 class LossWeightSchedualer(Callback):

@@ -10,7 +10,7 @@ random.seed(1337)
 tf.set_random_seed(1234)
 K.set_session(tf.Session(graph=tf.get_default_graph()))
 try:
-    from Network.Common.losses import pearson_correlation
+    from Network.Common.losses import pearson_correlation, distance_matrix_logcosh, distance_matrix_rank_loss_adapter, K_losses
     from Network.Direct.directArch import DirectArch
     from Network.Direct.DataGenDirect import DataGeneratorDir
     from Network.Siamese.siameseArch import SiamArch
@@ -26,7 +26,7 @@ try:
     local = True
 except:
     # Paths for floyd cloud
-    from Common.losses import pearson_correlation
+    from Common.losses import pearson_correlation, distance_matrix_logcosh, distance_matrix_rank_loss_adapter, K_losses
     from Direct.directArch import DirectArch
     from Direct.DataGenDirect import DataGeneratorDir
     from Siamese.siameseArch import SiamArch
@@ -154,25 +154,61 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         # run = '810'  # rmac conf:size
         # run = '811'  # rmac conf:none
         # run = '812'  # rmac conf:rating-std
-        run = '813'  # max conf:none
+        #run = '813'  # max conf:none
+
+        # run = '820'  # dirD, max, logcoh-loss
+        # run = '821'  # dirD, max, pearson-loss
+        # run = '822'  # dirD, max, KL-rank-loss
+        # run = '823'  # dirD, max, poisson-rank-loss
+        # run = '824'  # dirD, max, categorical-cross-entropy-loss
+        # run = '825'  # dirD, max, ranked-pearson-loss
+        # run = '826'  # dirD, max, KL-normalized-rank-loss
+
+        # run = '830'  # dirD, rmac, logcoh-loss
+        # run = '831'  # dirD, rmac, pearson-loss
+        # run = '832'  # dirD, rmac, KL-rank-loss
+        # run = '833'  # dirD, rmac, poisson-rank-loss
+        # run = '834'  # dirD, rmac, categorical-cross-entropy-loss
+        # run = '835'  # dirD, rmac, ranked-pearson-loss
+        # run = '836'  # dirD, rmac, KL-normalized-rank-loss
+
+        # run = '841'  # dirD, max, pearson-loss    pre:dirR813-50
+        # run = '842b'  # dirD, max, KL-rank-loss    pre:dirR813-50  (b:lr-4)
+        # run = '846'  # dirD, max, KL-norm-loss    pre:dirR813-50
+
+        # run = '851'  # dirD, rmac, pearson-loss   pre:dirR813-50
+        # run = '852'  # dirD, rmac, KL-rank-loss   pre:dirR813-50
+        # run = '856'  # dirD, rmac, KL-norm-loss   pre:dirR813-50
+
+        # run = '860'  # dirD, max, KL-loss    pre:dirR813-50  (b:lr-4, freeze:7)
+        # run = '861'  # dirD, max, KL-loss    pre:dirR813-50  (b:lr-4, freeze:17)
+        # run = '862'  # dirD, max, KL-loss    pre:dirR813-50  (b:lr-4, freeze:28)
+        # run = '863'  # dirD, max, KL-loss    pre:dirR813-50  (b:lr-4, freeze:39)
 
         # run = 'zzz'
 
-        obj = 'rating'  # 'distance-matrix' 'rating' 'rating-size'
+        obj = 'distance-matrix'  # 'distance-matrix' 'rating' 'rating-size'
 
         rating_scale = 'none'
         reg_loss = None  # {'SampleCorrelation': 0.0}  # 'Dispersion', 'Std', 'FeatureCorrelation', 'SampleCorrelation'
         batch_size = 32
 
-        epoch_pre = 20
-        preload_weight = None  # FileManager.Weights('dirR', output_dir=input_dir).name(run='251c{}'.format(config), epoch=epoch_pre)
+        epoch_pre = 50
+        preload_weight = None
+        # FileManager.Weights('dirR', output_dir=input_dir).name(run='813c{}'.format(config), epoch=epoch_pre)
+        # FileManager.Weights('dirR', output_dir=input_dir).name(run='251c{}'.format(config), epoch=epoch_pre)
 
         model = DirectArch(miniXception_loader, input_shape, output_size=out_size, objective=obj, separated_prediction=False,
                            normalize=normalize, pooling='max', l1_regularization=None, regularization_loss=reg_loss, batch_size=batch_size)
-        model.model.summary()
 
         if preload_weight is not None:
-            model.load_core_weights(preload_weight)
+            model.load_core_weights(preload_weight, 39)
+            # 7:    freeze 1 blocks
+            # 17:   freeze 2 blocks
+            # 28:   freeze 3 blocks
+            # 39:   freeze 4 blocks
+
+        model.model.summary()
 
         # scheduale 02
         should_use_scheduale = (reg_loss is not None) or (obj == 'rating_size')
@@ -183,8 +219,13 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
                  {'epoch': 80, 'weights': [1.0, 0.0]}] \
             if should_use_scheduale else []
 
-        loss = 'logcosh' if obj is not 'distance-matrix' else pearson_correlation
-        model.compile(learning_rate=1e-3, decay=0, loss=loss, scheduale=sched)  # mean_squared_logarithmic_error, binary_crossentropy, logcosh
+        loss = 'logcosh' if obj is not 'distance-matrix' else distance_matrix_rank_loss_adapter(K_losses.kullback_leibler_divergence, 'KL')
+            # distance_matrix_logcosh
+            # pearson_correlation
+            # distance_matrix_rank_loss_adapter(K_losses.kullback_leibler_divergence, 'KL')
+            # distance_matrix_rank_loss_adapter(K_losses.poisson, 'poisson')
+            # distance_matrix_rank_loss_adapter(K_losses.categorical_crossentropy, 'entropy')
+        model.compile(learning_rate=1e-3 if (preload_weight is None) else 1e-4, loss=loss, scheduale=sched)  # mean_squared_logarithmic_error, binary_crossentropy, logcosh
 
         if use_gen:
             generator = DataGeneratorDir(data_loader,
@@ -333,8 +374,10 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         #run = 'trip027'  # obj:malig, rmac, categorize, no-decay
         #run = 'trip028'  # obj:malig, max, categorize, no-decay
 
-        run = 'trip_100'  # obj:malig, msrmac, softplus-loss
+        #run = 'trip_100'  # obj:malig, msrmac, softplus-loss
         #run = 'trip101'  # obj:malig, msrmac, rank-loss
+
+        run = 'zzz'
 
         objective = 'malignancy'
         use_rank_loss = False

@@ -422,6 +422,51 @@ def load_experiments(experiment):
         run_epochs = [list(range(1, 101, 1))] * len(runs)
         run_names = ['siamR-cosine-max-clean', 'siamR-cosine-rmac-clean', 'siamR-cosine-max-primary', 'siamR-cosine-rmac-primary']  # 'siamR-l2-conf', 'siamR-cosine-conf'
     # ===========================
+    #   DirectDistanceMax
+    # ===========================
+    elif experiment == 'DirectDistanceMax':
+        runs = ['820', '821' , '822', '823', '824', '825', '826']  #
+        run_net_types = ['dirD'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 121, 1))] * len(runs)
+        run_names = ['logcosh-loss', 'pearson-loss', 'kl-loss', 'poisson-loss', 'entropy-loss', 'ranked-pearson', 'kl-norm-loss']  #
+    # ===========================
+    #   DirectDistanceRmac
+    # ===========================
+    elif experiment == 'DirectDistanceRmac':
+        runs = ['830', '831', '832', '833', '834', '835', '836']  #
+        run_net_types = ['dirD'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 121, 1))] * len(runs)
+        run_names = ['logcosh-loss', 'pearson-loss', 'kl-loss', 'poisson-loss', 'entropy-loss', 'ranked-pearson', 'kl-norm-loss']  #
+    # ===========================
+    #   DirectDistancePreDirR813-50
+    # ===========================
+    elif experiment == 'DirectDistancePre813-50':
+        runs = ['841', '842', '846', '851', '852', '856', '842b']  #
+        run_net_types = ['dirD'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 121, 1))] * len(runs)
+        run_names = ['max-pearson', 'max-kl', 'max-norm-kl', 'rmac-pearson', 'rmac-kl', 'rmac-norm-kl', 'max-kl-lr-4']  #
+    # ===========================
+    #   DirDistPreFreezeLayers
+    # ===========================
+    elif experiment == 'DirDistPreFreezeLayers':
+        runs = ['842b', '860', '861', '862', '863']  #
+        run_net_types = ['dirD'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 151, 1))] * len(runs)
+        run_names = ['no-freeze', '1-block', '2-blocks', '3-blocks', '4-blocks']  #
+    # ===========================
+    #   ConvLSTM
+    # ===========================
+    elif experiment == 'ConvLSTM':
+        runs = ['0012']  #
+        run_net_types = ['dirR'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 151, 1))] * len(runs)
+        run_names = ['0012']  #
+    # ===========================
     #   Debug
     # ===========================
     elif experiment == 'Debug':

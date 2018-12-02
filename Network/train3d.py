@@ -115,7 +115,18 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
     if choose_model is "DIR_RATING":
 
         #run = '0004'
-        run = '0005'  # new dataset (Train-Valid-Test)
+        #run = '0005'  # new dataset (Train-Valid-Test)
+        #run = '0006'  # ConvLSTM
+        #run = '0007'  # ConvLSTM batch norm
+        #run = '0008'  # ConvLSTM batch norm seperated activation (and relu instead of tangh)
+        # run = '0008b'  # ConvLSTM batch norm seperated activation (tangh)
+        # run = '0009'  # ConvLSTM no-batch-norm, binary
+        # run = '0010'  # ConvLSTM no-batch-norm, binary-relu
+        # run = '0011'  # ConvLSTM ~1M params (max pool)
+        #run = '0012'  # ConvLSTM ~1M params (max pool) no relu
+        #run = '0013'  # ConvLSTM ~1M params (max pool) batch norm is back
+        run = '0014'  # ConvLSTM ~1M params (max pool) type2
+
         obj = 'rating'  # 'distance-matrix' 'rating' 'rating-size'
 
 
@@ -126,8 +137,8 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         epoch_pre = 20
         preload_weight = None  # FileManager.Weights('dirR', output_dir=input_dir).name(run='251c{}'.format(config), epoch=epoch_pre)
 
-        model = DirectArch(gru3d_loader, input_shape, output_size=out_size, objective=obj, separated_prediction=False,
-                           normalize=normalize, pooling='msrmac', l1_regularization=None, regularization_loss=reg_loss, batch_size=batch_size)
+        model = DirectArch(gru3d_loader, input_shape, output_size=out_size, objective=obj, separated_prediction=False, binary=False,
+                           normalize=normalize, pooling='max', l1_regularization=None, regularization_loss=reg_loss, batch_size=batch_size)
         model.model.summary()
 
         if preload_weight is not None:
@@ -303,6 +314,8 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
     ## --------------------------------------- ##
     ## -------      RUN             ------ ##
     ## --------------------------------------- ##
+
+    print('Current Run: {}{}c{}'.format('', run, config))
 
     if no_training:
         model.last_epoch = epochs

@@ -15,7 +15,7 @@ from keras import layers
 from keras.layers import Activation
 from keras.layers import BatchNormalization
 from keras.layers import Conv2D, Dense
-from keras.layers import GRU
+from keras.layers import GRU, ConvLSTM2D
 from keras.layers import Dropout
 from keras.layers import GlobalAveragePooling2D
 from keras.layers import GlobalMaxPooling2D
@@ -26,6 +26,23 @@ from keras.layers import Lambda, Bidirectional, Masking
 from keras.layers import Flatten
 from keras.layers import ActivityRegularization
 from keras.models import Model
+import tensorflow as tf
+
+
+def reshape(x):
+    # split rows
+    rows = tf.split(x, [8*128]*8, -1)
+    rows = [tf.expand_dims(r, axis=-2) for r in rows]
+    x = tf.concat(rows, axis=-2)
+    # split cols
+    rows = tf.split(x, [128] * 8, -1)
+    rows = [tf.expand_dims(r, axis=-2) for r in rows]
+    x = tf.concat(rows, axis=-2)
+    return x
+
+
+def reshape_output_shape(shape):
+    return shape[0], shape[1], 8, 8, shape[2]//64
 
 
 def gru3d_loader(input_tensor=None, input_shape=None, weights=None, output_size=1024, return_model=False,
@@ -68,16 +85,44 @@ def gru3d_loader(input_tensor=None, input_shape=None, weights=None, output_size=
     merge = 'sum'
     x = img_input  # Flatten()(img_input)
     x = Masking(mask_value=0.0)(x)
-    x = Bidirectional(GRU(units=output_size, dropout=0.4, recurrent_dropout=0.6, return_sequences=True), merge_mode=merge)(x)
-    x = Bidirectional(GRU(units=output_size, dropout=0.2, recurrent_dropout=0.4, return_sequences=True), merge_mode=merge)(x)
-    #x = Bidirectional(GRU(units=output_size, dropout=0.2, recurrent_dropout=0.2, return_sequences=True), merge_mode=merge)(x)
-    #x = Bidirectional(GRU(units=output_size, dropout=0, recurrent_dropout=0, return_sequences=True), merge_mode=merge)(x)
-    x = Bidirectional(GRU(units=output_size, dropout=0.0, recurrent_dropout=0.2, return_sequences=False), merge_mode=merge)(x)
+    # x = Bidirectional(GRU(units=output_size, dropout=0.4, recurrent_dropout=0.6, return_sequences=True), merge_mode=merge)(x)
+    # x = Bidirectional(GRU(units=output_size, dropout=0.2, recurrent_dropout=0.4, return_sequences=True), merge_mode=merge)(x)
+    # x = Bidirectional(GRU(units=output_size, dropout=0.2, recurrent_dropout=0.2, return_sequences=True), merge_mode=merge)(x)
+    # x = Bidirectional(GRU(units=output_size, dropout=0, recurrent_dropout=0, return_sequences=True), merge_mode=merge)(x)
+    # x = Bidirectional(GRU(units=output_size, dropout=0.0, recurrent_dropout=0.2, return_sequences=False), merge_mode=merge)(x)
 
-    #x = Dense(units=output_size)(x)
-    #x = Dense(units=output_size)(x)
+    x = Lambda(reshape, output_shape=reshape_output_shape)(x)
 
-    '''
+    # x = Masking(mask_value=0.0)(x)
+
+    x = Activation('tanh')(x)
+
+    # type 1
+    #x = Bidirectional(ConvLSTM2D(output_size//4, (3, 3), return_sequences=True, use_bias=False), merge_mode=merge)(x)  # reduces to 6*6
+    #x = BatchNormalization()(x)
+    # x = Activation('tanh')(x)
+    #x = Bidirectional(ConvLSTM2D(output_size//2, (3, 3), return_sequences=True, use_bias=False), merge_mode=merge)(x)  # reduces to 4*4
+    #x = BatchNormalization()(x)
+    # x = Activation('tanh')(x)
+    #x = Bidirectional(ConvLSTM2D(output_size, (1, 1), return_sequences=False, use_bias=False), merge_mode=merge)(x)  # reduces to 2*2
+    #x = BatchNormalization()(x)
+    #x = Activation('relu')(x)
+
+    # type 2
+    x = Bidirectional(ConvLSTM2D(output_size // 4, (1, 1), return_sequences=True, use_bias=False), merge_mode=merge)(x)
+    x = Bidirectional(ConvLSTM2D(output_size // 4, (3, 3), return_sequences=True, use_bias=False), merge_mode=merge)(x)
+    x = Bidirectional(ConvLSTM2D(output_size // 2, (3, 3), return_sequences=True, use_bias=False), merge_mode=merge)(x)
+    x = Bidirectional(ConvLSTM2D(output_size // 2, (3, 3), return_sequences=True, use_bias=False), merge_mode=merge)(x)
+    x = Bidirectional(ConvLSTM2D(output_size,      (1, 1), return_sequences=False, use_bias=False), merge_mode=merge)(x)
+
+
+    # x = Lambda(lambda q: K.squeeze(q, axis=-2))(x)
+    # x = Lambda(lambda q: K.squeeze(q, axis=-2))(x)
+
+    # x = Dense(units=output_size)(x)
+    # x = Dense(units=output_size)(x)
+
+
     if pooling == 'avg':
         x = GlobalAveragePooling2D(name='embeding')(x)
     elif pooling == 'max':
@@ -98,9 +143,10 @@ def gru3d_loader(input_tensor=None, input_shape=None, weights=None, output_size=
         x = Conv2D(output_size, (8, 8), strides=(1, 1), use_bias=False, name='embed_conv')(x)
         x = Flatten(name='embeding')(x)
     else:
-        x = Flatten(name='embeding')(x)
+        x = x
+        #x = Flatten(name='embeding')(x)
 
-    '''
+
 
     if binary:
         x = Activation('sigmoid')(x)

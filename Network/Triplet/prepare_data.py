@@ -14,6 +14,7 @@ def select_triplets(elements):
 
 
 def check_triplet_order(ratings_triplet, rating_distance):
+    #def distance_adapter(t, w):
     rank_status = [rating_distance(r0, r_pos) < rating_distance(r0, r_neg) for r0, r_pos, r_neg in ratings_triplet]
     rank_status = np.array(rank_status)
     return rank_status  # true if no need to flip
@@ -48,7 +49,7 @@ def make_balanced_trip(elements, c1_head, c1_tail, c2_head, c2_tail):
 def prepare_data_triplet(data, objective="malignancy", rating_distance="mean", balanced=False, return_confidence=False, return_meta=False, verbose= 0):
     if verbose:
         print('prepare_data_triplet:')
-    images, ratings, classes, masks, meta, conf, nod_size, _, _ \
+    images, ratings, classes, masks, meta, conf, nod_size, rating_weights, z \
         = prepare_data(data, rating_format="raw", scaling="none", reshuffle=True, verbose=verbose)
 
     N = len(images)
@@ -64,10 +65,23 @@ def prepare_data_triplet(data, objective="malignancy", rating_distance="mean", b
         malign_filter_b = malign_filter[M12:]
         benign_filter_a = benign_filter[:M12]
         benign_filter_b = benign_filter[M12:]
+        expected_size = 2*M
     else:
+        #assert rating_distance is not 'weighted_clusters'
         rating_trips = select_triplets(ratings)
-        distance = l2_distance if rating_distance == 'mean' else cluster_distance
-        trip_rank_status = check_triplet_order(rating_trips, rating_distance=distance)
+        if rating_distance == 'mean':
+            distance = l2_distance
+            trips_for_distance_calc = rating_trips,
+        elif rating_distance == 'clusters':
+            distance = rating_clusters_distance
+            trips_for_distance_calc = rating_trips,
+        elif rating_distance == 'weighted_clusters':
+            weights_trips = select_triplets(rating_weights)
+            distance = rating_clusters_distance
+            trips_for_distance_calc = rating_trips, weights_trips
+
+        trip_rank_status = check_triplet_order(trips_for_distance_calc[0], rating_distance=distance)
+        expected_size = N
 
     #   Handle Patches
     # =========================
@@ -81,7 +95,7 @@ def prepare_data_triplet(data, objective="malignancy", rating_distance="mean", b
     image_sub2 = np.array([pair[1] for pair in image_trips])
     image_sub3 = np.array([pair[2] for pair in image_trips])
 
-    similarity_labels = np.array([0]*N)
+    similarity_labels = np.array([[0, 1]]*N)
 
     #   Handle Masks
     # =========================
@@ -111,7 +125,7 @@ def prepare_data_triplet(data, objective="malignancy", rating_distance="mean", b
     # =========================
 
     size = image_sub1.shape[0]
-    assert M*2 == size
+    assert expected_size == size
 
     confidence = np.repeat('SB', size)
     if objective=='rating':

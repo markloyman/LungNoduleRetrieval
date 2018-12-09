@@ -262,7 +262,7 @@ def format_data_as_sequence(data, embed_size, method='flat'):
     return data
 
 
-def rating_clusters_distance(rating_a, rating_b, distance_norm='eucledean', weight_a=None, weight_b=None):
+def rating_clusters_distance(rating_a, rating_b, distance_norm='euclidean', weight_a=None, weight_b=None):
     dm = cdist(rating_a, rating_b, distance_norm)
     d_b = np.min(dm, axis=0)
     d_a = np.min(dm, axis=1)
@@ -276,7 +276,7 @@ def rating_clusters_distance(rating_a, rating_b, distance_norm='eucledean', weig
     return distance
 
 
-def rating_clusters_distance_and_std(rating_a, rating_b, distance_norm='eucledean', weight_a=None, weight_b=None):
+def rating_clusters_distance_and_std(rating_a, rating_b, distance_norm='euclidean', weight_a=None, weight_b=None):
     dm = cdist(rating_a, rating_b, distance_norm)
     d_b = np.min(dm, axis=0)
     d_a = np.min(dm, axis=1)

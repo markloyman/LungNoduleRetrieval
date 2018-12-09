@@ -187,6 +187,12 @@ def prepare_data_siamese_simple(data, siamese_rating_factor, objective="malignan
         size_pairs = select_pairs(nod_size)
         similarity_size = np.array([np.sqrt((a - b).dot(a - b)) for a, b in size_pairs])
 
+        if similarity_size.ndim == 1:
+            similarity_ratings = np.expand_dims(similarity_size, axis=1)
+
+    if similarity_ratings.ndim == 1:
+        similarity_ratings = np.expand_dims(similarity_ratings, axis=1)
+
     if objective == "rating":
         similarity_labels = similarity_ratings,
     elif objective == 'size':

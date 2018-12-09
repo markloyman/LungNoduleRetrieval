@@ -7,7 +7,7 @@ from Analysis.analysis import smooth
 # Setup
 # ========================
 
-experiment_name = 'ConvLSTM'
+experiment_name = 'Triplets'
 dset = 'Valid'
 rating_metrics = ['euclidean']  #['l2', 'l1', 'cosine']
 rating_norm = 'none'
@@ -32,7 +32,7 @@ for m, metric_rating in enumerate(rating_metrics):
             print("Evaluating classification accuracy for {}{} using {}".format(net_type, run, metric))
 
             Pm, PmStd, Km, KmStd, Pr, PrStd, Kr, KrStd, valid_epochs = \
-                performance.eval_correlation(run, net_type, metric, metric_rating, epochs, dset, objective=objective, rating_norm=rating_norm, cross_validation=True, n_groups=1, seq=True)
+                performance.eval_correlation(run, net_type, metric, metric_rating, epochs, dset, objective=objective, rating_norm=rating_norm, cross_validation=True, n_groups=5, seq=False)
             idx_malig_pearson = Pm, PmStd
             idx_malig_kendall = Km, KmStd
             idx_rating_pearson= Pr, PrStd

@@ -29,15 +29,18 @@ def load_experiments(experiment):
     #   Triplets
     # ===========================
     elif experiment == 'Triplets':
-        runs            = ['011XXX', '016XXXX', '027', '023X']
-        run_net_types   = ['trip']*len(runs)
+        runs = ['000']
+        run_net_types   = ['tripR']*len(runs)
         run_metrics     = ['l2']*len(runs)
-        run_epochs      = [ [5, 15, 25, 35, 45, 55],
-                            [20, 40, 100, 150, 180],
-                            [5, 15, 25, 35, 40, 45, 50, 55, 60],
-                            [5, 15, 20, 25, 30, 35]
-                        ]
-        run_names       = ['malig-obj', 'rating-obj', 'rating-obj', 'trip-finetuned']
+        run_epochs = [list(range(1, 161, 1))] * len(runs)
+        run_names = ['rmac']
+        # runs            = ['011XXX', '016XXXX', '027', '023X']
+        # run_epochs      = [ [5, 15, 25, 35, 45, 55],
+        #                    [20, 40, 100, 150, 180],
+        #                    [5, 15, 25, 35, 40, 45, 50, 55, 60],
+        #                    [5, 15, 20, 25, 30, 35]
+        #                ]
+        # run_names       = ['malig-obj', 'rating-obj', 'rating-obj', 'trip-finetuned']
     # ===========================
     #   Pooling
     # ===========================
@@ -135,8 +138,6 @@ def load_experiments(experiment):
         run_metrics = ['l2'] * len(runs)
         run_epochs = [list(range(1, 71, 1))] * len(runs)
         run_names = ['200b-l2-max', '204-l2-rmac', '220-l2-max-aug', '224-l2-rmac-aug']
-        run_ep_perf = []
-        run_ep_comb = []
     # ===========================
     #   Siam
     # ===========================
@@ -470,11 +471,11 @@ def load_experiments(experiment):
     #   Debug
     # ===========================
     elif experiment == 'Debug':
-        runs = ['101', '101b', '102', '112', '122']
-        run_net_types = ['siamR'] * len(runs)
+        runs = ['312', '322', '314c', '324c']
+        run_net_types = ['siam'] * len(runs)
         run_metrics = ['l2'] * len(runs)
-        run_epochs = [[100]]*len(runs)
-        run_names = ['101', '101b', '102', '112', '122']
+        run_epochs = [list(range(1, 101, 1))] * len(runs)
+        run_names = ['l2-rmac', 'cosine-rmac', 'l2-rmac-marg', 'cosine-rmac-marg']
     else:
         print("No Such Experiment: " + experiment)
         assert(False)
@@ -487,19 +488,3 @@ def load_experiments(experiment):
 
     return runs, run_net_types, run_metrics, run_epochs, run_names, run_ep_perf, run_ep_comb
 
-
-'''
-    #runs = ['100', '016XXXX', '021', '023X']  #['064X', '078X', '026'] #['064X', '071' (is actually 071X), '078X', '081', '082']
-    #run_net_types = ['siam', 'trip','trip', 'trip']  #, 'dir']
-    runs            = ['021', '022XX', '023X', '025']
-    run_names       = ['max-pool', 'rmac', 'categ', 'confidence+cat' ]
-    run_net_types   = ['trip']*len(runs)
-    run_metrics     = ['l2']*len(runs)
-    #rating_normalizaion = 'Scale' # 'None', 'Normal', 'Scale'
-
-    run_epochs = [ [5, 15, 25, 35],
-                   [5, 15, 25, 35, 45, 55],
-                   [5, 15, 25, 35],
-                   [5, 15, 25, 35, 45, 55]
-               ]
-'''

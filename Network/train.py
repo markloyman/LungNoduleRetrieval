@@ -185,9 +185,9 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         # run = '862'  # dirD, max, KL-loss    pre:dirR813-50  (b:lr-4, freeze:28)
         # run = '863'  # dirD, max, KL-loss    pre:dirR813-50  (b:lr-4, freeze:39)
 
-        # run = 'zzz'
+        run = 'zzz'
 
-        obj = 'distance-matrix'  # 'distance-matrix' 'rating' 'rating-size'
+        obj = 'rating'  # 'distance-matrix' 'rating' 'rating-size'
 
         rating_scale = 'none'
         reg_loss = None  # {'SampleCorrelation': 0.0}  # 'Dispersion', 'Std', 'FeatureCorrelation', 'SampleCorrelation'
@@ -306,7 +306,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         # run = '414'  # l2-max no-conf
         # run = '415'  # cosine-max no-conf
 
-        # run = 'zzz'
+        run = 'zzz'
 
         obj = 'rating'  # rating / size / rating_size
         batch_size = 16 if local else 64
@@ -353,37 +353,25 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
     ## --------------------------------------- ##
 
     if choose_model is "TRIPLET":
-        #run = 'trip011XXX'  # mrg-loss, decay(0.01), max-pool
-        #run = 'trip012X'  # mrg-loss, decay(0.05), rmac-pool
-        #run = 'trip013'  # cosine
-        #run = 'trip014' # ortogonal initialization
-        #run = 'trip015X'  # objective rating
-        #run = 'trip016XXXX'  # softplus-loss
-        #run = 'trip017'  # softplus-loss, no decay
-        #run = 'trip018'  # binary
-        #run = 'trip019'  # categorize
-        #run = 'trip020X'  # rating-conf-tryout
 
-        #run = 'trip021' # pretrained
-        #run = 'trip022XXX'  # pretrained rmac
-        #run = 'trip023X'  # pretrained categorize
-        #run = 'trip024'  # pretrained confidence
-        #run = 'trip025'  # pretrained cat,conf
-        #run = 'trip026Z'  # class_weight='rating_distance', cat
+        # run = '000'  # rmac softplus, b16
+        # run = '001'  # rmac hinge, b16, pre:dirR813-50
+        # run = '002'  # rmac hinge, b32, pre:dirR813-50
+        # run = '003'  # rmac hinge, b64, pre:dirR813-50
+        # run = '004'  # rmac hinge, b128, pre:dirR813-50
+        # run = '005'  # rmac hinge, b64, pre:dirR813-50
+        run = '006'  # rmac rank, b64, pre:dirR813-50
 
-        #run = 'trip027'  # obj:malig, rmac, categorize, no-decay
-        #run = 'trip028'  # obj:malig, max, categorize, no-decay
+        # run = 'zzz'
 
-        #run = 'trip_100'  # obj:malig, msrmac, softplus-loss
-        #run = 'trip101'  # obj:malig, msrmac, rank-loss
+        objective = 'rating'
+        use_rank_loss = True
 
-        run = 'zzz'
-
-        objective = 'malignancy'
-        use_rank_loss = False
+        batch_size = 16 if local else 64
 
         gen = True
-        preload_weight = None #'./Weights/w_dirR011X_50.h5'
+        epoch_pre = 50
+        preload_weight = FileManager.Weights('dirR', output_dir=input_dir).name(run='813c{}'.format(config), epoch=epoch_pre)
 
         # model
         model = TripArch(miniXception_loader, input_shape, objective=objective, output_size=out_size,
@@ -392,12 +380,12 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         if preload_weight is not None:
             model.load_core_weights(preload_weight)
         model.model.summary()
-        model.compile(learning_rate=1e-3, decay=0) #0.05
+        model.compile(learning_rate=1e-3, decay=0)
 
         generator = DataGeneratorTrip(data_loader,
-                                      data_size=data_size, model_size=model_size, batch_size=16,
-                                      objective=objective, balanced=(objective == 'malignancy'), categorize=True,
-                                      val_factor=0 if skip_validation else 3, train_factor=1,
+                                      data_size=data_size, model_size=model_size, batch_size=batch_size,
+                                      objective=objective, balanced=(objective == 'malignancy'), categorize=use_rank_loss,
+                                      val_factor=0 if skip_validation else 1, train_factor=2,
                                       do_augment=do_augment, augment=data_augment_params,
                                       use_class_weight=False, use_confidence=False)
         if gen:

@@ -30,7 +30,7 @@ class DataGeneratorTrip(DataGeneratorBase):
 
     def get_data(self, dataset, is_training):
         ret_conf = self.class_weight_method if self.use_class_weight else None
-        data = prepare_data_triplet(set, verbose=self.verbose, objective=self.objective, return_confidence=ret_conf)
+        data = prepare_data_triplet(dataset, verbose=self.verbose, objective=self.objective, return_confidence=ret_conf)
         return data
 
 
@@ -64,7 +64,7 @@ class DataSequenceTrip(DataSequenceBase):
                 N = 2 * M // self.batch_size
             else:
                 N = len(self.dataset) // self.batch_size
-                print("VERIFY N IS CORRECT!!!")
+                #print("VERIFY N IS CORRECT!!!")
         else:
             N = len(self.dataset) // self.batch_size
 
@@ -75,8 +75,9 @@ class DataSequenceTrip(DataSequenceBase):
     def load_data(self):
         assert self.use_class_weight is False
         ret_conf = self.class_weight_method if self.use_class_weight else None
+        print("using 'clusters' distance, instead of 'weighted_clusters'")
         images, labels, masks, confidence = \
-            prepare_data_triplet(self.dataset, objective=self.objective, balanced=self.balanced,
+            prepare_data_triplet(self.dataset, objective=self.objective, balanced=self.balanced, rating_distance='mean' if self.objective is 'malignancy' else 'clusters',
                                  return_confidence=ret_conf, verbose=self.verbose)
 
         if self.use_class_weight:
@@ -84,6 +85,6 @@ class DataSequenceTrip(DataSequenceBase):
             sample_weight = get_sample_weight_for_similarity(confidence, wD=class_weight['D'], wSB=class_weight['SB'],
                                                wSM=class_weight['SM'])
         else:
-            sample_weight = np.ones(labels.shape)
+            sample_weight = np.ones(len(labels))
 
         return images, labels if type(labels) is tuple else tuple([labels]), [None]*len(labels), masks, sample_weight

@@ -29,12 +29,18 @@ def triplet_loss(_, y_pred):
         Assume: y_pred shape is (batch_size, 2)
     '''
     margin = K.constant(triplet_margin)
-
-    subtraction = K.constant([1, -1], shape=(2, 1))
+    alpha = 1
+    subtraction = K.constant([1, -alpha], shape=(2, 1))
     diff =  K.dot(K.square(y_pred), subtraction)
 
-    #loss = K.maximum(K.constant(0), margin + diff)
-    loss = K.softplus(diff)
+    loss = K.maximum(K.constant(0), margin + diff)
+    # loss = K.softplus(diff)
+
+    # K.sum(K.greater(loss, K.constant(1e-3)))
+    # n_nontrivial_trips = K.sum(K.maximum(K.sign(loss - 1e-3), 0))
+    # n_total_trips = K.cast(K.shape(loss)[0], K.floatx())
+
+    # loss *= n_total_trips / (n_nontrivial_trips + K.epsilon())
 
     return loss
 
@@ -74,17 +80,28 @@ class TripArch(BaseArch):
         distance_layer_neg = Lambda(distance_layer,
                                     output_shape=distance_output_shape, name='neg_dist')([base_ref, base_neg])
 
-        trip_layer = Lambda(lambda vects: K.concatenate(vects, axis=1), name='output')([distance_layer_pos, distance_layer_neg])
-
-        embed = Lambda(lambda x: K.concatenate([x[0], x[1], x[2]], axis=0), name='embed_output')([base_ref, base_pos, base_neg])
-
         self.categorize = categorize
         if categorize:
-            trip_layer = Activation('softmax')(trip_layer)
+            trip_layer = Lambda(
+                lambda vects: K.concatenate(vects, axis=1),
+                name='concat'
+            )([distance_layer_pos, distance_layer_neg])
+            trip_layer = Activation('softmax', name='output')(trip_layer)
+
+        else:
+            trip_layer = Lambda(
+                lambda vects: K.concatenate(vects, axis=1),
+                name='output'
+            )([distance_layer_pos, distance_layer_neg])
+
+        embed = Lambda(
+            lambda x: K.concatenate([x[0], x[1], x[2]], axis=0),
+            name='embed_output'
+        )([base_ref, base_pos, base_neg])
 
         self.regularization_loss = regularization_loss
 
-        outputs = []
+        outputs = list()
         outputs.append(trip_layer)
         if regularization_loss:
             outputs.append(embed)

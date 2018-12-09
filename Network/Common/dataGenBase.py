@@ -189,7 +189,7 @@ class DataSequenceBase(utils.Sequence):
         masks  = [combine([pair[i] for pair in masks])  for i in range(num_of_streams)]
 
         num_of_losses = len(labels[0])
-        labels = [np.hstack([label[i] for label in labels]) for i in range(num_of_losses)]
+        labels = [np.vstack([label[i] for label in labels]) for i in range(num_of_losses)]
 
         classes = np.hstack(classes)
         sample_weights = np.hstack(sample_weights)

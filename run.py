@@ -1,20 +1,14 @@
 import gc
-#from keras import backend as K
-try:
-    from Network.train import run as run_training
-    from Network.train3d import run as run_training_3d
-    from Network.embed import Embeder
-except:
-    from train import run as run_training
-    from train3d import run as run_training_3d
-    from embed import Embeder
-
 import argparse
-
+from Network.train import run as run_training
+from Network.train3d import run as run_training_3d
+import config
+config.set_folders()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Train Lung Nodule Retrieval NN")
     parser.add_argument("-e", "--epochs", type=int, help="epochs", default=0)
+    parser.add_argument("--confname", type=str, default='LEGACY', help="configuration name")
     parser.add_argument("-c", "--config", type=int, help="configuration", default=-1)
     parser.add_argument("-m", "--embed", action="store_true", default=False, help="generate embeddings")
     parser.add_argument("-p", "--predict", action="store_true", default=False, help="generate predictions")
@@ -37,7 +31,8 @@ if __name__ == '__main__':
         if args.seq:
             model = run_training_3d(net_type, epochs=epochs, config=config, skip_validation=False, no_training=test)
         else:
-            model = run_training(net_type, epochs=epochs, config=config, skip_validation=True, no_training=test)
+            model = run_training(net_type, epochs=epochs, config=config, config_name=args.confname,
+                                 skip_validation=False, no_training=test)
         if test:
             epoch0 = 1
             delta_epoch = 1
@@ -49,6 +44,4 @@ if __name__ == '__main__':
                 # epochs_ = [75, 80, 85]
                 model.embed(epochs=epochs_, data=embed_data_type, use_core=True is args.embed, seq_model=args.seq)
 
-
-    #K.clear_session()
     gc.collect()

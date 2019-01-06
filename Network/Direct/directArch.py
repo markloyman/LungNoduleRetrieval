@@ -81,11 +81,6 @@ class DirectArch(BaseArch):
             outputs.append(embed)
 
         self.model = Model(self.img_input, outputs, name='directArch')
-        if regularization_loss:
-            embed = Lambda(lambda x: x, name='embed_output')(x)
-            outputs.append(embed)
-
-        self.model = Model(self.img_input, outputs, name='directArch')
 
         self.input_shape = input_shape
         self.data_ready  = False

@@ -1,27 +1,21 @@
 import pickle
 import numpy as np
-from functools import partial
+from functools import partial, reduce
 from skimage import transform
-
-try:
-    from Network.FileManager import Dataset, Dataset3d
-    from Network.dataUtils import rating_normalize, crop_center, l2_distance
-    from Network.dataUtils import rating_clusters_distance, rating_clusters_distance_matrix, reorder
-    input_dir = './Dataset'
-except:
-    from FileManager import Dataset, Dataset3d
-    from dataUtils import rating_normalize, crop_center, l2_distance
-    from dataUtils import rating_clusters_distance, rating_clusters_distance_matrix
-    input_dir = '/Dataset'
+from config import dataset_dir as input_dir
+from Network.FileManager import Dataset, Dataset3d
+from experiments import CrossValidationManager
+from Network.dataUtils import rating_normalize, crop_center, l2_distance
+from Network.dataUtils import rating_clusters_distance, rating_clusters_distance_matrix, reorder
 
 
 # =========================
 #   Load
 # =========================
 
-def build_loader(size=128, res=1.0, apply_mask_to_patch=False, sample='Normal', configuration=None, n_groups=5,
-                        dataset_type='Clean'):
-    loader = partial(load_nodule_dataset, size, res, apply_mask_to_patch, sample, configuration, n_groups, dataset_type)
+def build_loader(size=128, res=1.0, apply_mask_to_patch=False, sample='Normal', dataset_type='Clean',
+                 configuration=None, n_groups=5, config_name='LEGACY'):
+    loader = partial(load_nodule_dataset, size, res, apply_mask_to_patch, sample, config_name, configuration, n_groups, dataset_type)
     return loader
 
 
@@ -61,7 +55,7 @@ def load_nodule_dataset_3d(configuration, net_type, run, epoch, n_groups=5):
     return testData, validData, trainData
 
 
-def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='Normal', configuration=None, n_groups=5,
+def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='Normal', config_name='LEGACY', configuration=None, n_groups=5,
                         dataset_type='Clean'):
     if configuration is None:
         return load_nodule_dataset_old_style(size=size, res=res, apply_mask_to_patch=apply_mask_to_patch, sample=sample)
@@ -69,24 +63,46 @@ def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='No
     if apply_mask_to_patch:
         print('WRN: apply_mask_to_patch is for debug only')
 
-    test_id  = configuration
-    valid_id = (configuration + 1) % n_groups
-    testData, validData, trainData = [], [], []
+    if config_name is 'LEGACY':
+        test_id  = configuration
+        valid_id = (configuration + 1) % n_groups
+        testData, validData, trainData = [], [], []
 
-    for c in range(n_groups):
-        data_file = Dataset(data_type=dataset_type, conf=c, dir=input_dir)
-        data_group = data_file.load(size, res, sample)
+        for c in range(n_groups):
+            data_file = Dataset(data_type=dataset_type, conf=c, dir=input_dir)
+            data_group = data_file.load(size, res, sample)
 
-        if c == test_id:
-            set = "Test"
-            testData += data_group
-        elif c == valid_id:
-            set = "Valid"
-            validData += data_group
-        else:
-            set = "Train"
-            trainData += data_group
-        print("Loaded {} entries from {} to {} set".format(len(data_group), data_file.name(size, res, sample), set))
+            if c == test_id:
+                set = "Test"
+                testData += data_group
+            elif c == valid_id:
+                set = "Valid"
+                validData += data_group
+            else:
+                set = "Train"
+                trainData += data_group
+            print("Loaded {} entries from {} to {} set - LEGACY configuration".format(len(data_group), data_file.name(size, res, sample), set))
+    else:
+
+        manager = CrossValidationManager(config_name)
+        print("Using {} CrossValidationManager:".format(config_name))
+
+        def load(data_type, conf, dir, size, res, sample, data_set):
+            data_file = Dataset(data_type=data_type, conf=conf, dir=dir)
+            data = data_file.load(size, res, sample)
+            print("\tLoaded {} entries from {} to {} set".format(len(data), data_file.name(size, res, sample), data_set))
+            return data
+
+        trainData = [load(dataset_type, c, input_dir, size, res, sample, 'Train')
+                     for c in manager.get_prediction_train(configuration)]
+
+        validData = [load(dataset_type, c, input_dir, size, res, sample, 'Valid')
+                     for c in manager.get_prediction_validation(configuration)]
+
+        testData = [load(dataset_type, c, input_dir, size, res, sample, 'Test')
+                    for c in manager.get_target(configuration)]
+
+        trainData, validData, testData = [reduce(lambda x, y: x + y, data) for data in [trainData, validData, testData]]
 
     def gather_data(data, apply_mask):
         return [(   entry['patch'] * (0.3 + 0.7 * entry['mask']) if apply_mask else entry['patch'],
@@ -142,9 +158,9 @@ def load_nodule_dataset_old_style(size=128, res=1.0, apply_mask_to_patch=False, 
 
 def load_nodule_raw_dataset(size=128, res='Legacy', sample='Normal'):
     if type(res) == str:
-        filename = '/Dataset/Dataset{:.0f}-{}-{}.p'.format(size, res, sample)
+        filename = input_dir + '/Dataset{:.0f}-{}-{}.p'.format(size, res, sample)
     else:
-        filename = '/Dataset/Dataset{:.0f}-{:.1f}-{}.p'.format(size, res, sample)
+        filename = input_dir + '/Dataset{:.0f}-{:.1f}-{}.p'.format(size, res, sample)
 
     print('Loading {}'.format(filename))
 

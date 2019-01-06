@@ -1,3 +1,63 @@
+import itertools
+
+
+class CrossValidationManager:
+    def __init__(self, config_name):
+        self.config = []
+        self.n_groups = 5
+        self.group_ids = range(self.n_groups)
+        self.config_name = config_name
+
+        target_set = [4, 3, 2, 1, 0, 0, 2, 4, 3, 1]
+
+        predication_train_combinations = [a for a in itertools.combinations(self.group_ids, 2)]
+
+        for predication_train, target in zip(predication_train_combinations, target_set):
+            predication_eval = [g for g in self.group_ids if g not in predication_train]
+            #predication_valid = predication_eval[0]
+            retrieval_train_combinations = [a for a in itertools.combinations(predication_eval, 2) if target not in a]
+            for retrieval_train in retrieval_train_combinations:
+                self.add_to_config(predication_train, retrieval_train)
+
+        #print(self.config)
+
+    def add_to_config(self, predication_train, retrieval_train):
+        cnf = dict()
+
+        predication_eval = [g for g in self.group_ids if g not in predication_train]
+        cnf['prediction_train'] = predication_train
+        cnf['prediction_valid'] = retrieval_train
+        cnf['prediction_eval'] = predication_eval
+
+        target = [g for g in predication_eval if g not in retrieval_train]
+        cnf['retrieval_train'] = retrieval_train
+        cnf['target'] = target
+
+        self.config.append(cnf)
+
+        return cnf
+
+    def get_prediction_train(self, index):
+        cnf = self.config[index ]
+        return cnf['prediction_train']
+
+    def get_prediction_validation(self, index):
+        cnf = self.config[index ]
+        return cnf['prediction_valid']
+
+    def get_prediction_eval(self, index):
+        cnf = self.config[index ]
+        return cnf['prediction_eval']
+
+    def get_retrieval_train(self, index):
+        cnf = self.config[index ]
+        return cnf['retrieval_train']
+
+    def get_target(self, index):
+        cnf = self.config[index]
+        return cnf['target']
+
+
 def load_experiments(experiment):
     runs, run_net_types, run_metrics, run_epochs, run_names, run_ep_perf, run_ep_comb = [], [], [], [], [], [], []
     # ===========================
@@ -487,4 +547,15 @@ def load_experiments(experiment):
     assert len(run_names) == n
 
     return runs, run_net_types, run_metrics, run_epochs, run_names, run_ep_perf, run_ep_comb
+
+
+if __name__ == "__main__":
+    manager = CrossValidationManager()
+
+    for idx in range(10):
+        print('\npred_train: \t', manager.get_prediction_train(idx))
+        print('pred_valid: \t', manager.get_prediction_validation(idx))
+        print('pred_eval: \t', manager.get_prediction_eval(idx))
+        print('ret_train: \t', manager.get_retrieval_train(idx))
+        print('test: \t', manager.get_target(idx))
 

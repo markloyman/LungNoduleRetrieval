@@ -1,6 +1,5 @@
 from glob import glob
 import pickle
-import numpy as np
 
 
 class Weights(object):
@@ -119,7 +118,7 @@ class Pred(object):
 
 class Dataset(object):
 
-    def __init__(self, data_type, conf, dir='./Dataset'):
+    def __init__(self, data_type, conf, dir='/Dataset'):
         self.weightsTemplate = dir + '/Dataset{}CV{}_{{:.0f}}-{{}}-{{}}.p'.format(data_type, conf)
 
     def read(self, size, res, sample='Normal'):

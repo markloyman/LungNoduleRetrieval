@@ -2,18 +2,11 @@ from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
 from keras.metrics import categorical_accuracy
 from keras.models import Model
 from keras.layers import Input, Dense, Lambda, Concatenate, BatchNormalization, Activation
-try:
-    from Network.Common.baseArch import BaseArch
-    #from Network.Common import losses
-    from Network.dataUtils import get_class_weight
-    from Network.Direct.metrics import sensitivity, f1, precision, specificity, root_mean_squared_error, multitask_accuracy
-    import Network.FileManager  as File
-except:
-    from Common.baseArch import BaseArch
-    #from Common import losses
-    from dataUtils import get_class_weight
-    from Direct.metrics import sensitivity, f1, precision, specificity, root_mean_squared_error, multitask_accuracy
-    import FileManager as File
+from Network.Common.baseArch import BaseArch
+#from Network.Common import losses
+from Network.dataUtils import get_class_weight
+from Network.Direct.metrics import sensitivity, f1, precision, specificity, root_mean_squared_error, multitask_accuracy
+import Network.FileManager  as File
 
 
 class DirectArch(BaseArch):
@@ -98,7 +91,7 @@ class DirectArch(BaseArch):
         self.data_ready  = False
         self.model_ready = False
 
-    def compile(self, learning_rate = 0.001, decay=0.1, loss='categorical_crossentropy', scheduale=[], temporal_weights=False):
+    def compile(self, learning_rate = 0.001, decay=0.0, loss='categorical_crossentropy', scheduale=[], temporal_weights=False):
         categorical_accuracy.__name__ = 'accuracy'
         sensitivity.__name__ = 'recall'
         root_mean_squared_error.__name__ = 'rmse'

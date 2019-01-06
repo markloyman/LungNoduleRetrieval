@@ -1,24 +1,14 @@
 import pickle
 import numpy as np
+from Network import FileManager
+from Network.Direct.directArch import DirectArch
+from Network.Siamese.siameseArch import SiamArch
+from Network.Triplet.tripletArch import TripArch
+from Network.dataUtils import crop_center
+from Network.data_loader import load_nodule_dataset
+from Network.Common import prepare_data
+from Network.model import miniXception_loader
 
-try:
-    from Network import FileManager
-    from Network.Direct.directArch import DirectArch
-    from Network.Siamese.siameseArch import SiamArch
-    from Network.Triplet.tripletArch import TripArch
-    from Network.dataUtils import crop_center
-    from Network.data_loader import load_nodule_dataset
-    from Network.Common import prepare_data
-    from Network.model import miniXception_loader
-except:
-    import FileManager
-    from Direct.directArch import DirectArch
-    from Siamese.siameseArch import SiamArch
-    from Triplet.tripletArch import TripArch
-    from dataUtils import crop_center
-    from data_loader import load_nodule_dataset
-    from Common import prepare_data
-    from model import miniXception_loader
 
 class Embeder:
 

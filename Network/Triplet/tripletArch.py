@@ -3,17 +3,10 @@ from keras.callbacks import ModelCheckpoint, TensorBoard, Callback
 from keras.layers import Input
 from keras.layers import Lambda, Activation
 from keras.models import Model
-
-try:
-    from Network.Common.baseArch import BaseArch
-    from Network.Common.distances import euclidean_distance, l1_distance, cosine_distance, distance_output_shape
-    from Network.Triplet.metrics import triplet_margin, rank_accuracy, kendall_correlation
-    from Network import FileManager as File
-except:
-    from Common.baseArch import BaseArch
-    from Common.distances import euclidean_distance, l1_distance, cosine_distance, distance_output_shape
-    from Triplet.metrics import triplet_margin, rank_accuracy, kendall_correlation
-    import FileManager as File
+from Network.Common.baseArch import BaseArch
+from Network.Common.distances import euclidean_distance, l1_distance, cosine_distance, distance_output_shape
+from Network.Triplet.metrics import triplet_margin, rank_accuracy, kendall_correlation
+from Network import FileManager as File
 
 
 def contrastive_loss_p(y_true, y_pred):
@@ -110,7 +103,7 @@ class TripArch(BaseArch):
                                 outputs = outputs,
                                 name='tripletArch')
 
-    def compile(self, learning_rate = 0.001, decay=0.0, loss = 'mean_squared_error', scheduale=[]):
+    def compile(self, learning_rate=0.001, decay=0.0, loss='mean_squared_error', scheduale=[]):
         rank_accuracy.__name__ = 'accuracy'
         kendall_correlation.__name__  = 'corr'
 

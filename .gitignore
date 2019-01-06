@@ -3,3 +3,8 @@
 *MARKHOME*
 *.png
 *.h5
+output/*
+Triplets/*
+Dataset/*
+.floyd*
+floyd.yml

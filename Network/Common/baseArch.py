@@ -4,20 +4,10 @@ from timeit import default_timer as timer
 import numpy as np
 from keras.optimizers import Adam
 import keras.backend as K
-
-try:
-    from Network.Common import losses
-    from Network.dataUtils import get_class_weight
-    import Network.FileManager  as File
-    output_dir = './output'
-    input_dir = './output'
-
-except:
-    from Common import losses
-    from dataUtils import get_class_weight
-    import FileManager as File
-    output_dir = '/output'
-    input_dir = '/input'
+from config import input_dir, output_dir
+from Network.Common import losses
+from Network.dataUtils import get_class_weight
+import Network.FileManager as File
 
 
 class BaseArch(object):

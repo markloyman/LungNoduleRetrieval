@@ -9,60 +9,18 @@ np.random.seed(1337)
 random.seed(1337)
 tf.set_random_seed(1234)
 K.set_session(tf.Session(graph=tf.get_default_graph()))
-try:
-    from Network.Common.losses import pearson_correlation
-    from Network.Direct.directArch import DirectArch
-    from Network.Direct.DataGenDirect import DataGeneratorDir
-    from Network.Siamese.siameseArch import SiamArch
-    from Network.Siamese.DataGenSiam import DataGeneratorSiam
-    from Network.Triplet.tripletArch import TripArch
-    from Network.Triplet.DataGenTrip import DataGeneratorTrip
-    from Network.model3d import gru3d_loader
-    from Network.data_loader import load_nodule_dataset, build_loader_3d
-    from Network.Direct import prepare_data_direct
-    from Network.dataUtils import crop_center
-    from Network import FileManager
-    input_dir = './output'
-    local = True
-except:
-    # Paths for floyd cloud
-    from Common.losses import pearson_correlation
-    from Direct.directArch import DirectArch
-    from Direct.DataGenDirect import DataGeneratorDir
-    from Siamese.siameseArch import SiamArch
-    from Siamese.DataGenSiam import DataGeneratorSiam
-    from Triplet.tripletArch import TripArch
-    from Triplet.DataGenTrip import DataGeneratorTrip
-    from model3d import gru3d_loader
-    from data_loader import load_nodule_dataset, build_loader_3d
-    from Direct import prepare_data_direct
-    from dataUtils import crop_center
-    import FileManager
-    input_dir = '/input'
-    local = False
-
-    import os, errno
-
-    try:
-        os.makedirs('/output/Weights/')
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
-    try:
-        os.makedirs('/output/logs/')
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
-    try:
-        os.makedirs('/output/history/')
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
-    try:
-        os.makedirs('/output/embed/')
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
+from config import local, input_dir
+from Network.Common.losses import pearson_correlation
+from Network.Direct.directArch import DirectArch
+from Network.Direct.DataGenDirect import DataGeneratorDir
+from Network.Siamese.siameseArch import SiamArch
+from Network.Siamese.DataGenSiam import DataGeneratorSiam
+from Network.Triplet.tripletArch import TripArch
+from Network.Triplet.DataGenTrip import DataGeneratorTrip
+from Network.model3d import gru3d_loader
+from Network.data_loader import load_nodule_dataset, build_loader_3d
+from Network.Direct import prepare_data_direct
+from Network.dataUtils import crop_center
 
 
 def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_training=False):

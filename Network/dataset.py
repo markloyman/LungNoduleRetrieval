@@ -3,11 +3,7 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 from functools import reduce
-
-try:
-    from Network.dataUtils import rating_normalize, crop_center
-except:
-    from dataUtils import rating_normalize, crop_center
+from Network.dataUtils import rating_normalize, crop_center
 
 
 # =========================

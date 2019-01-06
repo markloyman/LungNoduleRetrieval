@@ -4,17 +4,11 @@ from keras.layers import Input
 from keras.layers import Lambda
 from keras.models import Model
 from keras.optimizers import Adam
+from Network.Common.baseArch import BaseArch
+from Network.Common.distances import euclidean_distance, l1_distance, cosine_distance, distance_output_shape
+from Network.Siamese.metrics import siamese_margin, binary_accuracy, binary_precision_inv, binary_recall_inv, binary_f1_inv, binary_assert, pearson_correlation
+from Network import FileManager as File
 
-try:
-    from Network.Common.baseArch import BaseArch
-    from Network.Common.distances import euclidean_distance, l1_distance, cosine_distance, distance_output_shape
-    from Network.Siamese.metrics import siamese_margin, binary_accuracy, binary_precision_inv, binary_recall_inv, binary_f1_inv, binary_assert, pearson_correlation
-    from Network import FileManager as File
-except:
-    from Common.baseArch import BaseArch
-    from Common.distances import euclidean_distance, l1_distance, cosine_distance, distance_output_shape
-    from Siamese.metrics import siamese_margin, binary_accuracy, binary_precision_inv, binary_recall_inv, binary_f1_inv, binary_assert, pearson_correlation
-    import FileManager as File
 
 
 def contrastive_loss(y_true, y_pred, marginal=True):
@@ -95,7 +89,7 @@ class SiamArch(BaseArch):
                                 outputs = outputs,
                                 name='siameseArch')
 
-    def compile(self, learning_rate = 0.001, decay=0.1, loss = 'mean_squared_error', scheduale=[]):
+    def compile(self, learning_rate = 0.001, decay=0.0, loss = 'mean_squared_error', scheduale=[]):
         binary_accuracy.__name__      = 'accuracy'
         binary_precision_inv.__name__ = 'precision'
         binary_recall_inv.__name__    = 'recall'

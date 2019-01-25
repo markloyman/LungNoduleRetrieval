@@ -2,7 +2,7 @@ from Analysis import RatingCorrelator
 from Analysis.analysis import smooth
 from init import *
 from Network import FileManager
-
+from experiments import CrossValidationManager
 
 alpha = 0.4
 
@@ -108,7 +108,7 @@ def dir_rating_correlate(run, post, epochs, rating_norm='none',  clustered_ratin
     plt.legend(['pearson', '', '', 'kendall', '', ''])
 
 
-def dir_rating_rmse(run, post, epochs, net_type, dist='RMSE', weighted=False, n_groups=5):
+def dir_rating_rmse(run, post, epochs, net_type, dist='RMSE', weighted=False, configurations=list(range(5))):
     #images, predict, meta_data, labels, masks = pred_loader.load(run, epochs[-1], post)
     rating_property = ['Subtlety', 'Internalstructure', 'Calcification', 'Sphericity', 'Margin',
                        'Lobulation', 'Spiculation', 'Texture', 'Malignancy']
@@ -121,9 +121,9 @@ def dir_rating_rmse(run, post, epochs, net_type, dist='RMSE', weighted=False, n_
     except:
         print("Evaluating RMSE for {}".format(run))
         PredFile = FileManager.Pred(type='rating', pre=net_type)
-        R = np.zeros([len(epochs), 10, n_groups])
+        R = np.zeros([len(epochs), 10, len(configurations)])
 
-        for c, run_config in enumerate([run + 'c{}'.format(config) for config in range(n_groups)]):
+        for c, run_config in enumerate([run + 'c{}'.format(config) for config in configurations]):
             predict, valid_epochs, images, meta_data, classes, labels, masks, conf, rating_weights, z = PredFile.load(run=run_config, dset=post)
             labels = np.array([np.mean(l, axis=0) for l in labels])
             for i, e in enumerate(epochs):
@@ -186,14 +186,14 @@ def dir_rating_rmse(run, post, epochs, net_type, dist='RMSE', weighted=False, n_
     return R
 
 
-def dir_rating_params_correlate(run, post, epochs, net_type, rating_norm='none', n_groups=5):
+def dir_rating_params_correlate(run, post, epochs, net_type, rating_norm='none', configurations=list(range(5))):
 
     reference = [0.7567, 0.5945, 0.7394, 0.5777, 0.6155, 0.7445, 0.6481]  # 0, 0,
     rating_property = ['Subtlety', 'Sphericity', 'Margin',
                        'Lobulation', 'Spiculation', 'Texture', 'Malignancy']  # 'Internalstructure', 'Calcification',
     mask = [True, False, False, True, True, True, True, True, True]
 
-    pear_corr = [[] for i in range(n_groups)]
+    pear_corr = [[] for i in configurations]
     plot_data_filename = './Plots/Data/rating_params_correlation_{}{}.p'.format(net_type, run)
     try:
         print('SKIPPING')
@@ -202,7 +202,7 @@ def dir_rating_params_correlate(run, post, epochs, net_type, rating_norm='none',
         print("Loaded results for {}".format(run))
     except:
         print("Evaluating Rating Correlation for {}".format(run))
-        for c, run_config in enumerate([run + 'c{}'.format(config) for config in range(n_groups)]):
+        for c, run_config in enumerate([run + 'c{}'.format(config) for config in configurations]):
             PredFile = FileManager.Pred(type='rating', pre=net_type)
             Reg = RatingCorrelator(PredFile(run=run_config, dset=post), multi_epoch=True, conf=c)
             Reg.evaluate_rating_space(norm=rating_norm)
@@ -362,12 +362,12 @@ if __name__ == "__main__":
     #run = '251', '300'
     run = '813'  # '251'  # '251' '512c'  # '412'
     net_type = 'dirR'
-    epochs = np.arange(1, 101)  # [1, 10, 20, 30]
+    epochs = np.arange(1, 81)  # [1, 10, 20, 30]
 
     # 0     Test
     # 1     Validation
     # 2     Training
-    DataSubSet = 0
+    DataSubSet = 1
 
     if DataSubSet == 0:
         post = "Test"
@@ -380,16 +380,19 @@ if __name__ == "__main__":
     print("{} Set Analysis".format(post))
     print('=' * 15)
 
+    # confs = range(5)
+    # confs = ['01']
+    confs = [CrossValidationManager('PRED').get_run_id(i) for i in range(10)]
+
     start = timer()
     try:
-
         #dir_rating_correlate(run, post, epochs, rating_norm='none', clustered_rating_distance=True)
         #embed_correlate('dirR', run, post, epochs, rating_norm='Round')
         #dir_rating_accuracy(run, post, net_type, epochs)
-        #dir_rating_params_correlate(run, post, epochs, net_type=net_type, rating_norm='none')  # rating_norm='Round'
-        #dir_rating_rmse(run, post, epochs, net_type=net_type, weighted=True)
+        dir_rating_params_correlate(run, post, epochs, net_type=net_type, rating_norm='none', configurations=confs)  # rating_norm='Round'
+        # dir_rating_rmse(run, post, epochs, net_type=net_type, weighted=True, configurations=confs)
         #dir_rating_rmse(run, post, epochs, dist='ABS', weighted=True)
-        dir_rating_view(run, post, epochs, net_type=net_type,factor=1)
+        #dir_rating_view(run, post, epochs, net_type=net_type, factor=1)
 
 
         #dir_size_rmse(run, post, epochs, net_type=net_type, weighted=False)

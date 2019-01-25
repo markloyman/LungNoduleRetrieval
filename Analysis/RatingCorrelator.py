@@ -1,16 +1,15 @@
-import pickle
-
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
+import pickle
 from scipy.stats import pearsonr, spearmanr, kendalltau
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
 
 from Analysis.analysis import calc_distance_matrix, calc_cross_distance_matrix
-from LIDC.lidcUtils import calc_rating
-from Network.dataUtils import rating_normalize
 
+from Network.dataUtils import rating_normalize
 from Network.dataUtils import rating_clusters_distance_matrix
+
 
 '''
 def calc_distance_matrix(X, method):
@@ -155,8 +154,9 @@ class RatingCorrelator:
                 self.epochs = epochs
             except:
                 print("failed to load " + fn)
-        assert len(self.images) > 0
+
         self.images = np.concatenate(self.images)
+        assert len(self.images) > 0
         self.embedding = np.concatenate(self.embedding, axis=embed_concat_axis)
         self.labels = np.concatenate(self.labels)
         self.masks = np.concatenate(self.masks) if len(self.masks) > 1 else self.masks[0]
@@ -187,6 +187,7 @@ class RatingCorrelator:
     def evaluate_rating_space(self, norm='none', ignore_labels=False):
         if np.concatenate(self.labels).ndim == 1 or ignore_labels:
             print('calc_from_meta')
+            from LIDC.lidcUtils import calc_rating
             self.rating = [rating_normalize(calc_rating(meta, method='raw'), method=norm) for meta in self.meta_data]
 
         else:
@@ -275,7 +276,9 @@ class RatingCorrelator:
         elif name is 'rating':
             xVec = np.array(self.rating)
         elif name is 'malig':
-            xVec = [calc_rating(meta, 'malig') for meta in self.meta_data]
+            # xVec = [calc_rating(meta, 'malig') for meta in self.meta_data]
+            assert False
+            xVec = self.rating[-1]
             xVec = np.array(xVec).reshape(-1, 1).astype('float64')
             xVec += 0.1*np.random.random([xVec.shape[0], xVec.shape[1]])
         else:
@@ -408,7 +411,9 @@ class RatingCorrelator:
 
     def malig_regression(self, method = 'correlation'):
         #size = self.embed_distance_matrix.shape[0]
-        malig_rating = [calc_rating(meta, 'malig') for meta in self.meta_data]
+        #malig_rating = [calc_rating(meta, 'malig') for meta in self.meta_data]
+        assert False
+        malig_rating = self.rating[-1]
         malig_rating = np.array(malig_rating).reshape(-1,1)
         malig_rating_distance_matrix = calc_distance_matrix(malig_rating, method)
 

@@ -5,7 +5,6 @@ from sklearn.decomposition import PCA
 from sklearn.model_selection import LeaveOneOut, KFold
 from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
 
-from LIDC.lidcUtils import calc_rating
 from Network.dataUtils import rating_normalize
 from Network.data_loader import load_nodule_raw_dataset
 
@@ -150,6 +149,7 @@ class Retriever:
         #    feature_vals = calc_rating(meta, method='single')
         #    print('single -> {}'.format(feature_vals))
         #else:
+        from LIDC.lidcUtils import calc_rating
         feature_vals = calc_rating(meta, nodule_ids=nods) if rating is None else np.mean(rating, axis=0)
         print('mean ->: {}'.format(feature_vals))
 
@@ -160,6 +160,8 @@ class Retriever:
         plot_handle.imshow(image, cmap='gray')
 
     def show_ret(self, query, n_top=None, method='mean'):
+        from LIDC.lidcUtils import calc_rating
+
         if n_top == None: n_top = self.n
         assert n_top <= self.n
 

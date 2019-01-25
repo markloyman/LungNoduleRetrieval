@@ -95,28 +95,31 @@ class DataGeneratorBase(utils.Sequence):
     def get_test_images(self):
         return self.get_data(self.test_set, is_training=False)
 
-    def get_flat_data(self, dataset):
+    def get_flat_data(self, dataset, resize=True):
         images, labels, classes, masks, meta, conf, nodule_size, rating_weights, z = \
             prepare_data(dataset, rating_format='raw', verbose=True, reshuffle=False)
+
         if self.model_size != self.data_size:
             if self.seq_model:
                 images = format_data_as_sequence(images, embed_size=self.model_size)
             else:
-                images = np.array([crop_center(im, msk, size=self.model_size)[0]
+                if resize:
+                    images = np.array([crop_center(im, msk, size=self.model_size)[0]
                                    for im, msk in zip(images, masks)])
+
         return images, labels, classes, masks, meta, conf, nodule_size, rating_weights, z
 
-    def get_flat_train_data(self):
+    def get_flat_train_data(self, resize=True):
         print('Loaded flat training data')
-        return self.get_flat_data(self.train_set)
+        return self.get_flat_data(self.train_set, resize)
 
-    def get_flat_valid_data(self):
+    def get_flat_valid_data(self, resize=True):
         print('Loaded flat validation data')
-        return self.get_flat_data(self.valid_set)
+        return self.get_flat_data(self.valid_set, resize)
 
-    def get_flat_test_data(self):
+    def get_flat_test_data(self, resize=True):
         print('Loaded flat test data')
-        return self.get_flat_data(self.test_set)
+        return self.get_flat_data(self.test_set, resize)
 
     def get_data(self, dataset, is_training):
         raise NotImplementedError("get_data() is an abstract method")
@@ -189,7 +192,9 @@ class DataSequenceBase(utils.Sequence):
         masks  = [combine([pair[i] for pair in masks])  for i in range(num_of_streams)]
 
         num_of_losses = len(labels[0])
-        labels = [np.vstack([label[i] for label in labels]) for i in range(num_of_losses)]
+        # triplet: vstack
+        # num_of_losses > 1: hstack
+        labels = [np.hstack([label[i] for label in labels]) for i in range(num_of_losses)]
 
         classes = np.hstack(classes)
         sample_weights = np.hstack(sample_weights)

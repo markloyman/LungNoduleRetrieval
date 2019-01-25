@@ -1,6 +1,6 @@
 from glob import glob
 import pickle
-
+import numpy as np
 
 class Weights(object):
 
@@ -170,3 +170,64 @@ class Dataset3d(object):
 
     __call__ = name
 
+
+class DatasetFromPredication(object):
+
+    def __init__(self, type='rating', pre='dirR', input_dir='./output'):  # data_type, conf
+        # self.weightsTemplate = dir + '/Dataset{}CV{}_{{:.0f}}-{{}}-{{}}.p'.format(data_type, conf)
+        if type == 'rating':
+            self.weightsTemplate = input_dir + '/embed/predR_{}{{}}_{{}}.p'.format(pre)
+        elif type == 'malig':
+            assert False
+            # self.weightsTemplate = input_dir + '/embed/pred_{}{{}}_{{}}.p'.format(pre)
+        elif type == 'size':
+            assert False
+            # self.weightsTemplate = input_dir + '/embed/predS_{}{{}}_{{}}.p'.format(pre)
+        else:
+            print("{} - illegal pred type".format(type))
+            assert False
+
+    def read(self, run=None, dset=None):
+        match = self.weightsTemplate.format(run, dset)
+        filelist = glob(match)
+        if len(filelist) == 0:
+            print("Failed to find: {}".format(match))
+            return None
+        return open(filelist[0], 'br')
+
+    def load(self, goal, run=None, epoch=None):
+        dset = 'Valid' if goal is 'Train' else 'Test'
+        data = pickle.load(self.read(run, dset))
+        # convert to Dataset
+        all_preds, epochs_done, meta, images, classes, labels, masks, conf, rating_weights, z = data
+
+        #print(epoch)
+        #print(epochs_done)
+
+        epoch_idx = np.argwhere(epoch == np.array(epochs_done))[0][0]
+        pred = all_preds[epoch_idx]
+
+        Dataset = []
+        for i in range(len(meta)):
+            Entry = dict()
+            Entry['patch'] = images[i]
+            Entry['mask'] = masks[i]
+            Entry['label'] = classes[i]
+            Entry['info'] = meta
+            Entry['size'] = None
+            Entry['rating'] = np.expand_dims(pred[i], axis=0) if goal in ['Train', 'Valid'] else labels[i]
+            Entry['weights'] = [1] if goal in ['Train', 'Valid'] else rating_weights[i]
+            Entry['z'] = z[i]
+            Dataset.append(Entry)
+
+        return Dataset
+
+    #def write(self, run=None, dset=None):
+    #    match = self.weightsTemplate.format(run, dset)
+    #    return open(match, 'bw')
+
+    def name(self, goal, run=None):
+        dset = 'Valid' if goal is 'Train' else 'Test'
+        return self.weightsTemplate.format(run, dset)
+
+    __call__ = name

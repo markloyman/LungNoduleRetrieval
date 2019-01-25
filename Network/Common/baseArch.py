@@ -6,9 +6,8 @@ from keras.optimizers import Adam
 import keras.backend as K
 from config import input_dir, output_dir
 from Network.Common import losses
-from Network.dataUtils import get_class_weight
 import Network.FileManager as File
-
+from Network.dataUtils import crop_center
 
 class BaseArch(object):
 
@@ -206,7 +205,10 @@ class BaseArch(object):
 
         # get data from generator
         data_loader = self.get_data_loader(data)
-        images, labels, classes, masks, meta, conf, size, rating_weights, z = data_loader()
+        images, labels, classes, masks, meta, conf, size, rating_weights, z = data_loader(resize=False)
+
+        cropped_images = np.array([crop_center(im, msk, size=self.input_shape[0])[0]
+                           for im, msk in zip(images, masks)])
 
         if self.net_type == 'dirS' and not use_core:
             labels = size
@@ -240,9 +242,9 @@ class BaseArch(object):
                     self.load_weights(w)
                 # predict
                 if seq_model:
-                    pred = np.vstack([embed_model.predict(np.expand_dims(im, axis=0), batch_size=1) for im in images])
+                    pred = np.vstack([embed_model.predict(np.expand_dims(im, axis=0), batch_size=1) for im in cropped_images])
                 else:
-                    pred = embed_model.predict(images, batch_size=1)
+                    pred = embed_model.predict(cropped_images, batch_size=1)
             except:
                 print("Epoch {} failed ({})".format(epch, w))
                 continue

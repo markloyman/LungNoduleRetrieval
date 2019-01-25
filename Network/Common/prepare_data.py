@@ -1,8 +1,5 @@
 import numpy as np
-try:
-    from Network.dataUtils import rating_normalize, reorder
-except:
-    from dataUtils import rating_normalize, reorder
+from Network.dataUtils import rating_normalize, reorder
 
 
 def prepare_data(data, rating_format='raw', reshuffle=False, verbose = 0, scaling="none"):
@@ -22,8 +19,12 @@ def prepare_data(data, rating_format='raw', reshuffle=False, verbose = 0, scalin
     # ============================
     #   data: images and masks
     # ============================
-    images = [np.expand_dims(entry[0], axis=-1) for entry in data]
-    masks  = [np.expand_dims(entry[1], axis=-1) for entry in data]
+    if data[0][0].ndim == 2:
+        images = [np.expand_dims(entry[0], axis=-1) for entry in data]
+        masks  = [np.expand_dims(entry[1], axis=-1) for entry in data]
+    else:
+        images = [np.array(entry[0]) for entry in data]
+        masks = [np.array(entry[1]) for entry in data]
 
     if verbose:
         print('prepare_data:')

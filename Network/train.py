@@ -11,7 +11,7 @@ tf.set_random_seed(1234)
 K.set_session(tf.Session(graph=tf.get_default_graph()))
 
 from config import input_dir, local
-
+from experiments import CrossValidationManager
 from Network.Common.losses import pearson_correlation, distance_matrix_logcosh, distance_matrix_rank_loss_adapter, K_losses
 from Network.Direct.directArch import DirectArch
 from Network.Direct.DataGenDirect import DataGeneratorDir
@@ -47,6 +47,8 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         data_size = 160
     res = 0.5  # 'Legacy' #0.7 #0.5 #'0.5I'
     sample = 'Normal'  # 'UniformNC' #'Normal' #'Uniform'
+    data_run = 'vvv'
+    data_epoch = 2
     use_gen = True
     #model
     model_size = 128
@@ -71,7 +73,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
     data_augment_params = {'max_angle': 30, 'flip_ratio': 0.5, 'crop_stdev': 0.15, 'epoch': 0}
 
     data_loader = build_loader(size=data_size, res=res, sample=sample, dataset_type=dataset_type,
-                               config_name=config_name, configuration=config)
+                               config_name=config_name, configuration=config, run=data_run, epoch=data_epoch)
 
     ## --------------------------------------- ##
     ## ------- Prepare Direct Architecture ------- ##
@@ -117,7 +119,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         # run = '810'  # rmac conf:size
         # run = '811'  # rmac conf:none
         # run = '812'  # rmac conf:rating-std
-        #run = '813'  # max conf:none
+        # run = '813'  # max conf:none
 
         # run = '820'  # dirD, max, logcoh-loss
         # run = '821'  # dirD, max, pearson-loss
@@ -126,6 +128,8 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         # run = '824'  # dirD, max, categorical-cross-entropy-loss
         # run = '825'  # dirD, max, ranked-pearson-loss
         # run = '826'  # dirD, max, KL-normalized-rank-loss
+        run = '827'  # dirD, max, KL-normalized-rank-loss (local-scaled) softmax
+        # run = '828'  # dirD, max, KL-normalized-rank-loss (local-scaled) l2
 
         # run = '830'  # dirD, rmac, logcoh-loss
         # run = '831'  # dirD, rmac, pearson-loss
@@ -148,9 +152,9 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         # run = '862'  # dirD, max, KL-loss    pre:dirR813-50  (b:lr-4, freeze:28)
         # run = '863'  # dirD, max, KL-loss    pre:dirR813-50  (b:lr-4, freeze:39)
 
-        run = 'r00'
+        # run = 'bbb'
 
-        obj = 'rating'  # 'distance-matrix' 'rating' 'rating-size'
+        obj = 'distance-matrix'  # 'distance-matrix' 'rating' 'rating-size'
 
         rating_scale = 'none'
         reg_loss = None  # {'SampleCorrelation': 0.0}  # 'Dispersion', 'Std', 'FeatureCorrelation', 'SampleCorrelation'
@@ -362,12 +366,13 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
     ## -------      RUN             ------ ##
     ## --------------------------------------- ##
 
-    print('Current Run: {}{}c{}'.format('', run, config))
-
+    cnf_id = config if config_name == 'LEGACY' else CrossValidationManager(config_name).get_run_id(config)
+    run_name = '{}{}c{}'.format('', run, cnf_id)
+    print('Current Run: {}'.format(run_name))
     if no_training:
         model.last_epoch = epochs
-        model.run = '{}{}c{}'.format('', run, config)
+        model.run = run_name
     else:
-        model.train(run='{}{}c{}'.format('', run, config), epoch=(0 if preload_weight is None else epoch_pre), n_epoch=epochs, gen=use_gen, do_graph=False)
+        model.train(run=run_name, epoch=(0 if preload_weight is None else epoch_pre), n_epoch=epochs, gen=use_gen, do_graph=False)
 
     return model

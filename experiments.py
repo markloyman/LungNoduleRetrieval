@@ -6,7 +6,7 @@ class CrossValidationManager:
         self.config = []
         self.n_groups = 5
         self.group_ids = range(self.n_groups)
-        self.config_name = config_name
+        self.config_name = 'PRED' if config_name in ['PRED', 'pred'] else 'RET'
 
         target_set = [4, 3, 2, 1, 0, 0, 2, 4, 3, 1]
 
@@ -37,25 +37,38 @@ class CrossValidationManager:
 
         return cnf
 
-    def get_prediction_train(self, index):
-        cnf = self.config[index ]
-        return cnf['prediction_train']
+    def get_train(self, index):
+        cnf = self.config[index]
+        if self.config_name is 'PRED':
+            return cnf['prediction_train']
+        elif self.config_name is 'RET':
+            return cnf['retrieval_train']
+        else:
+            assert False
 
-    def get_prediction_validation(self, index):
-        cnf = self.config[index ]
-        return cnf['prediction_valid']
+    def get_valid(self, index):
+        cnf = self.config[index]
+        if self.config_name is 'PRED':
+            return cnf['prediction_valid']
+        elif self.config_name is 'RET':
+            return cnf['target']
+        else:
+            assert False
 
-    def get_prediction_eval(self, index):
-        cnf = self.config[index ]
-        return cnf['prediction_eval']
-
-    def get_retrieval_train(self, index):
-        cnf = self.config[index ]
-        return cnf['retrieval_train']
-
-    def get_target(self, index):
+    def get_test(self, index):
         cnf = self.config[index]
         return cnf['target']
+
+    def get_run_id(self, index):
+        cnf = self.config[index]
+        cnf = self.config[index]
+        if self.config_name is 'PRED':
+            idxs = cnf['prediction_train']
+        elif self.config_name is 'RET':
+            idxs = cnf['retrieval_train']
+        else:
+            assert False
+        return '' + ''.join([str(i) for i in idxs])
 
 
 def load_experiments(experiment):
@@ -550,7 +563,7 @@ def load_experiments(experiment):
 
 
 if __name__ == "__main__":
-    manager = CrossValidationManager()
+    manager = CrossValidationManager('PRED')
 
     for idx in range(10):
         print('\npred_train: \t', manager.get_prediction_train(idx))
@@ -558,4 +571,5 @@ if __name__ == "__main__":
         print('pred_eval: \t', manager.get_prediction_eval(idx))
         print('ret_train: \t', manager.get_retrieval_train(idx))
         print('test: \t', manager.get_target(idx))
+        print('run: \t', manager.get_run_id(idx))
 

@@ -6,6 +6,7 @@ from Network.Common.baseArch import BaseArch
 #from Network.Common import losses
 from Network.dataUtils import get_class_weight
 from Network.Direct.metrics import sensitivity, f1, precision, specificity, root_mean_squared_error, multitask_accuracy
+from Network.Common.losses import pearson_correlation
 import Network.FileManager  as File
 
 
@@ -108,7 +109,7 @@ class DirectArch(BaseArch):
                     'predictions_size': loss}
         elif self.objective == 'distance-matrix':
             loss = {'embed_output': loss}
-            #metrics = {'embed_output': root_mean_squared_error}
+            metrics = {'embed_output': pearson_correlation}
 
         self.compile_model( lr=learning_rate, lr_decay=decay,
                             loss       = loss,  # 'categorical_crossentropy', mean_squared_error

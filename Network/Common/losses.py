@@ -126,14 +126,16 @@ def distance_matrix_rank_loss_adapter(base_loss, label):
     return func
 
 
-def distance_matrix_rank_loss(y_true, y_pred, base_loss, normalized=False):
+def distance_matrix_rank_loss(y_true, y_pred, base_loss, normalized=True):
     # l2 distance matrix
     dm_true = y_true
     dm_pred = l2DM(y_pred)
 
     if normalized:
-        dm_true = K.mean(dm_true, axis=1, keepdims=True) - dm_true
-        dm_pred = K.mean(dm_pred, axis=1, keepdims=True) - dm_pred
+        # dm_true = K.mean(dm_true, axis=1, keepdims=True) - dm_true
+        # dm_pred = K.mean(dm_pred, axis=1, keepdims=True) - dm_pred
+        dm_true = dm_true / (K.std(dm_true, axis=0, keepdims=True) + K.epsilon())
+        dm_pred = dm_pred / (K.std(dm_pred, axis=0, keepdims=True) + K.epsilon())
 
     dm_true = K.softmax(dm_true)
     dm_pred = K.softmax(dm_pred)

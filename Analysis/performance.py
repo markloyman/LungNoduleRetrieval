@@ -180,7 +180,7 @@ def eval_retrieval(run, net_type, metric, epochs, dset, NN=[7, 11, 17], cross_va
     return P, P_std, F1, F1_std, valid_epochs
 
 
-def eval_correlation(run, net_type, metric, rating_metric, epochs, dset, objective='rating', rating_norm='none', cross_validation=False, n_groups=5, seq=False):
+def eval_correlation(run, net_type, metric, rating_metric, epochs, dset, objective='rating', rating_norm='none', local_scaling=False, cross_validation=False, n_groups=5, seq=False):
 
     Embed = FileManager.Embed(net_type)
 
@@ -203,7 +203,7 @@ def eval_correlation(run, net_type, metric, rating_metric, epochs, dset, objecti
             if not Reg.load_cached_rating_distance(cache_filename):
                 print('evaluating rating distance matrix...')
                 Reg.evaluate_rating_space(norm=rating_norm, ignore_labels=False)
-                Reg.evaluate_rating_distance_matrix(method=rating_metric, clustered_rating_distance=True, weighted=True)
+                Reg.evaluate_rating_distance_matrix(method=rating_metric, clustered_rating_distance=True, weighted=True, local_scaling=local_scaling)
                 Reg.dump_rating_distance_to_cache(cache_filename)
                 #print('\tno dump for rating distance matrix...')
 

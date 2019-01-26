@@ -195,7 +195,7 @@ class RatingCorrelator:
             self.rating = [rating_normalize(lbl, method=norm) for lbl in self.labels]
         self.rating_distance_matrix = None  # reset after recalculating the ratings
 
-    def evaluate_rating_distance_matrix(self, method='chebyshev', clustered_rating_distance=False, weighted=False):
+    def evaluate_rating_distance_matrix(self, method='chebyshev', clustered_rating_distance=False, weighted=False, local_scaling=False):
         if clustered_rating_distance:
             n = len(self.rating)
             self.rating_distance_matrix = rating_clusters_distance_matrix(self.rating, weights=self.weights if weighted else None)
@@ -203,6 +203,10 @@ class RatingCorrelator:
             rating = np.array([np.mean(rat, axis=0) for rat in self.rating])
             self.rating_distance_matrix = calc_distance_matrix(rating, method)
         #assert self.rating_distance_matrix.shape[0] == self.embed_distance_matrix.shape[0]
+
+        if local_scaling:
+            self.rating_distance_matrix = self.rating_distance_matrix / (self.rating_distance_matrix.std(axis=0, keepdims=True) + 1e-6)
+
         self.rating_metric = method
         return self.rating_distance_matrix
 

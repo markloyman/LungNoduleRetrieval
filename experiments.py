@@ -499,11 +499,11 @@ def load_experiments(experiment):
     #   DirectDistanceMax
     # ===========================
     elif experiment == 'DirectDistanceMax':
-        runs = ['820', '821' , '822', '823', '824', '825', '826']  #
+        runs = ['821', '825', '829', '822', '826', '827']  # '820', '823', '824'
         run_net_types = ['dirD'] * len(runs)
         run_metrics = ['l2'] * len(runs)
-        run_epochs = [list(range(1, 121, 1))] * len(runs)
-        run_names = ['logcosh-loss', 'pearson-loss', 'kl-loss', 'poisson-loss', 'entropy-loss', 'ranked-pearson', 'kl-norm-loss']  #
+        run_epochs = [list(range(1, 161, 1))] * len(runs)
+        run_names = ['pearson-loss', 'ranked-pearson', 'pearson-ls', 'kl-loss', 'kl-norm-loss', 'kl-scaled']  # 'logcosh-loss', 'poisson-loss', 'entropy-loss',
     # ===========================
     #   DirectDistanceRmac
     # ===========================

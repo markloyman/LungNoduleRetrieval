@@ -82,7 +82,7 @@ def pearson_correlation(y_true, y_pred, normalized=False):
     # l2 distance matrix
     #dm_true = l2DM(y_true)
     dm_true = y_true
-    dm_pred = l2DM(y_pred)
+    dm_pred = y_pred
 
     if normalized:
         dm_true = K.softmax(dm_true)
@@ -126,10 +126,10 @@ def distance_matrix_rank_loss_adapter(base_loss, label):
     return func
 
 
-def distance_matrix_rank_loss(y_true, y_pred, base_loss, normalized=True):
+def distance_matrix_rank_loss(y_true, y_pred, base_loss, normalized=False):
     # l2 distance matrix
     dm_true = y_true
-    dm_pred = l2DM(y_pred)
+    dm_pred = y_pred  # l2DM(y_pred)
 
     if normalized:
         # dm_true = K.mean(dm_true, axis=1, keepdims=True) - dm_true

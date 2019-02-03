@@ -13,6 +13,7 @@ rating_metrics = ['euclidean']  #['l2', 'l1', 'cosine']
 rating_norm = 'none'
 n_groups = 5
 objective = 'rating'  # 'size'
+alpha = 0.2
 
 runs, run_net_types, run_metrics, run_epochs, run_names, _, _ = load_experiments(experiment_name)
 
@@ -75,7 +76,6 @@ for m, metric_rating in enumerate(rating_metrics):
         legend += ['']
         legend += ['']
 
-    alpha = 0.4
     for valid_epochs, idx_malig_pearson, idx_malig_kendall, idx_rating_pearson, idx_rating_kendall \
             in zip(Valid_epochs, Idx_malig_pearson, Idx_malig_kendall, Idx_rating_pearson, Idx_rating_kendall):
 

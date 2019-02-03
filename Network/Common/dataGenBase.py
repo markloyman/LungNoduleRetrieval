@@ -1,14 +1,10 @@
 import numpy as np
 from keras import utils
 from functools import reduce
-try:
-    from Network.data_loader import load_nodule_dataset
-    from Network.Common import prepare_data
-    from Network.dataUtils import augment_all, crop_center_all, crop_center, get_sample_weight, get_class_weight, format_data_as_sequence
-except:
-    from data_loader import load_nodule_dataset
-    from Common import prepare_data
-    from dataUtils import augment_all, crop_center_all, crop_center, get_sample_weight, get_class_weight, format_data_as_sequence
+
+from Network.data_loader import load_nodule_dataset
+from Network.Common import prepare_data
+from Network.dataUtils import augment_all, crop_center_all, crop_center, get_sample_weight, get_class_weight, format_data_as_sequence
 
 
 def split(data_array, idx):
@@ -158,7 +154,7 @@ class DataSequenceBase(utils.Sequence):
         self.verbose = 1
         self.epoch = 0
 
-        if objective not in ['malignancy', 'rating', 'size', 'rating_size', 'distance-matrix']:
+        if objective not in ['malignancy', 'rating', 'size', 'rating_size', 'distance-matrix', 'rating_distance-matrix']:
             print("ERR: Illegual objective given ({})".format(self.objective))
             assert False
         self.data_factor = data_factor
@@ -194,7 +190,10 @@ class DataSequenceBase(utils.Sequence):
         num_of_losses = len(labels[0])
         # triplet: vstack
         # num_of_losses > 1: hstack
-        labels = [np.hstack([label[i] for label in labels]) for i in range(num_of_losses)]
+        if self.data_factor == 1:
+            labels = labels[0]
+        else:
+            labels = [np.hstack([label[i] for label in labels]) for i in range(num_of_losses)]
 
         classes = np.hstack(classes)
         sample_weights = np.hstack(sample_weights)
@@ -266,8 +265,18 @@ class DataSequenceBase(utils.Sequence):
                 images_batch = [crop_center_all(images[index], masks[index], size=self.model_size)
                                     for images, masks in zip(self.images, self.masks)]
 
-        if self.weighted_rating and self.objective == 'distance-matrix':
-            labels_batch = [self.process_label_batch(self.labels[0][index], self.labels[1][index])]
+        if self.weighted_rating:
+            if 'distance-matrix' == self.objective:
+                r_rw_batch = self.labels[0][index]
+                r, rw = zip(*r_rw_batch)
+                labels_batch = [self.process_label_batch(r, rw)]
+                #labels_batch = [self.process_label_batch(self.labels[0][index], self.labels[1][index])]
+            elif  'rating_distance-matrix' == self.objective:
+                r_rw_batch = self.labels[1][index]
+                r, rw = zip(*r_rw_batch)
+                labels_batch = [self.labels[0][index], self.process_label_batch(r, rw)]
+            else:
+                assert False
         else:
             labels_batch = [self.process_label_batch(lbl[index]) for lbl in self.labels]
 

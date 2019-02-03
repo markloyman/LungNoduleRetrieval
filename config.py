@@ -38,3 +38,7 @@ def set_folders():
             raise
 
     # [print(f) for f in os.listdir()]
+
+
+# set_local:
+#   os.environ["LOCAL"] = "True"

@@ -128,8 +128,9 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         # run = '824'  # dirD, max, categorical-cross-entropy-loss
         # run = '825'  # dirD, max, ranked-pearson-loss
         # run = '826'  # dirD, max, KL-normalized-rank-loss
-        run = '827'  # dirD, max, KL-normalized-rank-loss (local-scaled) softmax
+        # run = '827'  # dirD, max, KL-normalized-rank-loss (local-scaled) softmax
         # run = '828'  # dirD, max, KL-normalized-rank-loss (local-scaled) l2
+        # run = '829'  # dirD, max, ranked-pearson-loss (local-scaled)
 
         # run = '830'  # dirD, rmac, logcoh-loss
         # run = '831'  # dirD, rmac, pearson-loss
@@ -152,9 +153,20 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         # run = '862'  # dirD, max, KL-loss    pre:dirR813-50  (b:lr-4, freeze:28)
         # run = '863'  # dirD, max, KL-loss    pre:dirR813-50  (b:lr-4, freeze:39)
 
-        # run = 'bbb'
+        # run = '870'  # dirRD, max, KL-loss    schd: 00
+        # run = '871'  # dirRD, max, KL-loss    schd: 01
+        # run = '872'  # dirRD, max, KL-loss    schd: 02
+        # run = '873'  # dirRD, max, KL-loss    schd: 03
+        # run = '874'  # dirRD, max, KL-loss    schd: 04
+        # run = '875'  # dirRD, max, KL-loss    schd: 05
+        # run = '876'  # dirRD, max, KL-loss    schd: 06
+        # run = '877b'  # dirRD, max, KL-loss    schd: 07b
+        run = '878b'  # dirRD, max, KL-loss    schd: 08
+        # run = '879'  # dirRD, max, KL-loss    schd: 09
 
-        obj = 'distance-matrix'  # 'distance-matrix' 'rating' 'rating-size'
+        # run = 'ccc'
+
+        obj = 'rating_distance-matrix'  # 'distance-matrix' 'rating' 'rating-size'
 
         rating_scale = 'none'
         reg_loss = None  # {'SampleCorrelation': 0.0}  # 'Dispersion', 'Std', 'FeatureCorrelation', 'SampleCorrelation'
@@ -177,28 +189,87 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
 
         model.model.summary()
 
-        # scheduale 02
-        should_use_scheduale = (reg_loss is not None) or (obj == 'rating_size')
-        sched = [{'epoch': 00, 'weights': [0.1, 0.9]},
-                 {'epoch': 20, 'weights': [0.4, 0.6]},
-                 {'epoch': 40, 'weights': [0.6, 0.4]},
-                 {'epoch': 60, 'weights': [0.9, 0.1]},
-                 {'epoch': 80, 'weights': [1.0, 0.0]}] \
+        should_use_scheduale = (reg_loss is not None) or (obj in ['rating_size', 'rating_distance-matrix'])
+
+        # scheduale 00:     870
+        # sched = [{'epoch': 00, 'weights': [0.9, 0.1]},
+        #         {'epoch': 40, 'weights': [0.5, 0.5]},
+        #         {'epoch': 80, 'weights': [0.1, 0.9]}] \
+        #    if should_use_scheduale else []
+
+        # scheduale 01:     871
+        # sched = [{'epoch': 00, 'weights': [1.0, 0.0]},
+        #         {'epoch': 50, 'weights': [0.0, 1.0]}] \
+        #    if should_use_scheduale else []
+
+        # scheduale 02:     872
+        # sched = [{'epoch': 00, 'weights': [0.9, 0.1]},
+        #       {'epoch': 50, 'weights': [0.1, 0.9]}] \
+        #   if should_use_scheduale else []
+
+        # scheduale 03:     873
+        # sched = [{'epoch': 00, 'weights': [0.9, 0.1]},
+        #        {'epoch': 50, 'weights': [0.5, 0.5]},
+        #         {'epoch': 100, 'weights': [0.1, 0.9]}] \
+        #    if should_use_scheduale else []
+
+        # scheduale 04:     874
+        # sched = [{'epoch': 00, 'weights': [1.0, 0.0]},
+        #        {'epoch': 50, 'weights': [0.0, 0.1]}] \
+        #   if should_use_scheduale else []
+
+        # scheduale 05:     875
+        # sched = [{'epoch': 00, 'weights': [1.0, 0.0]},
+        #        {'epoch': 50, 'weights': [0.0, 1.0]},
+        #         {'epoch': 100, 'weights': [0.0, 0.1]}] \
+        #    if should_use_scheduale else []
+
+        # scheduale 06:     876
+        # sched = [{'epoch': 00, 'weights': [0.9, 0.1]},
+        #         {'epoch': 40, 'weights': [0.5, 0.5]},
+        #         {'epoch': 60, 'weights': [0.1, 0.1]},
+        #         {'epoch': 80, 'weights': [0.0, 0.1]},
+        #         {'epoch': 100, 'weights': [0.0, 0.05]}] \
+        #    if should_use_scheduale else []
+
+        # scheduale 07b:     877b
+        # sched = [{'epoch': 00,  'weights': [1.0, 0.0]},
+        #         {'epoch': 50,  'weights': [0.0, 1.0]},
+        #         {'epoch': 80,  'weights': [0.0, 0.1]},
+        #         {'epoch': 100, 'weights': [0.0, 0.05]}] \
+        #    if should_use_scheduale else []
+
+        # scheduale 08b:     878b
+        sched = [{'epoch': 00, 'weights': [0.9, 0.1]},
+                 {'epoch': 40, 'weights': [0.5, 0.5]},
+                 {'epoch': 80, 'weights': [0.0, 0.1]},
+                 {'epoch': 100, 'weights': [0.0, 0.05]}] \
             if should_use_scheduale else []
 
-        loss = 'logcosh' if obj is not 'distance-matrix' else distance_matrix_rank_loss_adapter(K_losses.kullback_leibler_divergence, 'KL')
-            # distance_matrix_logcosh
-            # pearson_correlation
-            # distance_matrix_rank_loss_adapter(K_losses.kullback_leibler_divergence, 'KL')
-            # distance_matrix_rank_loss_adapter(K_losses.poisson, 'poisson')
-            # distance_matrix_rank_loss_adapter(K_losses.categorical_crossentropy, 'entropy')
+        # scheduale 09:     879
+        # sched = [{'epoch': 00, 'weights': [0.9, 0.1]},
+        #         {'epoch': 20, 'weights': [0.7, 0.3]},
+        #         {'epoch': 40, 'weights': [0.5, 0.5]},
+        #         {'epoch': 60, 'weights': [0.3, 0.3]},
+        #         {'epoch': 80, 'weights': [0.0, 0.1]}] \
+        #    if should_use_scheduale else []
+
+        loss = dict()
+        loss['predictions'] = 'logcosh'
+        loss['predictions_size'] = 'logcosh'
+        loss['distance_matrix'] = distance_matrix_rank_loss_adapter(K_losses.kullback_leibler_divergence, 'KL')
+        # distance_matrix_logcosh
+        # pearson_correlation
+        # distance_matrix_rank_loss_adapter(K_losses.kullback_leibler_divergence, 'KL')
+        # distance_matrix_rank_loss_adapter(K_losses.poisson, 'poisson')
+        # distance_matrix_rank_loss_adapter(K_losses.categorical_crossentropy, 'entropy')
         model.compile(learning_rate=1e-3 if (preload_weight is None) else 1e-4, loss=loss, scheduale=sched)  # mean_squared_logarithmic_error, binary_crossentropy, logcosh
 
         if use_gen:
             generator = DataGeneratorDir(data_loader,
                     val_factor=0 if skip_validation else 1,
                     data_size=data_size, model_size=model_size, batch_size=batch_size,
-                    objective=obj, rating_scale=rating_scale, weighted_rating=(obj=='distance-matrix'),
+                    objective=obj, rating_scale=rating_scale, weighted_rating=('distance-matrix' in obj),
                     balanced=False,
                     do_augment=do_augment, augment=data_augment_params,
                     use_class_weight=False, use_confidence=False)

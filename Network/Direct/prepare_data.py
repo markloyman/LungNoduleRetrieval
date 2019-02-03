@@ -1,8 +1,5 @@
 import numpy as np
-try:
-    from Network.Common import prepare_data
-except:
-    from Common import prepare_data
+from Network.Common import prepare_data
 
 
 def select_balanced(some_set, labels, N, permutation):
@@ -14,7 +11,7 @@ def select_balanced(some_set, labels, N, permutation):
 
 
 def prepare_data_direct(data, objective='malignancy', rating_format='w_mean', rating_scale='none', weighted_rating=False, num_of_classes=2, balanced=False, verbose=0, reshuffle=True):
-    rating_format = 'raw' if objective == 'distance-matrix' else rating_format
+    rating_format = 'raw' if 'distance-matrix' in objective else rating_format
     images, ratings, classes, masks, meta, conf, nod_size, rating_weights, z = \
         prepare_data(data, rating_format=rating_format, scaling=rating_scale, verbose=verbose, reshuffle=reshuffle)
 
@@ -28,7 +25,11 @@ def prepare_data_direct(data, objective='malignancy', rating_format='w_mean', ra
     elif objective == 'rating_size':
         labels = ratings, nod_size
     elif objective == 'distance-matrix':
-        labels = (ratings, rating_weights) if weighted_rating else ratings
+        labels = np.array([ (r, rw) for r, rw in zip(ratings, rating_weights)])
+    elif objective == 'rating_distance-matrix':
+        mean_rating = np.array([r.mean(axis=0) for r in ratings])
+        rating_for_dm = np.array([(a, b) for a, b in zip(ratings, rating_weights)])
+        labels = mean_rating, rating_for_dm
     else:
         assert False
 

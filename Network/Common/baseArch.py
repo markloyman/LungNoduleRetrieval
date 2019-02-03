@@ -58,10 +58,14 @@ class BaseArch(object):
         if 'predictions' in loss.keys():
             loss_weights['predictions'] = K.variable(scheduale[0]['weights'][0], name='w_predictions') if do_scheduale else 1.0
         if 'predictions_size' in loss.keys():
-            loss_weights['predictions_size'] = K.variable(scheduale[0]['weights'][0], name='w_predictions_size') if do_scheduale else 1.0
+            loss_weights['predictions_size'] = K.variable(scheduale[0]['weights'][1], name='w_predictions_size') if do_scheduale else 1.0
         if 'embed_output' in loss.keys():
-            loss_weights['embed_output'] = K.variable(scheduale[0]['weights'][0],
+            loss_weights['embed_output'] = K.variable(scheduale[0]['weights'][1],
                                                           name='w_embed_output') if do_scheduale else 1.0
+        if 'distance_matrix' in loss.keys():
+            loss_weights['distance_matrix'] = K.variable(scheduale[0]['weights'][1],
+                                                          name='w_distance_matrix') if do_scheduale else 1.0
+
         if self.regularization_loss:
             if 'Dispersion' in self.regularization_loss.keys():
                 self.loss['embed_output'] = losses.dispersion_loss
@@ -100,7 +104,7 @@ class BaseArch(object):
 
         if do_scheduale:
             print("Use loss weight schedualer:\n{}".format(scheduale))
-            w_list = [loss_weights[key] for key in ['predictions', 'predictions_size', 'embed_output'] \
+            w_list = [loss_weights[key] for key in ['predictions', 'predictions_size', 'embed_output', 'distance_matrix'] \
                       if key in loss_weights.keys()]
             self.callbacks.append(losses.LossWeightSchedualer(w_list, schedule=scheduale))
 

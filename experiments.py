@@ -532,6 +532,33 @@ def load_experiments(experiment):
         run_epochs = [list(range(1, 151, 1))] * len(runs)
         run_names = ['no-freeze', '1-block', '2-blocks', '3-blocks', '4-blocks']  #
     # ===========================
+    #   DirectRatingSummary
+    # ===========================
+    elif experiment == 'DirectRatingSummary':
+        runs = ['813', '825', '822', '842b', '870']
+        run_net_types = ['dirR', 'dirD', 'dirD', 'dirD', 'dirRD']
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 161, 1))] * len(runs)
+        run_names = ['dirR_max', 'dirD_ranked-pearson', 'dirD_ranked-kl', 'dirD_kl-finetuned', 'dirRD_kl-1']
+    # ===========================
+    #   DirectRatingDistance
+    # ===========================
+    elif experiment == 'DirectRatingDistance':
+        runs = ['870', '876', '878', '879']  # '873', '874'
+        run_net_types = ['dirRD'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 161, 1))] * len(runs)
+        run_names = ['870-schd1', '876', '878', '879']  # '873-.1-.5-.9', '874-0-1-slower'
+    # ===========================
+    #   DirectRatingDistanceFinetune
+    # ===========================
+    elif experiment == 'DirectRatingDistanceFinetune':
+        runs = ['871', '875',  '877']  # '873', '874'
+        run_net_types = ['dirRD'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 161, 1))] * len(runs)
+        run_names = ['871-0-1', '875-0-1-.1',  '877']  # '873-.1-.5-.9', '874-0-1-slower'
+    # ===========================
     #   ConvLSTM
     # ===========================
     elif experiment == 'ConvLSTM':

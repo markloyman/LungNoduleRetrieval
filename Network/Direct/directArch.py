@@ -6,7 +6,7 @@ from Network.Common.baseArch import BaseArch
 #from Network.Common import losses
 from Network.dataUtils import get_class_weight
 from Network.Direct.metrics import sensitivity, f1, precision, specificity, root_mean_squared_error, multitask_accuracy
-from Network.Common.losses import pearson_correlation
+from Network.Common.losses import pearson_correlation, l2DM
 import Network.FileManager  as File
 
 
@@ -29,6 +29,8 @@ class DirectArch(BaseArch):
             self.net_type = 'dirRS'
         elif objective == 'distance-matrix':
             self.net_type = 'dirD'
+        elif objective == 'rating_distance-matrix':
+            self.net_type = 'dirRD'
         else:
             print("{} objective not recognized".format(objective))
             assert False
@@ -45,10 +47,12 @@ class DirectArch(BaseArch):
         self.regularization_loss = regularization_loss
 
         outputs = []
-        if objective=='malignancy':
+
+        if 'malignancy' in objective:
             pred_layer = Dense(2, activation='softmax', name='predictions')(self.base)
             outputs.append(pred_layer)
-        elif objective=='rating':
+
+        if 'rating' in objective:
             if separated_prediction:
                 p = [[] for _ in range(9)]
                 for i in range(9):
@@ -59,21 +63,20 @@ class DirectArch(BaseArch):
             else:
                 pred_layer = Dense(9, activation='linear', name='predictions')(self.base)
             outputs.append(pred_layer)
-        elif objective == 'size':
+
+        if 'size' in objective:
             #x = Dense(output_size // 2, name='dense_size')(self.base)
             #x = BatchNormalization(name='dense_size_bn')(x)
             #x = Activation('relu', name='dense_size_act')(x)
             size_layer = Dense(1, activation='linear', name='predictions_size')(self.base)
             outputs.append(size_layer)
-        elif objective == 'rating_size':
-            size_layer = Dense(1, activation='linear', name='predictions_size')(self.base)
-            pred_layer = Dense(9, activation='linear', name='predictions')(self.base)
-            outputs.append(pred_layer)
-            outputs.append(size_layer)
-        elif objective == 'distance-matrix':
+
+        if 'distance-matrix' in objective:
             embed = Lambda(lambda x: x, name='embed_output')(self.base)
-            outputs.append(embed)
-        else:
+            distance_matrix = Lambda(l2DM, name='distance_matrix')(embed)
+            outputs.append(distance_matrix)
+
+        if len(outputs) == 0:
             print("ERR: Illegual objective given ({})".format(objective))
             assert(False)
 
@@ -92,30 +95,31 @@ class DirectArch(BaseArch):
         sensitivity.__name__ = 'recall'
         root_mean_squared_error.__name__ = 'rmse'
         multitask_accuracy.__name__ = 'accuracy'
-        metrics = []
-        if self.objective == 'malignancy':
-            metrics = {'predictions': [categorical_accuracy, f1, sensitivity, precision, specificity]}
-            loss = {'predictions': loss}
-        elif self.objective == 'rating':
-            metrics = {'predictions': root_mean_squared_error}
-            loss = {'predictions': loss}
-        elif self.objective == 'size':
-            metrics = {'predictions_size': root_mean_squared_error}
-            loss = {'predictions_size': loss}
-        elif self.objective == 'rating_size':
-            metrics = {'predictions': root_mean_squared_error,
-                       'predictions_size': root_mean_squared_error}
-            loss = {'predictions': loss,
-                    'predictions_size': loss}
-        elif self.objective == 'distance-matrix':
-            loss = {'embed_output': loss}
-            metrics = {'embed_output': pearson_correlation}
+
+        Loss, Metrics = dict(), dict()
+
+        if 'malignancy' in self.objective:
+            Metrics['predictions'] = [categorical_accuracy, f1, sensitivity, precision, specificity]
+            Loss['predictions'] = loss['predictions'] if type(loss) is dict else loss
+
+        if 'rating' in self.objective:
+            Metrics['predictions'] = root_mean_squared_error
+            Loss['predictions'] = loss['predictions'] if type(loss) is dict else loss
+
+        if 'size' in self.objective:
+            Metrics['predictions_size'] = root_mean_squared_error
+            Loss['predictions_size'] = loss['predictions_size'] if type(loss) is dict else loss
+
+        if 'distance-matrix' in self.objective:
+            Loss['distance_matrix'] = loss['distance_matrix'] if type(loss) is dict else loss
+            Metrics['distance_matrix'] = pearson_correlation
 
         self.compile_model( lr=learning_rate, lr_decay=decay,
-                            loss       = loss,  # 'categorical_crossentropy', mean_squared_error
-                            metrics     = metrics,
+                            loss       = Loss,
+                            metrics     = Metrics,
                             scheduale=scheduale,
                             temporal_weights = temporal_weights)
+
         self.lr         = learning_rate
         self.lr_decay   = decay
         self.model_ready = True

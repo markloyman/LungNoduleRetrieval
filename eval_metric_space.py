@@ -20,10 +20,10 @@ n_groups = 5
 
 runs, run_net_types, run_metrics, run_epochs, run_names, _, _ = load_experiments(experiment_name)
 
-alpha = 0.4
+alpha = 0.2
 
 #indexes = ['Hubness', 'Symmetry', 'Contrast', 'Concentration', 'Kumari']
-indexes = ['Hubness', 'Symmetry', 'FeatCorr', 'SampCorr']
+indexes = ['Hubness', 'Symmetry'] # 'FeatCorr', 'SampCorr'
 M = len(indexes)
 
 # initialize figures
@@ -52,7 +52,7 @@ for m, metric_ in enumerate(ratiing_metrics):
             #assert False
             combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar, idx_featCorr, idx_sampCorr \
                 = pickle.load(open(plot_data_filename, 'br'))
-            idx_kummar = np.reshape(idx_kummar, (1, np.max(idx_kummar.shape)))
+            #idx_kummar = np.reshape(idx_kummar, (1, np.max(idx_kummar.shape)))
             print("Loaded results for {}{}".format(net_type, run))
         except:
             print("Evaluating classification accuracy for {}{} using {}".format(net_type, run, metric))

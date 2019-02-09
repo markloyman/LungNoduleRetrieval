@@ -29,7 +29,7 @@ from Network import FileManager
 # DIR / SIAM / DIR_RATING / SIAM_RATING
 
 
-def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_training=False, config_name='LEGACY'):
+def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_training=False, config_name='LEGACY', load_data_from_predications=False):
 
     np.random.seed(1337)
     random.seed(1337)
@@ -63,9 +63,12 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
     print("-"*30)
     print("Running {} for --** {} **-- model, with #{} configuration".
           format("training" if not no_training else "validation", choose_model, config))
-    print("\tdata_size = {},\n\tmodel_size = {},\n\tres = {},\n\tdo_augment = {}".
-          format(data_size, model_size, res, do_augment))
-    print("\tdataset_type = {}".format(dataset_type))
+    if load_data_from_predications:
+        print("\tdata_run - {}, \n\tdata_epoch = {}", data_run, data_epoch)
+    else:
+        print("\tdata_size = {},\n\tmodel_size = {},\n\tres = {},\n\tdo_augment = {}".
+              format(data_size, model_size, res, do_augment))
+        print("\tdataset_type = {}".format(dataset_type))
     print("-" * 30)
 
     model = None
@@ -161,8 +164,10 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         # run = '875'  # dirRD, max, KL-loss    schd: 05
         # run = '876'  # dirRD, max, KL-loss    schd: 06
         # run = '877b'  # dirRD, max, KL-loss    schd: 07b
-        run = '878b'  # dirRD, max, KL-loss    schd: 08
+        # run = '878b'  # dirRD, max, KL-loss    schd: 08
         # run = '879'  # dirRD, max, KL-loss    schd: 09
+
+        run = 'zzz888'  # dirRD, max, KL-loss    schd: 08, on partial data
 
         # run = 'ccc'
 
@@ -239,11 +244,10 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         #         {'epoch': 100, 'weights': [0.0, 0.05]}] \
         #    if should_use_scheduale else []
 
-        # scheduale 08b:     878b
+        # scheduale 08b:     878
         sched = [{'epoch': 00, 'weights': [0.9, 0.1]},
                  {'epoch': 40, 'weights': [0.5, 0.5]},
-                 {'epoch': 80, 'weights': [0.0, 0.1]},
-                 {'epoch': 100, 'weights': [0.0, 0.05]}] \
+                 {'epoch': 80, 'weights': [0.0, 0.1]}] \
             if should_use_scheduale else []
 
         # scheduale 09:     879

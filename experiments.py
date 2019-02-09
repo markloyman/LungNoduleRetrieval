@@ -544,20 +544,20 @@ def load_experiments(experiment):
     #   DirectRatingDistance
     # ===========================
     elif experiment == 'DirectRatingDistance':
-        runs = ['870', '876', '878', '879']  # '873', '874'
+        runs = ['878', '879', '877b' ]  # '870', '876', '873', '874', '878b'
         run_net_types = ['dirRD'] * len(runs)
         run_metrics = ['l2'] * len(runs)
         run_epochs = [list(range(1, 161, 1))] * len(runs)
-        run_names = ['870-schd1', '876', '878', '879']  # '873-.1-.5-.9', '874-0-1-slower'
+        run_names = ['878', '879', '877b']  # '870-schd1', '876', '873-.1-.5-.9', '874-0-1-slower', '878b'
     # ===========================
     #   DirectRatingDistanceFinetune
     # ===========================
     elif experiment == 'DirectRatingDistanceFinetune':
-        runs = ['871', '875',  '877']  # '873', '874'
+        runs = ['871', '875',  '877', '877b']  # '873', '874'
         run_net_types = ['dirRD'] * len(runs)
         run_metrics = ['l2'] * len(runs)
         run_epochs = [list(range(1, 161, 1))] * len(runs)
-        run_names = ['871-0-1', '875-0-1-.1',  '877']  # '873-.1-.5-.9', '874-0-1-slower'
+        run_names = ['871-0-1', '875-0-1-.1',  '877', '877b']  # '873-.1-.5-.9', '874-0-1-slower'
     # ===========================
     #   ConvLSTM
     # ===========================
@@ -590,13 +590,16 @@ def load_experiments(experiment):
 
 
 if __name__ == "__main__":
-    manager = CrossValidationManager('PRED')
 
+    manager = CrossValidationManager('PRED')
     for idx in range(10):
-        print('\npred_train: \t', manager.get_prediction_train(idx))
-        print('pred_valid: \t', manager.get_prediction_validation(idx))
-        print('pred_eval: \t', manager.get_prediction_eval(idx))
-        print('ret_train: \t', manager.get_retrieval_train(idx))
-        print('test: \t', manager.get_target(idx))
-        print('run: \t', manager.get_run_id(idx))
+        print('\npred_train: \t', manager.get_train(idx))
+        print('pred_valid: \t', manager.get_valid(idx))
+        print('pred_test: \t', manager.get_test(idx))
+
+    manager = CrossValidationManager('RET')
+    for idx in range(10):
+        print('\nret_train: \t', manager.get_train(idx))
+        print('ret_valid: \t', manager.get_valid(idx))
+        print('ret_test: \t', manager.get_test(idx))
 

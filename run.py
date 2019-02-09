@@ -14,6 +14,7 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--predict", action="store_true", default=False, help="generate predictions")
     parser.add_argument("-s", "--seq", action="store_true", default=False, help="run 3d setup")
     parser.add_argument("--spatial", action="store_true", default=False, help="spatial embedding")
+    parser.add_argument("--dataFromPredictions", action="store_true", default=False, help="load dataset from predications")
     args = parser.parse_args()
 
     epochs = args.epochs if (args.epochs != 0) else 81
@@ -32,7 +33,7 @@ if __name__ == '__main__':
             model = run_training_3d(net_type, epochs=epochs, config=config, skip_validation=False, no_training=test)
         else:
             model = run_training(net_type, epochs=epochs, config=config, config_name=args.confname,
-                                 skip_validation=False, no_training=test)
+                                 skip_validation=False, no_training=test, load_data_from_predications=args.dataFromPredictions)
         if test:
             epoch0 = 1
             delta_epoch = 1

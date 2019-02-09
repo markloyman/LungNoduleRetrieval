@@ -14,17 +14,15 @@ from Network.dataUtils import rating_clusters_distance, rating_clusters_distance
 # =========================
 
 def build_loader(size=128, res=1.0, apply_mask_to_patch=False, sample='Normal', dataset_type='Clean',
-                 configuration=None, n_groups=5, config_name='LEGACY', run=None, epoch=None):
+                 configuration=None, n_groups=5, config_name='LEGACY', run=None, epoch=None, load_data_from_predictions=False):
 
     if config_name == 'LEGACY':
         loader = partial(load_nodule_dataset, size, res, apply_mask_to_patch, sample, configuration, n_groups, dataset_type)
-    elif config_name == 'PRED':
-        loader = partial(load_nodule_dataset_pred, size, res, apply_mask_to_patch, sample, configuration)
-    elif config_name == 'RET':
-        loader = partial(load_nodule_dataset_ret, run, epoch, apply_mask_to_patch, configuration)
     else:
-        print('{} - illegal config_name'.format(config_name))
-        assert False
+        if load_data_from_predictions:
+            loader = partial(load_nodule_dataset_from_predications, config_name, run, epoch, apply_mask_to_patch, configuration)
+        else:
+            loader = partial(load_nodule_dataset_from_dataset, config_name, size, res, apply_mask_to_patch, sample, configuration)
 
     return loader
 
@@ -116,7 +114,7 @@ def load_nodule_dataset(size=128, res=1.0, apply_mask_to_patch=False, sample='No
     return testData, validData, trainData
 
 
-def load_nodule_dataset_pred(size=128, res=1.0, apply_mask_to_patch=False, sample='Normal', configuration=None):
+def load_nodule_dataset_from_dataset(config_name, size=128, res=1.0, apply_mask_to_patch=False, sample='Normal', configuration=None):
     if configuration is None:
         assert False
 
@@ -125,8 +123,8 @@ def load_nodule_dataset_pred(size=128, res=1.0, apply_mask_to_patch=False, sampl
 
     dataset_type = 'Primary'
 
-    manager = CrossValidationManager('PRED')
-    print("Using {} CrossValidationManager:".format('PRED'))
+    manager = CrossValidationManager(config_name)
+    print("Using {} CrossValidationManager:".format(config_name))
 
     def load(data_type, conf, dir, size, res, sample, data_set):
         data_file = Dataset(data_type=data_type, conf=conf, dir=dir)
@@ -166,16 +164,15 @@ def load_nodule_dataset_pred(size=128, res=1.0, apply_mask_to_patch=False, sampl
     return testData, validData, trainData
 
 
-def load_nodule_dataset_ret(run, epoch, apply_mask_to_patch=False, configuration=None):
+def load_nodule_dataset_from_predications(config_name, run, epoch, apply_mask_to_patch=False, configuration=None):
     if configuration is None:
         assert False
 
     if apply_mask_to_patch:
         print('WRN: apply_mask_to_patch is for debug only')
 
-    manager = CrossValidationManager('PRED')
-    # it is used for RET runs, however the loaded data is based on PRED network
-    print("Using {} CrossValidationManager:".format('RET'))
+    manager = CrossValidationManager(config_name)
+    print("Using {} CrossValidationManager:".format(config_name))
 
     def load(r, epoch, indir, data_set):
         data_file = DatasetFromPredication(type='rating', input_dir=indir)

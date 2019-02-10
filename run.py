@@ -18,11 +18,15 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     epochs = args.epochs if (args.epochs != 0) else 81
-    config_list = [args.config] if (args.config != -1) else list(range(5))
     test = args.embed or args.predict
 
-    if len(config_list) > 1:
-        print("Perform Full Cross-Validation Run")
+    config_list = []
+    if args.config == -1:
+        config_list = list(range(5))
+    elif args.config == 10:
+        config_list = range(args.config)
+    else:
+        config_list = [args.config]
 
     # DIR / SIAM / DIR_RATING / SIAM_RATING / TRIPLET
     net_type = 'DIR_RATING'

@@ -8,7 +8,7 @@ class CrossValidationManager:
         self.group_ids = range(self.n_groups)
         self.config_name = 'PRED' if config_name in ['PRED', 'pred'] else 'RET'
 
-        target_set = [4, 3, 2, 1, 0, 0, 2, 4, 3, 1]
+        target_set = [4, 3, 4, 2, 0, 0, 2, 1, 3, 1]
 
         predication_train_combinations = [a for a in itertools.combinations(self.group_ids, 2)]
 

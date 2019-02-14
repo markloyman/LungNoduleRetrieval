@@ -1,7 +1,8 @@
 from init import *
+from experiments import load_experiments, CrossValidationManager
 from Analysis import RatingCorrelator, performance
-from experiments import load_experiments
 from Analysis.analysis import smooth
+from Network import FileManager
 
 # ========================
 # Setup
@@ -24,23 +25,35 @@ for m, metric_rating in enumerate(rating_metrics):
     for run, net_type, dist, epochs, metric in zip(runs, run_net_types, run_metrics, run_epochs, run_metrics):
         plot_data_filename = './Plots/Data/correlation_{}{}.p'.format(net_type, run)
         try:
-            #print('NOTE: SKIPPING TO EVELUATION')
-            #assert False
+            if USE_CACHE is False:
+                print('NOTE: SKIPPING TO EVELUATION')
+                assert False
             valid_epochs, idx_malig_pearson, idx_malig_kendall, idx_rating_pearson, idx_rating_kendall = \
                 pickle.load(open(plot_data_filename, 'br'))
             print("Loaded results for {}{}".format(net_type, run))
+
         except:
             print("Evaluating classification accuracy for {}{} using {}".format(net_type, run, metric))
 
+            # Load
+            Embed = FileManager.Embed(net_type)
+            embed_source = [Embed(run + 'c{}'.format(c), dset) for c in configurations]
+
             Pm, PmStd, Km, KmStd, Pr, PrStd, Kr, KrStd, valid_epochs = \
-                performance.eval_correlation(run, net_type, metric, metric_rating, epochs, dset,
-                                             objective=objective, rating_norm=rating_norm, cross_validation=True, n_groups=5, seq=False, local_scaling=False)
+                performance.eval_correlation(embed_source, metric, metric_rating, epochs,
+                                             objective=objective, rating_norm=rating_norm,
+                                             seq=False, local_scaling=False)
             idx_malig_pearson = Pm, PmStd
             idx_malig_kendall = Km, KmStd
             idx_rating_pearson= Pr, PrStd
             idx_rating_kendall= Kr, KrStd
-            #print('NO DUMP!!')
-            pickle.dump((valid_epochs, idx_malig_pearson, idx_malig_kendall, idx_rating_pearson, idx_rating_kendall), open(plot_data_filename, 'bw'))
+
+            if DUMP_CACHE:
+                pickle.dump(
+                    (valid_epochs, idx_malig_pearson, idx_malig_kendall, idx_rating_pearson, idx_rating_kendall),
+                    open(plot_data_filename, 'bw'))
+            else:
+                print('NO DUMP!!')
 
         Idx_malig_pearson += [idx_malig_pearson]
         Idx_malig_kendall += [idx_malig_kendall]

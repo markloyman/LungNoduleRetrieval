@@ -180,89 +180,59 @@ def eval_retrieval(run, net_type, metric, epochs, dset, NN=[7, 11, 17], cross_va
     return P, P_std, F1, F1_std, valid_epochs
 
 
-def eval_correlation(run, net_type, metric, rating_metric, epochs, dset, objective='rating', rating_norm='none', local_scaling=False, cross_validation=False, n_groups=5, seq=False):
+def eval_correlation(embed_source, metric, rating_metric, epochs, objective='rating', rating_norm='none', local_scaling=False, seq=False):
+    n_configs = len(embed_source)
+    valid_epochs = [[] for i in range(n_configs)]
+    Pm, Km, Pr, Kr = [[[] for i in range(n_configs)] for j in range(4)]
+    PmStd, KmStd, PrStd, KrStd = [[[] for i in range(n_configs)] for j in range(4)]
 
-    Embed = FileManager.Embed(net_type)
+    for c_idx, source in enumerate(embed_source):
+        Reg = RatingCorrelator(source, conf=c_idx, multi_epoch=True, seq=seq)
 
-    if cross_validation:
-        # Load
-        if n_groups > 1:
-            embed_source = [Embed(run + 'c{}'.format(c), dset) for c in range(n_groups)]
-        else:
-            embed_source = [Embed(run + 'c{}'.format(c), dset) for c in [1]]
+        # load rating data
+        cache_filename = 'output/cached_{}_{}_{}.p'.format(objective, source.split('/')[-1][6:-2], c_idx)
+        if not Reg.load_cached_rating_distance(cache_filename):
+            print('evaluating rating distance matrix...')
+            Reg.evaluate_rating_space(norm=rating_norm, ignore_labels=False)
+            Reg.evaluate_rating_distance_matrix(method=rating_metric, clustered_rating_distance=True, weighted=True, local_scaling=local_scaling)
+            Reg.dump_rating_distance_to_cache(cache_filename)
+            #print('\tno dump for rating distance matrix...')
 
-        valid_epochs = [[] for i in range(n_groups)]
-        Pm, Km, Pr, Kr = [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)]
-        PmStd, KmStd, PrStd, KrStd = [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)]
+        if objective == 'size':
+            print('evaluating size distance matrix...')
+            Reg.evaluate_size_distance_matrix()
 
-        for c_idx, source in enumerate(embed_source):
-            Reg = RatingCorrelator(source, conf=c_idx, multi_epoch=True, seq=seq)
-
-            # load rating data
-            cache_filename = 'output/cached_{}_{}_{}.p'.format(objective, source.split('/')[-1][6:-2], c_idx)
-            if not Reg.load_cached_rating_distance(cache_filename):
-                print('evaluating rating distance matrix...')
-                Reg.evaluate_rating_space(norm=rating_norm, ignore_labels=False)
-                Reg.evaluate_rating_distance_matrix(method=rating_metric, clustered_rating_distance=True, weighted=True, local_scaling=local_scaling)
-                Reg.dump_rating_distance_to_cache(cache_filename)
-                #print('\tno dump for rating distance matrix...')
-
-            if objective == 'size':
-                print('evaluating size distance matrix...')
-                Reg.evaluate_size_distance_matrix()
-
-            for E in epochs:
-                # Calc
-                try:
-                    Reg.evaluate_embed_distance_matrix(method=metric, epoch=E)
-                except:
-                    #print("Epoch {} - no calculated embedding".format(E))
-                    continue
-
-                pm, _, km = Reg.correlate_retrieval('embed', 'malig' if objective == 'rating' else 'size', verbose=False)
-                pr, _, kr = Reg.correlate_retrieval('embed', 'rating', verbose=False)
-                valid_epochs[c_idx].append(E)
-
-                Pm[c_idx].append(pm[0])
-                Km[c_idx].append(km[0])
-                Pr[c_idx].append(pr[0])
-                Kr[c_idx].append(kr[0])
-                PmStd[c_idx].append(pm[1])
-                KmStd[c_idx].append(km[1])
-                PrStd[c_idx].append(pr[1])
-                KrStd[c_idx].append(kr[1])
-
-            Pm[c_idx] = np.expand_dims(Pm[c_idx], axis=0)
-            Km[c_idx] = np.expand_dims(Km[c_idx], axis=0)
-            Pr[c_idx] = np.expand_dims(Pr[c_idx], axis=0)
-            Kr[c_idx] = np.expand_dims(Kr[c_idx], axis=0)
-            PmStd[c_idx] = np.expand_dims(PmStd[c_idx], axis=0)
-            KmStd[c_idx] = np.expand_dims(KmStd[c_idx], axis=0)
-            PrStd[c_idx] = np.expand_dims(PrStd[c_idx], axis=0)
-            KrStd[c_idx] = np.expand_dims(KrStd[c_idx], axis=0)
-
-    else:
-        assert False
         for E in epochs:
-            Ret = Retriever(title='', dset='')
-            if cross_validation:
-                embed_source = [Embed(run + 'c{}'.format(c), E, dset) for c in range(n_groups)]
-            else:
-                embed_source = Embed(run, E, dset)
-            Ret.load_embedding(embed_source)
+            # Calc
+            try:
+                Reg.evaluate_embed_distance_matrix(method=metric, epoch=E)
+            except:
+                #print("Epoch {} - no calculated embedding".format(E))
+                continue
 
-            prec, prec_b, prec_m = [], [], []
-            Ret.fit(np.max(NN), metric=metric)
-            for N in NN:
-                p, pm, pb = Ret.evaluate_precision(n=N)
-                prec.append(p)
-                prec_b.append(pb)
-                prec_m.append(pm)
-            Prec.append(np.array(prec))
-            Prec_b.append(np.array(prec_b))
-            Prec_m.append(np.array(prec_m))
+            pm, _, km = Reg.correlate_retrieval('embed', 'malig' if objective == 'rating' else 'size', verbose=False)
+            pr, _, kr = Reg.correlate_retrieval('embed', 'rating', verbose=False)
+            valid_epochs[c_idx].append(E)
 
-    merged_epochs = merge_epochs(valid_epochs, min_element=max(n_groups - 1, 1))
+            Pm[c_idx].append(pm[0])
+            Km[c_idx].append(km[0])
+            Pr[c_idx].append(pr[0])
+            Kr[c_idx].append(kr[0])
+            PmStd[c_idx].append(pm[1])
+            KmStd[c_idx].append(km[1])
+            PrStd[c_idx].append(pr[1])
+            KrStd[c_idx].append(kr[1])
+
+        Pm[c_idx] = np.expand_dims(Pm[c_idx], axis=0)
+        Km[c_idx] = np.expand_dims(Km[c_idx], axis=0)
+        Pr[c_idx] = np.expand_dims(Pr[c_idx], axis=0)
+        Kr[c_idx] = np.expand_dims(Kr[c_idx], axis=0)
+        PmStd[c_idx] = np.expand_dims(PmStd[c_idx], axis=0)
+        KmStd[c_idx] = np.expand_dims(KmStd[c_idx], axis=0)
+        PrStd[c_idx] = np.expand_dims(PrStd[c_idx], axis=0)
+        KrStd[c_idx] = np.expand_dims(KrStd[c_idx], axis=0)
+
+    merged_epochs = merge_epochs(valid_epochs, min_element=max(n_configs - 1, 1))
     Pm = mean_cross_validated_index(Pm, valid_epochs, merged_epochs)
     Km = mean_cross_validated_index(Km, valid_epochs, merged_epochs)
     Pr = mean_cross_validated_index(Pr, valid_epochs, merged_epochs)

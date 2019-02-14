@@ -147,17 +147,15 @@ def samples_correlation(embedding):
     return l1
 
 
-def eval_embed_space(run, net_type, metric, rating_metric, epochs, dset, rating_norm='none', cross_validation=False, n_groups=5):
+def eval_embed_space(embed_source, metric, rating_metric, epochs, dset):
     # init
-    Embed = FileManager.Embed(net_type)
-    embed_source = [Embed(run + 'c{}'.format(c), dset) for c in range(n_groups)]
+    n_configs = len(embed_source)
     idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar, idx_featCorr, idx_sampCorr \
-        = [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)], \
-          [[] for i in range(n_groups)], [[] for i in range(n_groups)], [[] for i in range(n_groups)], \
-          [[] for i in range(n_groups)]
-    valid_epochs = [[] for i in range(n_groups)]
+        = [[[] for i in range(n_configs)] for j in range(7)]
+    valid_epochs = [[] for i in range(n_configs)]
+
     # calculate
-    Ret = Retriever(title='{}'.format(run), dset=dset)
+    Ret = Retriever(title='{}'.format(''), dset=dset)
     for i, source in enumerate(embed_source):
         embd, epoch_mask = Ret.load_embedding(source, multi_epcch=True)
         for e in epochs:

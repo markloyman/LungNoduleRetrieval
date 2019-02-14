@@ -544,11 +544,11 @@ def load_experiments(experiment):
     #   DirectRatingDistance
     # ===========================
     elif experiment == 'DirectRatingDistance':
-        runs = ['878', '879', '877b' ]  # '870', '876', '873', '874', '878b'
+        runs = ['878', '879', '877b', '888' ]  # '870', '876', '873', '874', '878b'
         run_net_types = ['dirRD'] * len(runs)
         run_metrics = ['l2'] * len(runs)
         run_epochs = [list(range(1, 161, 1))] * len(runs)
-        run_names = ['878', '879', '877b']  # '870-schd1', '876', '873-.1-.5-.9', '874-0-1-slower', '878b'
+        run_names = ['878', '879', '877b', '888']  # '870-schd1', '876', '873-.1-.5-.9', '874-0-1-slower', '878b'
     # ===========================
     #   DirectRatingDistanceFinetune
     # ===========================

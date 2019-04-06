@@ -191,7 +191,7 @@ def eval_correlation(embed_source, metric, rating_metric, epochs, objective='rat
 
         # load rating data
         cache_filename = 'output/cached_{}_{}_{}.p'.format(objective, source.split('/')[-1][6:-2], c_idx)
-        if not Reg.load_cached_rating_distance(cache_filename):
+        if True:  # not Reg.load_cached_rating_distance(cache_filename):
             print('evaluating rating distance matrix...')
             Reg.evaluate_rating_space(norm=rating_norm, ignore_labels=False)
             Reg.evaluate_rating_distance_matrix(method=rating_metric, clustered_rating_distance=True, weighted=True, local_scaling=local_scaling)

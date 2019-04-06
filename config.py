@@ -7,12 +7,13 @@ if 'LOCAL' in os.environ.keys():
     dataset_dir = './Dataset'
     input_dir = './output'
     output_dir = './output'
+    pred_as_dataset_dir = './output'
 else:
     local = False
     dataset_dir = '/Dataset'
     input_dir = '/input'
     output_dir = '/output'
-
+    pred_as_dataset_dir = '/Dataset'
 
 def set_folders():
     print("Setting up output folders")

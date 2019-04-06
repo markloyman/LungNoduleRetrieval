@@ -213,7 +213,8 @@ class DataSequenceBase(utils.Sequence):
         split_idx = [b for b in range(self.batch_size, num_of_images, self.batch_size)]
         images = tuple([split(image, split_idx, self.batch_size) for image in images])
         #labels = np.array_split(labels, split_idx)
-        labels = tuple([np.array_split(lbl, split_idx) for lbl in labels])
+        #labels = tuple([np.array_split(lbl, split_idx) for lbl in labels])
+        labels = tuple([split(lbl, split_idx, self.batch_size) for lbl in labels])
         classes = np.array_split(classes, split_idx)
         masks = tuple([split(mask, split_idx, self.batch_size) for mask in masks])
         sample_weights = np.array_split(sample_weights, split_idx)

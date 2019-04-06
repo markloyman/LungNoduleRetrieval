@@ -1,9 +1,10 @@
 import numpy as np
+import matplotlib.pyplot as plt
+from Analysis.analysis import smooth
 from scipy.stats import skew
 from Analysis.performance import mean_cross_validated_index
 from Analysis.retrieval import Retriever
 from Network import FileManager
-
 
 
 def k_occurrences(nbrs_indices, k=3):
@@ -87,7 +88,7 @@ def kumar(nbrs_distances, res=0.0025):
     return tau, (l, e)
 
 
-def calc_hubness(indices, K=[3, 5, 7, 11, 17], verbose=False):
+def calc_hubness(indices, K=[3, 5, 7, 11, 17], verbose=False, label=''):
     if verbose:
         plt.figure()
     h = np.zeros(len(K))
@@ -96,11 +97,13 @@ def calc_hubness(indices, K=[3, 5, 7, 11, 17], verbose=False):
         h[i] = h_[0]
         if verbose:
             #plt.subplot(1,len(K), i+1)
-            plt.plot(h_[1])
+            plt.plot(smooth(h_[1],window_length=5))
     h_mean, h_std = np.mean(h), np.std(h)
     if verbose:
-        plt.legend(['{}: {:.2f}'.format(k, ind) for k, ind in zip(K, h)])
-        plt.title('Hubness = {:.2f} ({:.2f})'.format(h_mean, h_std))
+        plt.legend(['K={}: {:.2f}'.format(k, ind) for k, ind in zip(K, h)])
+        plt.title('{} (Hubness = {:.2f}))'.format(label, h_mean))
+        plt.xlabel('Nk')
+        plt.ylabel('P(Nk)')
     return h_mean, h_std
 
 

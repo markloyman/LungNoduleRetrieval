@@ -12,8 +12,8 @@ from Analysis.analysis import smooth
 
 # Setup
 
-experiment_name = 'SpieSiamRatingCosine'
-dset = 'Valid'
+experiment_name = 'DirRD-Semi-Supervised'
+dset = 'Test'
 rating_normalizaion = 'Scale' # 'None', 'Normal', 'Scale'
 ratiing_metrics = ['euclidean']
 n_groups = 5
@@ -21,7 +21,16 @@ n_groups = 5
 
 runs, run_net_types, run_metrics, run_epochs, run_names, _, _ = load_experiments(experiment_name)
 
-alpha = 0.2
+alpha = 0.3
+
+USE_CACHE = False
+DUMP_CACHE = False
+
+cv = CrossValidationManager('RET')
+configurations = ['{}{}'.format(cv.get_run_id(i)[0], cv.get_run_id(i)[1]) for i in ([0, 1, 3, 4, 7] if dset == 'Valid' else [2, 5, 6, 8, 9])]  # [range(10)]
+# configurations = range(n_groups)
+# configurations = [1]
+dset = 'Valid'
 
 #indexes = ['Hubness', 'Symmetry', 'Contrast', 'Concentration', 'Kumari']
 indexes = ['Hubness', 'Symmetry']  # 'FeatCorr', 'SampCorr'
@@ -92,7 +101,7 @@ for epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kumm
         #   hubness
         next_plot = 0
         if 'Hubness' in indexes:
-            q = p[M * m + next_plot].plot(epochs, smooth(idx_hubness[0]))
+            q = p[M * m + next_plot].plot(epochs, smooth(idx_hubness[0]), marker='x')  #
             p[M * m + next_plot].plot(epochs, smooth(idx_hubness[0] + idx_hubness[1]), color=q[0].get_color(), ls='--', alpha=alpha)
             p[M * m + next_plot].plot(epochs, smooth(idx_hubness[0] - idx_hubness[1]), color=q[0].get_color(), ls='--', alpha=alpha)
             next_plot += 1

@@ -2,7 +2,8 @@ import pickle
 import numpy as np
 from functools import partial, reduce
 from skimage import transform
-from config import dataset_dir as input_dir, output_dir
+from config import dataset_dir as input_dir, pred_as_dataset_dir, output_dir, local
+from config import input_dir as in_dir
 from Network.FileManager import Dataset, Dataset3d, DatasetFromPredication
 from experiments import CrossValidationManager
 from Network.dataUtils import rating_normalize, crop_center, l2_distance
@@ -14,13 +15,13 @@ from Network.dataUtils import rating_clusters_distance, rating_clusters_distance
 # =========================
 
 def build_loader(size=128, res=1.0, apply_mask_to_patch=False, sample='Normal', dataset_type='Clean',
-                 configuration=None, n_groups=5, config_name='LEGACY', run=None, epoch=None, load_data_from_predictions=False):
+                 configuration=None, n_groups=5, config_name='LEGACY', run=None, epoch=None, load_data_from_predictions=False, return_predicted_ratings=True):
 
     if config_name == 'LEGACY':
         loader = partial(load_nodule_dataset, size, res, apply_mask_to_patch, sample, configuration, n_groups, dataset_type)
     else:
         if load_data_from_predictions:
-            loader = partial(load_nodule_dataset_from_predications, config_name, run, epoch, apply_mask_to_patch, configuration)
+            loader = partial(load_nodule_dataset_from_predications, config_name, run, epoch, apply_mask_to_patch, configuration, return_predicted_ratings)
         else:
             loader = partial(load_nodule_dataset_from_dataset, config_name, size, res, apply_mask_to_patch, sample, configuration)
 
@@ -164,7 +165,7 @@ def load_nodule_dataset_from_dataset(config_name, size=128, res=1.0, apply_mask_
     return testData, validData, trainData
 
 
-def load_nodule_dataset_from_predications(config_name, run, epoch, apply_mask_to_patch=False, configuration=None):
+def load_nodule_dataset_from_predications(config_name, run, epoch, apply_mask_to_patch=False, configuration=None, return_predicted=True):
     if configuration is None:
         assert False
 
@@ -176,18 +177,18 @@ def load_nodule_dataset_from_predications(config_name, run, epoch, apply_mask_to
 
     def load(r, epoch, indir, data_set):
         data_file = DatasetFromPredication(type='rating', input_dir=indir)
-        data = data_file.load(goal=data_set, run=r, epoch=epoch)
+        data = data_file.load(goal=data_set, run=r, epoch=epoch, return_predicted=return_predicted)
         print("\tLoaded {} entries from {} to {} set".format(len(data), data_file.name(goal=data_set, run=r), data_set))
         return data
 
     cnf_id = manager.get_run_id(configuration)
-    run_name = '{}C{}'.format(run, cnf_id)
+    run_name = '{}c{}'.format(run, cnf_id)
 
-    trainData = load(run_name, epoch, output_dir, 'Train')
+    trainData = load(run_name, epoch, pred_as_dataset_dir, 'Train')
 
-    validData = load(run_name, epoch, output_dir, 'Valid')
+    validData = load(run_name, epoch, pred_as_dataset_dir, 'Valid')
 
-    testData = load(run_name, epoch, output_dir, 'Test')
+    testData = load(run_name, epoch, pred_as_dataset_dir, 'Test')
 
 
     #trainData, validData, testData = [reduce(lambda x, y: x + y, data) for data in [trainData, validData, testData]]

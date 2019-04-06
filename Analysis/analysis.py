@@ -235,5 +235,8 @@ def plot2d_mds(data, clusters):
         size += 2
 
 
-def smooth(signal, window_length=7, polyorder=1):
-    return savgol_filter(signal, window_length=window_length, polyorder=polyorder, mode='nearest')
+def smooth(signal, window_length=1, polyorder=1):
+    if window_length > 1:
+        return savgol_filter(signal, window_length=window_length, polyorder=polyorder, mode='nearest')
+    else:
+        return signal

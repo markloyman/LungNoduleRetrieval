@@ -8,13 +8,22 @@ from Network import FileManager
 # Setup
 # ========================
 
-experiment_name = 'Triplets'
-dset = 'Valid'
+experiment_name = 'DirRD-Semi-Supervised'
+dset = 'Test'
 rating_metrics = ['euclidean']  #['l2', 'l1', 'cosine']
 rating_norm = 'none'
 n_groups = 5
 objective = 'rating'  # 'size'
-alpha = 0.2
+alpha = 0.3
+
+USE_CACHE = False
+DUMP_CACHE = False
+
+cv = CrossValidationManager('RET')
+configurations = ['{}{}'.format(cv.get_run_id(i)[0], cv.get_run_id(i)[1]) for i in ([0, 1, 3, 4, 7] if dset == 'Valid' else [2, 5, 6, 8, 9])]  # [range(10)]
+#configurations = range(n_groups)
+# configurations = [1]
+dset = 'Valid'
 
 runs, run_net_types, run_metrics, run_epochs, run_names, _, _ = load_experiments(experiment_name)
 
@@ -110,7 +119,7 @@ for m, metric_rating in enumerate(rating_metrics):
             plt_[2 * m + 2].grid(which='major', axis='y')
 
         # Rating Pearson Correlation
-        q = plt_[2 * m + 1].plot(valid_epochs, smooth(idx_rating_pearson[0]))
+        q = plt_[2 * m + 1].plot(valid_epochs, smooth(idx_rating_pearson[0]), marker='.')
         plt_[2 * m + 1].plot(valid_epochs, smooth(idx_rating_pearson[0] + idx_rating_pearson[1]),
                              color=q[0].get_color(), ls='--', alpha=alpha)
         plt_[2 * m + 1].plot(valid_epochs, smooth(idx_rating_pearson[0] - idx_rating_pearson[1]),

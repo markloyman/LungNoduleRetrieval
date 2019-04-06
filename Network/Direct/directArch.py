@@ -54,6 +54,7 @@ class DirectArch(BaseArch):
 
         if 'rating' in objective:
             if separated_prediction:
+                print("separated_prediction mode")
                 p = [[] for _ in range(9)]
                 for i in range(9):
                     p[i] = Dense(output_size // 2, activation='relu', name='dense0_{}'.format(i))(self.base)

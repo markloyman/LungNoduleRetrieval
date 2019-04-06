@@ -186,21 +186,28 @@ class RatingCorrelator:
 
     def evaluate_rating_space(self, norm='none', ignore_labels=False):
         if np.concatenate(self.labels).ndim == 1 or ignore_labels:
-            print('calc_from_meta')
-            from LIDC.lidcUtils import calc_rating
-            self.rating = [rating_normalize(calc_rating(meta, method='raw'), method=norm) for meta in self.meta_data]
-
+            if ignore_labels:
+                print('calc_from_meta')
+                from LIDC.lidcUtils import calc_rating
+                self.rating = [rating_normalize(calc_rating(meta, method='raw'), method=norm) for meta in self.meta_data]
+            else:
+                print('calc_from_labels')
+                self.rating = [rating_normalize(lbl, method=norm) for lbl in self.labels]
         else:
             print('calc_from_labels')
             self.rating = [rating_normalize(lbl, method=norm) for lbl in self.labels]
         self.rating_distance_matrix = None  # reset after recalculating the ratings
 
     def evaluate_rating_distance_matrix(self, method='chebyshev', clustered_rating_distance=False, weighted=False, local_scaling=False):
-        if clustered_rating_distance:
+        if clustered_rating_distance and np.concatenate(self.rating).ndim != 1:
             n = len(self.rating)
             self.rating_distance_matrix = rating_clusters_distance_matrix(self.rating, weights=self.weights if weighted else None)
         else:
-            rating = np.array([np.mean(rat, axis=0) for rat in self.rating])
+            if np.concatenate(self.rating).ndim == 1:
+                print('Simple L2 distance matrix (not clustered_rating), due to only a single rating vector being provided')
+                rating = self.rating
+            else:
+                rating = np.array([np.mean(rat, axis=0) for rat in self.rating])
             self.rating_distance_matrix = calc_distance_matrix(rating, method)
         #assert self.rating_distance_matrix.shape[0] == self.embed_distance_matrix.shape[0]
 
@@ -299,7 +306,10 @@ class RatingCorrelator:
         elif name == 'malig':
             #malig_rating = [calc_rating(meta, method='malig') for meta in self.meta_data]
             #malig_rating = np.array(malig_rating).reshape(-1, 1).astype('float64')
-            malig_rating = np.array([[np.mean(rat[:, -1])] for rat in self.rating])
+            if self.rating[0].ndim == 1:
+                malig_rating = np.expand_dims([rat[-1] for rat in self.rating], axis=1)
+            else:
+                malig_rating = np.array([[np.mean(rat[:, -1])] for rat in self.rating])
             xVec = calc_distance_matrix(malig_rating, method='euclidean')
             xMet = 'euclidean'
         elif name == 'size':

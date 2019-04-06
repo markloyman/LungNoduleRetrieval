@@ -2,6 +2,8 @@ from init import *
 from experiments import load_experiments
 from Analysis.performance import eval_retrieval, eval_classification, eval_correlation
 from Analysis.metric_space_indexes import eval_embed_space
+from Network import FileManager
+
 
 def autolabel(rects, xpos='center'):
     """
@@ -24,11 +26,17 @@ def autolabel(rects, xpos='center'):
 if __name__ == "__main__":
 
     # Setup
-    exp_name = 'SpieSummary'
+    exp_name = 'DirSimilarityLoss'
     dset = 'Test'
     rating_norm = 'none'
+    n_groups = 5
     start = timer()
     num_of_indexes = 3 + 4
+
+    # cv = CrossValidationManager('RET')
+    # configurations = ['{}{}'.format(cv.get_run_id(i)[0], cv.get_run_id(i)[1]) for i in [0, 1, 3, 4, 7]]  # [range(10)]
+    configurations = range(n_groups)
+    # configurations = [1]
 
     runs, run_net_types, run_metrics, _, run_names, run_ep_perf, run_ep_comb = load_experiments(exp_name)
 
@@ -57,10 +65,12 @@ if __name__ == "__main__":
         dataStd[run_id, 1] = prec_std
         dataStd[run_id, 2] = index_std
 
+        Embed = FileManager.Embed(net_type)
+        embed_source = [Embed(run + 'c{}'.format(c), dset) for c in configurations]
+
         pm, pm_std, km, km_std, pr, pr_std, kr, kr_std, _ = eval_correlation(
-            run=run, net_type=net_type, dset=dset, rating_norm=rating_norm,
-            metric=metric, rating_metric='euclidean', epochs=epochs,
-            cross_validation=True)
+            embed_source, metric=metric, rating_metric='euclidean', rating_norm=rating_norm,
+            epochs=epochs)
 
         data[run_id, 3] = pm
         data[run_id, 4] = pr
@@ -74,8 +84,7 @@ if __name__ == "__main__":
 
         print("Evaluating metric space for {}{}".format(net_type, run))
         combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar, _, _ = \
-            eval_embed_space(run, net_type, metric, 'euclidean', epochs, dset, rating_norm='none',
-                             cross_validation=True)
+            eval_embed_space(run, net_type, metric, 'euclidean', epochs, dset)
 
         data[run_id, 5] = idx_hubness[0]
         data[run_id, 6] = idx_symmetry[0]

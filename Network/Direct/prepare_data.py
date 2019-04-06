@@ -28,7 +28,8 @@ def prepare_data_direct(data, objective='malignancy', rating_format='w_mean', ra
         labels = np.array([ (r, rw) for r, rw in zip(ratings, rating_weights)])
     elif objective == 'rating_distance-matrix':
         mean_rating = np.array([r.mean(axis=0) for r in ratings])
-        rating_for_dm = np.array([(a, b) for a, b in zip(ratings, rating_weights)])
+        #rating_for_dm = np.array([(a, b) for a, b in zip(ratings, rating_weights)])
+        rating_for_dm = [(a, b) for a, b in zip(ratings, rating_weights)]
         labels = mean_rating, rating_for_dm
     else:
         assert False

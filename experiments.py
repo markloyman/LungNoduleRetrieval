@@ -61,13 +61,12 @@ class CrossValidationManager:
 
     def get_run_id(self, index):
         cnf = self.config[index]
-        cnf = self.config[index]
-        if self.config_name is 'PRED':
-            idxs = cnf['prediction_train']
-        elif self.config_name is 'RET':
-            idxs = cnf['retrieval_train']
-        else:
-            assert False
+        #if self.config_name is 'PRED':
+        idxs = cnf['prediction_train']
+        #elif self.config_name is 'RET':
+        #    idxs = cnf['retrieval_train']
+        #else:
+        #    assert False
         return '' + ''.join([str(i) for i in idxs])
 
 
@@ -514,6 +513,16 @@ def load_experiments(experiment):
         run_epochs = [list(range(1, 121, 1))] * len(runs)
         run_names = ['logcosh-loss', 'pearson-loss', 'kl-loss', 'poisson-loss', 'entropy-loss', 'ranked-pearson', 'kl-norm-loss']  #
     # ===========================
+    #   DirSimilarityLoss
+    # ===========================
+    elif experiment == 'DirSimilarityLoss':
+        runs = ['820', '821', '825', '822', '830', '831', '835', '832']  # '820', '823', '824'
+        run_net_types = ['dirD'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 161, 1))] * len(runs)
+        run_names = ['max-logcosh', 'max-pearson', 'max-ranked-pearson', 'max-kl', 'rmac-logcosh', 'rmac-pearson', 'rmac-ranked-pearson', 'rmac-kl']  # 'logcosh-loss', 'poisson-loss', 'entropy-loss',
+        run_ep_perf = [[110], [100], [110], [90], [80], [100], [80], [80]]
+    # ===========================
     #   DirectDistancePreDirR813-50
     # ===========================
     elif experiment == 'DirectDistancePre813-50':
@@ -544,11 +553,22 @@ def load_experiments(experiment):
     #   DirectRatingDistance
     # ===========================
     elif experiment == 'DirectRatingDistance':
-        runs = ['878', '879', '877b', '888' ]  # '870', '876', '873', '874', '878b'
+        runs = ['871', '878']  # '870', '876', '873', '874', '878b' '877b' '879'
         run_net_types = ['dirRD'] * len(runs)
         run_metrics = ['l2'] * len(runs)
         run_epochs = [list(range(1, 161, 1))] * len(runs)
-        run_names = ['878', '879', '877b', '888']  # '870-schd1', '876', '873-.1-.5-.9', '874-0-1-slower', '878b'
+        run_names = ['871-two-step', '878-best']  # '870-schd1', '876', '873-.1-.5-.9', '874-0-1-slower', '878b', '877b' '879-smoother'
+        run_ep_perf = [[105], [95]]
+    # ===========================
+    #   DirRD-Semi-Supervised
+    # ===========================
+    elif experiment == 'DirRD-Semi-Supervised':
+        runs = ['888', '898b']  # '892b', '882', '878',, '891', '892', '898', '890b'
+        run_net_types = ['dirRD'] * len(runs)
+        run_metrics = ['l2'] * len(runs)
+        run_epochs = [list(range(1, 161, 1))] * len(runs)
+        run_names = [ 'Supervised-888', 'Semi-supervised-898b']  #'882-supd', '878-ideal',, '891-semi-d', 'Semi-supervised-892b'ת '892-semi-rd', '898', '890b-semi-r',
+        run_ep_perf = [[130], [90], [130], [90]]
     # ===========================
     #   DirectRatingDistanceFinetune
     # ===========================

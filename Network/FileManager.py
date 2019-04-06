@@ -176,7 +176,8 @@ class DatasetFromPredication(object):
     def __init__(self, type='rating', pre='dirR', input_dir='./output'):  # data_type, conf
         # self.weightsTemplate = dir + '/Dataset{}CV{}_{{:.0f}}-{{}}-{{}}.p'.format(data_type, conf)
         if type == 'rating':
-            self.weightsTemplate = input_dir + '/embed/predR_{}{{}}_{{}}.p'.format(pre)
+            #self.weightsTemplate = input_dir + '/embed/predR_{}{{}}_{{}}.p'.format(pre)
+            self.weightsTemplate = input_dir + '/predR_{}{{}}_{{}}.p'.format(pre)
         elif type == 'malig':
             assert False
             # self.weightsTemplate = input_dir + '/embed/pred_{}{{}}_{{}}.p'.format(pre)
@@ -189,13 +190,14 @@ class DatasetFromPredication(object):
 
     def read(self, run=None, dset=None):
         match = self.weightsTemplate.format(run, dset)
-        filelist = glob(match)
-        if len(filelist) == 0:
-            print("Failed to find: {}".format(match))
-            return None
-        return open(filelist[0], 'br')
+        #filelist = glob(match)
+        #if len(filelist) == 0:
+        #    print("Failed to find: {}".format(match))
+        #    return None
+        #return open(filelist[0], 'br')
+        return open(match, 'br')
 
-    def load(self, goal, run=None, epoch=None):
+    def load(self, goal, run=None, epoch=None, return_predicted=True):
         dset = 'Valid' if goal is 'Train' else 'Test'
         data = pickle.load(self.read(run, dset))
         # convert to Dataset
@@ -215,8 +217,10 @@ class DatasetFromPredication(object):
             Entry['label'] = classes[i]
             Entry['info'] = meta
             Entry['size'] = None
-            Entry['rating'] = np.expand_dims(pred[i], axis=0) if goal in ['Train', 'Valid'] else labels[i]
-            Entry['weights'] = [1] if goal in ['Train', 'Valid'] else rating_weights[i]
+            Entry['rating']  = np.expand_dims(pred[i], axis=0) \
+                if return_predicted else labels[i]
+            Entry['weights'] = [1]\
+                if return_predicted else rating_weights[i]
             Entry['z'] = z[i]
             Dataset.append(Entry)
 

@@ -47,8 +47,9 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         data_size = 160
     res = 0.5  # 'Legacy' #0.7 #0.5 #'0.5I'
     sample = 'Normal'  # 'UniformNC' #'Normal' #'Uniform'
-    data_run = 'vvv'
-    data_epoch = 2
+    data_run = '813'
+    data_epoch = 70
+    return_predicted_ratings = not no_training
     use_gen = True
     #model
     model_size = 128
@@ -64,7 +65,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
     print("Running {} for --** {} **-- model, with #{} configuration".
           format("training" if not no_training else "validation", choose_model, config))
     if load_data_from_predications:
-        print("\tdata_run - {}, \n\tdata_epoch = {}", data_run, data_epoch)
+        print("\tdata_run = {}, \n\tdata_epoch = {}, return_predicted_ratings = {}".format(data_run, data_epoch, return_predicted_ratings))
     else:
         print("\tdata_size = {},\n\tmodel_size = {},\n\tres = {},\n\tdo_augment = {}".
               format(data_size, model_size, res, do_augment))
@@ -76,7 +77,8 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
     data_augment_params = {'max_angle': 30, 'flip_ratio': 0.5, 'crop_stdev': 0.15, 'epoch': 0}
 
     data_loader = build_loader(size=data_size, res=res, sample=sample, dataset_type=dataset_type,
-                               config_name=config_name, configuration=config, run=data_run, epoch=data_epoch)
+                               config_name=config_name, configuration=config, run=data_run, epoch=data_epoch,
+                               load_data_from_predictions=load_data_from_predications, return_predicted_ratings=return_predicted_ratings)
 
     ## --------------------------------------- ##
     ## ------- Prepare Direct Architecture ------- ##
@@ -123,6 +125,7 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         # run = '811'  # rmac conf:none
         # run = '812'  # rmac conf:rating-std
         # run = '813'  # max conf:none
+        # run = '814'  # max separated_prediction
 
         # run = '820'  # dirD, max, logcoh-loss
         # run = '821'  # dirD, max, pearson-loss
@@ -164,10 +167,15 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         # run = '875'  # dirRD, max, KL-loss    schd: 05
         # run = '876'  # dirRD, max, KL-loss    schd: 06
         # run = '877b'  # dirRD, max, KL-loss    schd: 07b
-        # run = '878b'  # dirRD, max, KL-loss    schd: 08
+        # run = '878'  # dirRD, max, KL-loss    schd: 08
         # run = '879'  # dirRD, max, KL-loss    schd: 09
 
-        run = 'zzz888'  # dirRD, max, KL-loss    schd: 08, on partial data
+        # run = '888'  # dirRD, max, KL-loss    schd: 08, on partial data SUP
+        # run = '882'  # dirRD, max, KL-loss    schd:
+
+        run = '898b'  # dirRD, max, KL-loss    schd: 08, on partial data UNSUP
+        # run = '890b'  # dirR
+        # run = '892b'  # dirRD, max, KL-loss
 
         # run = 'ccc'
 
@@ -245,10 +253,10 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         #    if should_use_scheduale else []
 
         # scheduale 08b:     878
-        sched = [{'epoch': 00, 'weights': [0.9, 0.1]},
-                 {'epoch': 40, 'weights': [0.5, 0.5]},
-                 {'epoch': 80, 'weights': [0.0, 0.1]}] \
-            if should_use_scheduale else []
+        # sched = [{'epoch': 00, 'weights': [0.9, 0.1]},
+        #         {'epoch': 40, 'weights': [0.5, 0.5]},
+        #         {'epoch': 80, 'weights': [0.0, 0.1]}] \
+        #    if should_use_scheduale else []
 
         # scheduale 09:     879
         # sched = [{'epoch': 00, 'weights': [0.9, 0.1]},
@@ -257,6 +265,12 @@ def run(choose_model="DIR", epochs=200, config=0, skip_validation=False, no_trai
         #         {'epoch': 60, 'weights': [0.3, 0.3]},
         #         {'epoch': 80, 'weights': [0.0, 0.1]}] \
         #    if should_use_scheduale else []
+
+        # scheduale      892/882
+        sched = [{'epoch': 00, 'weights': [0.9, 0.1]},
+                 {'epoch': 80, 'weights': [0.5, 0.5]},
+                 {'epoch': 120, 'weights': [0.0, 0.1]}] \
+            if should_use_scheduale else []
 
         loss = dict()
         loss['predictions'] = 'logcosh'

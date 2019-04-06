@@ -108,14 +108,16 @@ def dir_rating_correlate(run, post, epochs, rating_norm='none',  clustered_ratin
     plt.legend(['pearson', '', '', 'kendall', '', ''])
 
 
-def dir_rating_rmse(run, post, epochs, net_type, dist='RMSE', weighted=False, configurations=list(range(5))):
+def dir_rating_rmse(run, post, epochs, net_type, dist='RMSE', weighted=False, configurations=list(range(5)), USE_CACHE=True, DUMP=True):
     #images, predict, meta_data, labels, masks = pred_loader.load(run, epochs[-1], post)
     rating_property = ['Subtlety', 'Internalstructure', 'Calcification', 'Sphericity', 'Margin',
                        'Lobulation', 'Spiculation', 'Texture', 'Malignancy']
 
     plot_data_filename = './Plots/Data/{}_{}{}.p'.format(dist, net_type, run)
     try:
-        assert False
+        if USE_CACHE is False:
+            print("skipping...")
+            assert False
         R = pickle.load(open(plot_data_filename, 'br'))
         print("Loaded results for {}".format(run))
     except:
@@ -172,7 +174,11 @@ def dir_rating_rmse(run, post, epochs, net_type, dist='RMSE', weighted=False, co
                 print("\t{}: \t{:.2f}".format(property, R[i, p]))
             print("\t" + ("-" * 10))
             print("\toverall: \t{:.2f}".format(R[i, 9]))
-        #pickle.dump(R, open(plot_data_filename, 'bw'))
+
+        if DUMP:
+            pickle.dump(R, open(plot_data_filename, 'bw'))
+        else:
+            print("No Dump")
 
     # smooth
     for r in range(9):
@@ -186,7 +192,7 @@ def dir_rating_rmse(run, post, epochs, net_type, dist='RMSE', weighted=False, co
     return R
 
 
-def dir_rating_params_correlate(run, post, epochs, net_type, rating_norm='none', configurations=list(range(5))):
+def dir_rating_params_correlate(run, post, epochs, net_type, rating_norm='none', configurations=list(range(5)), USE_CACHE=True, DUMP=True):
 
     reference = [0.7567, 0.5945, 0.7394, 0.5777, 0.6155, 0.7445, 0.6481]  # 0, 0,
     rating_property = ['Subtlety', 'Sphericity', 'Margin',
@@ -196,8 +202,9 @@ def dir_rating_params_correlate(run, post, epochs, net_type, rating_norm='none',
     pear_corr = [[] for i in configurations]
     plot_data_filename = './Plots/Data/rating_params_correlation_{}{}.p'.format(net_type, run)
     try:
-        print('SKIPPING')
-        assert False
+        if USE_CACHE is False:
+            print('SKIPPING')
+            assert False
         pear_corr = pickle.load(open(plot_data_filename, 'br'))
         print("Loaded results for {}".format(run))
     except:
@@ -217,8 +224,10 @@ def dir_rating_params_correlate(run, post, epochs, net_type, rating_norm='none',
             pear_corr[c] = np.array(pear_corr[c])
 
         pear_corr = np.mean(pear_corr, axis=0)
-        print('NO DUMP')
-        #pickle.dump(pear_corr, open(plot_data_filename, 'bw'))
+        if DUMP:
+            pickle.dump(pear_corr, open(plot_data_filename, 'bw'))
+        else:
+            print('NO DUMP')
 
     for i, e in enumerate(epochs):
         print("=" * 20)
@@ -390,7 +399,7 @@ if __name__ == "__main__":
         #embed_correlate('dirR', run, post, epochs, rating_norm='Round')
         #dir_rating_accuracy(run, post, net_type, epochs)
         dir_rating_params_correlate(run, post, epochs, net_type=net_type, rating_norm='none', configurations=confs)  # rating_norm='Round'
-        # dir_rating_rmse(run, post, epochs, net_type=net_type, weighted=True, configurations=confs)
+        dir_rating_rmse(run, post, epochs, net_type=net_type, weighted=True, configurations=confs)
         #dir_rating_rmse(run, post, epochs, dist='ABS', weighted=True)
         #dir_rating_view(run, post, epochs, net_type=net_type, factor=1)
 

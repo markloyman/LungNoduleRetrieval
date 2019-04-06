@@ -25,12 +25,14 @@ if __name__ == '__main__':
         config_list = list(range(5))
     elif args.config == 10:
         config_list = range(args.config)
+        # [0, 1, 3, 4, 7]  # VALID
+        # [2, 5, 6, 8, 9]  # TEST
     else:
         config_list = [args.config]
 
     # DIR / SIAM / DIR_RATING / SIAM_RATING / TRIPLET
     net_type = 'DIR_RATING'
-    embed_data_type = 'Test'
+    embed_data_type = 'Valid'
 
     for config in config_list:
         if args.seq:
@@ -46,7 +48,7 @@ if __name__ == '__main__':
                 model.embed_spatial(epochs=epochs_, data=embed_data_type)
             else:
                 epochs_ = list(range(epoch0, model.last_epoch + 1, delta_epoch)) if delta_epoch > 0 else [epoch0]
-                # epochs_ = [75, 80, 85]
+                # epochs_ = [80, 90, 100, 110, 120, 130, 140]
                 model.embed(epochs=epochs_, data=embed_data_type, use_core=True is args.embed, seq_model=args.seq)
 
     gc.collect()

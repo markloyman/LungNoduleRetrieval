@@ -26,7 +26,11 @@ def crop_roi(image: np.ndarray, center, roi_size):
 
 
 # ['patch', 'mask', 'weights',  'rating', 'z', 'label', 'ann_size', 'size', 'nod_ids', 'info']
-def extract(data_path: str, meta_path: str, patch_size: int):
+def extract(data_path: str, meta_path: str, patch_size: int, res: float):
+
+    print("-" * 20)
+    print("TODO: resample each image")
+    print("-" * 20)
 
     full_metadata = load_meta(
         filename=os.path.join(meta_path, 'DL_info.csv'),
@@ -51,6 +55,7 @@ def extract(data_path: str, meta_path: str, patch_size: int):
             'info': (metadata.Path['Patient'], metadata.Path['Study'], metadata.Path['Series'], metadata.Slice['Key']),
             'nod_ids': metadata.Slice['Key'],
             'rating': np.zeros([1, 9]),
+            'label': 2,
             'ann_size': np.array(metadata.get_bb_size_in_mm()),
             'weights': np.array(1.),
             'mask': mask.astype(np.bool),

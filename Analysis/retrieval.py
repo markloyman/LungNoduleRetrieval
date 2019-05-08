@@ -141,7 +141,7 @@ class Retriever:
         else:
             return nn
 
-    def show(self, title, image, label, rating=None, meta=None, plot_handle=None, nods=None):
+    def show(self, title, image, label, rating=None, meta=None, plot_handle=None, nods=None, full_text=True):
         L = 'BMU'
         #ann = getAnnotation(meta)
         #ann.visualize_in_scan()
@@ -149,14 +149,20 @@ class Retriever:
         #    feature_vals = calc_rating(meta, method='single')
         #    print('single -> {}'.format(feature_vals))
         #else:
-        from LIDC.lidcUtils import calc_rating
+        if rating is None:
+            from LIDC.lidcUtils import calc_rating
         feature_vals = calc_rating(meta, nodule_ids=nods) if rating is None else np.mean(rating, axis=0)
         print('mean ->: {}'.format(feature_vals))
 
         if plot_handle is None:
             plt.figure()
             plot_handle = plt.subplot(111)
-        plot_handle.axes.title.set_text("{} - {} ({})".format(title, L[label], np.round(feature_vals).astype('int')))
+        plot_title = \
+            "{} - {} ({})".format(title, L[label], np.round(feature_vals).astype('int')) if full_text \
+                else "{} - {}".format(title, L[label])
+        plot_handle.axes.title.set_text(plot_title)
+        plot_handle.axes.get_xaxis().set_visible(False)
+        plot_handle.axes.get_yaxis().set_visible(False)
         plot_handle.imshow(image, cmap='gray')
 
     def show_ret(self, query, n_top=None, method='mean'):
@@ -180,30 +186,47 @@ class Retriever:
         else:
             return self.meta_data[query]
 
-    def compare_ret(self, query, n_top=None, method='mean'):
-        if n_top == None: n_top = self.n
+    def compare_ret(self, query, n_top=None, do_hist=True, full_text=True):
+        if n_top == None:
+            n_top = self.n
         assert n_top <= self.n
+
+        total_plots = 1 + n_top + (1 if do_hist else 0)
+        rows = int(np.floor(np.sqrt(total_plots)))
+        cols = int(total_plots // rows)
+        i = 1
 
         nn, dd = self.ret(query, n_top=n_top, return_distance=True)
         print("N: {}".format(nn))
 
         plt.figure(self.title + ' Retrieval #' + str(query))
 
-        handle = plt.subplot(2, 3, 1)
-        self.show('Query', self.images[query], self.labels[query], rating=self.rating[query], plot_handle=handle, nods=self.nod_ids[query])
+        handle = plt.subplot(rows, cols, i)
+        i = i + 1
+        self.show('Query' if full_text else 'Q{}'.format(query), self.images[query], self.labels[query], rating=self.rating[query], plot_handle=handle, nods=self.nod_ids[query], full_text=full_text)
 
         l2 = lambda x, y: np.sqrt((x-y).dot(x-y))
         qr = np.mean(self.rating[query], axis=0)
         dists = np.array([l2(qr, np.mean(r, axis=0)) for r in self.rating])
 
-        handle = plt.subplot(2, 3, 2)
-        handle.hist(dists.flatten(), bins=20)
+        if do_hist:
+            handle = plt.subplot(rows, cols, i)
+            i = i + 1
+            handle.hist(dists.flatten(), bins=20)
 
-        for idx in range(2*3 - 2):
-            handle = plt.subplot(2,3,idx+3)
-            self.show('Ret#{} [d{:.2f}]'.format(idx, dists[nn[idx]]), self.images[nn[idx]], self.labels[nn[idx]], rating=self.rating[nn[idx]], plot_handle=handle, nods=self.nod_ids[nn[idx]])
+        for idx in range(i, total_plots+1):
+            handle = plt.subplot(rows, cols, idx)
+            title = 'Ret#{} [d{:.2f}]'.format(idx-i, dists[nn[idx-i]]) if full_text else 'R{}'.format(nn[idx-i])
+            self.show(
+                title,
+                self.images[nn[idx-i]],
+                self.labels[nn[idx-i]],
+                rating=self.rating[nn[idx-i]],
+                plot_handle=handle,
+                full_text=full_text,
+                nods=self.nod_ids[nn[idx-i]])
 
-
+        plt.tight_layout()  # pad=0.4, w_pad=0.5, h_pad=1.0
 
     def classify_naive(self):
         clf = KNeighborsClassifier(self.n, weights='uniform')
@@ -298,13 +321,13 @@ if __name__ == "__main__":
 
     from Network import FileManager
 
-    dset = 'Test'
+    dset = 'Valid'
 
-    wRuns = ['813c0']  # ['512cc0', '251c0']  #['064X', '078X', '026'] #['064X', '071' (is actually 071X), '078X', '081', '082']
-    wRunsNet = ['dirR']  # ['dirRS', 'dirR']  #, 'dir']
-    run_metrics = ['l2']
+    wRuns =  ['813c0', '821c0', '822c0'] # # ['512cc0', '251c0']  #['064X', '078X', '026'] #['064X', '071' (is actually 071X), '078X', '081', '082']
+    wRunsNet = ['dirR', 'dirD', 'dirD']  # ['dirRS', 'dirR']  #, 'dir']
+    run_metrics = ['l2', 'l2', 'l2']
 
-    select = 0
+    select = 1
 
     rating_normalizaion = 'None' # 'None', 'Normal', 'Scale'
 
@@ -333,16 +356,49 @@ if __name__ == "__main__":
         Ret = Retriever(title=wRuns[select]+wRunsNet[select], dset=dset)
         Ret.load_embedding(Embed(wRuns[select], dset), multi_epcch=True)
         #Ret.fit(N, epoch=70)
-        Ret.fit(epoch=50)
+        Ret.fit(epoch=60)
 
-        Ret.compare_ret(139) ## large malig
-        Ret.compare_ret(10) ## benign, "noisy", near tissue
-        Ret.compare_ret(20) ## benign, adjacent to tissue
+        if select == 0:
+            Ret.compare_ret(139) ## large malig
+            Ret.compare_ret(10) ## benign, "noisy", near tissue
+            Ret.compare_ret(20) ## benign, adjacent to tissue
 
-        Ret.compare_ret(30) ## M, mid size
-        Ret.compare_ret(70) ## B
-        Ret.compare_ret(462) ## unknown, large, connected to tissue
-
+            Ret.compare_ret(30) ## M, mid size
+            Ret.compare_ret(70) ## B
+            Ret.compare_ret(462) ## unknown, large, connected to tissue
+        k = 2
+        if select == 1 or select == 2:
+            # (407, 14 - B), (402, 14 - U), (389, 17 - B)]
+            #
+            # 407
+            #   pearson => [1,12,51, 133, 169, 244,262,270,272,311,329,463,  501, 506]
+            #   KL => [ 15, 181]
+            # 389
+            #   pearson = > [83, 143, 170,218,279,335,344,347,358,366,408,410,418,426,430,458,497]
+            #   KL => [257]
+            #Ret.compare_ret(1, n_top=k, do_hist=False, full_text=False)
+            Ret.compare_ret(12, n_top=k, do_hist=False, full_text=False)
+            Ret.compare_ret(51, n_top=k, do_hist=False, full_text=False)
+            #Ret.compare_ret(133, n_top=k, do_hist=False, full_text=False)
+            #Ret.compare_ret(169, n_top=k, do_hist=False, full_text=False)
+            Ret.compare_ret(83, n_top=k, do_hist=False, full_text=False)
+            # 402
+            #Ret.compare_ret(9)
+            #Ret.compare_ret(91)
+            #Ret.compare_ret(490)
+            # 389
+            #Ret.compare_ret(335, n_top=k, do_hist=False, full_text=False)
+            #Ret.compare_ret(408, n_top=k, do_hist=False, full_text=False)
+            # 407
+            #Ret.compare_ret(169, n_top=k, do_hist=False, full_text=False)
+            #Ret.compare_ret(85, n_top=k, do_hist=False, full_text=False)
+            #Ret.compare_ret(501, n_top=k, do_hist=False, full_text=False)
+            #Ret.compare_ret(222, n_top=k, do_hist=False, full_text=False)
+            # 184
+            # [ 52,  54,  56,  97, 101, 105, 118, 162, 196, 211, 214, 229, 230, 380, 439, 446, 447]
+            #Ret.compare_ret(52)
+            #Ret.compare_ret(211)
+            #Ret.compare_ret(439, n_top=3, do_hist=False, full_text=False)
         #Ret.show_ret(237)
         #Ret.show_ret(295)
         #Ret.show_ret(262)

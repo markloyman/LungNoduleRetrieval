@@ -1,7 +1,8 @@
+import numpy as np
 import matplotlib.pyplot as plt
 from Network import FileManager
 from Analysis import Retriever
-from Analysis.metric_space_indexes import calc_hubness
+from Analysis.metric_space_indexes import calc_hubness, k_occurrences
 
 
 net_type = 'dirD'
@@ -18,6 +19,18 @@ for run, label in zip(['821', '822'], ['Pearson-loss', 'KL-loss']):
     indices, distances = Ret.ret_nbrs()
 
     # hubness
-    h, k_occ = calc_hubness(indices, K=[5, 10, 20], verbose=True, label=label)
+    h, _ = calc_hubness(indices, K=[2], verbose=True, label=label)
+
+    print(run + ': ' + label + '\n' + '*'*20)
+
+    k_occ = k_occurrences(indices, 2)
+    print("\t{} orphan nodules".format(len(np.argwhere(k_occ == 0))))
+
+    #hubs_indices = np.argsort(k_occ)[-5:]
+    #print([(a, b) for a, b in zip(hubs_indices, k_occ[hubs_indices])])
+    #
+    #for hub_id in hubs_indices:
+    #    qs = np.where(np.any(indices[:, :2] == hub_id, axis=1))
+    #    print('\t{} => {}'.format(hub_id, qs))
 
 plt.show()

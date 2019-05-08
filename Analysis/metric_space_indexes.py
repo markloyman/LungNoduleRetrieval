@@ -97,7 +97,7 @@ def calc_hubness(indices, K=[3, 5, 7, 11, 17], verbose=False, label=''):
         h[i] = h_[0]
         if verbose:
             #plt.subplot(1,len(K), i+1)
-            plt.plot(smooth(h_[1],window_length=5))
+            plt.plot(smooth(h_[1],window_length=1))
     h_mean, h_std = np.mean(h), np.std(h)
     if verbose:
         plt.legend(['K={}: {:.2f}'.format(k, ind) for k, ind in zip(K, h)])
@@ -195,11 +195,12 @@ def eval_embed_space(embed_source, metric, rating_metric, epochs, dset):
 
     idx_hubness = mean_cross_validated_index(idx_hubness, valid_epochs, combined_epochs)
     idx_symmetry = mean_cross_validated_index(idx_symmetry, valid_epochs, combined_epochs)
-    idx_concentration = np.zeros_like(idx_hubness)  #mean_cross_validated_index(idx_concentration, valid_epochs, combined_epochs)
-    idx_contrast = np.zeros_like(idx_hubness)  # mean_cross_validated_index(idx_contrast, valid_epochs, combined_epochs)
-    idx_kummar = np.zeros_like(idx_hubness)  # mean_cross_validated_index(idx_kummar, valid_epochs, combined_epochs)
-    idx_featCorr = np.zeros_like(idx_hubness)  # mean_cross_validated_index(idx_featCorr, valid_epochs, combined_epochs)
-    idx_sampCorr = np.zeros_like(idx_hubness)  # mean_cross_validated_index(idx_sampCorr, valid_epochs, combined_epochs)
+    # np.zeros_like(idx_hubness)
+    idx_concentration = mean_cross_validated_index(idx_concentration, valid_epochs, combined_epochs)
+    idx_contrast = mean_cross_validated_index(idx_contrast, valid_epochs, combined_epochs)
+    idx_kummar = mean_cross_validated_index(idx_kummar, valid_epochs, combined_epochs)
+    idx_featCorr = mean_cross_validated_index(idx_featCorr, valid_epochs, combined_epochs)
+    idx_sampCorr = mean_cross_validated_index(idx_sampCorr, valid_epochs, combined_epochs)
 
     return combined_epochs, idx_hubness, idx_symmetry, idx_concentration, idx_contrast, idx_kummar, idx_featCorr, idx_sampCorr
 
